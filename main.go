@@ -212,7 +212,7 @@ func Start(args ProgramArgs) (err error) {
 			w.AddCategory(x)
 		}
 	}
-	w.Wrap()
+	w.Wrap("ClassOne")
 	return nil
 }
 

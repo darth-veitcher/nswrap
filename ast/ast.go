@@ -188,12 +188,14 @@ func Parse(fullline string) Node {
 		return parseNotTailCalledAttr(line)
 	case "ObjCCategoryDecl":
 		return parseObjCCategoryDecl(line)
+	case "ObjCImplementation":
+		return parseObjCImplementation(line)
 	case "ObjCInterface":
 		return parseObjCInterface(line)
 	case "ObjCInterfaceType":
 		return parseObjCInterfaceType(line)
 	case "super ObjCInterface":
-		return parseObjCInterface(line)
+		return parseSuperObjCInterface(line)
 	case "ObjCInterfaceDecl":
 		return parseObjCInterfaceDecl(line)
 	case "getter ObjCMethod":
