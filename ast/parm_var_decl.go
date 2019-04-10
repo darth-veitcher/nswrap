@@ -44,7 +44,7 @@ func parseParmVarDecl(line string) *ParmVarDecl {
 
 	return &ParmVarDecl{
 		Addr:         ParseAddress(groups["address"]),
-		Pos:          NewPositionFromString(groups["position"]),
+	        Pos:          NewPositionFromString(groups["position"]),
 		Position2:    strings.TrimSpace(groups["position2"]),
 		Name:         strings.TrimSpace(groups["name"]),
 		Type:         groups["type"],

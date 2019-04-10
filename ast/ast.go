@@ -186,6 +186,8 @@ func Parse(fullline string) Node {
 		return parseNonNullAttr(line)
 	case "NotTailCalledAttr":
 		return parseNotTailCalledAttr(line)
+	case "ObjCCategoryDecl":
+		return parseObjCCategoryDecl(line)
 	case "ObjCInterface":
 		return parseObjCInterface(line)
 	case "ObjCInterfaceType":
@@ -206,6 +208,8 @@ func Parse(fullline string) Node {
 		return parseObjCObjectPointerType(line)
 	case "ObjCProtocol":
 		return parseObjCProtocol(line)
+	case "ObjCPropertyDecl":
+		return parseObjCPropertyDecl(line)
 	case "OffsetOfExpr":
 		return parseOffsetOfExpr(line)
 	case "PackedAttr":

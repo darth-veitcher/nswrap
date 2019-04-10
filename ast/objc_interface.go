@@ -3,19 +3,19 @@ package ast
 // ObjCInterface is an Objective-C interface
 type ObjCInterface struct {
 	Addr       Address
-	Type       string
+	Name       string
 	ChildNodes []Node
 }
 
 func parseObjCInterface(line string) *ObjCInterface {
 	groups := groupsFromRegex(
-		"'(?P<type>.*)'",
+		"'(?P<name>.*)'",
 		line,
 	)
 
 	return &ObjCInterface{
 		Addr:       ParseAddress(groups["address"]),
-		Type:       groups["type"],
+		Name:       groups["name"],
 		ChildNodes: []Node{},
 	}
 }

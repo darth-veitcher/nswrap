@@ -207,11 +207,12 @@ func Start(args ProgramArgs) (err error) {
 	for _, n := range(unit.Children()) {
 		switch x := n.(type) {
 		case *ast.ObjCInterfaceDecl:
-			if x.Name == "CBPeripheral" {
-				w.Wrap(x)
-			}
+			w.AddInterface(x)
+		case *ast.ObjCCategoryDecl:
+			w.AddCategory(x)
 		}
 	}
+	w.Wrap()
 	return nil
 }
 
@@ -232,19 +233,19 @@ func (i *inputDataFlags) Set(value string) error {
 var clangFlags inputDataFlags
 
 func init() {
-	transpileCommand.Var(&clangFlags, "clang-flag", "Pass arguments to clang. You may provide multiple -clang-flag items.")
+	wrapCommand.Var(&clangFlags, "clang-flag", "Pass arguments to clang. You may provide multiple -clang-flag items.")
 	astCommand.Var(&clangFlags, "clang-flag", "Pass arguments to clang. You may provide multiple -clang-flag items.")
 }
 
 var (
-	versionFlag       = flag.Bool("v", false, "print the version and exit")
-	transpileCommand  = flag.NewFlagSet("transpile", flag.ContinueOnError)
-	verboseFlag       = transpileCommand.Bool("V", false, "print progress as comments")
-	outputFlag        = transpileCommand.String("o", "", "output Go generated code to the specified file")
-	packageFlag       = transpileCommand.String("p", "main", "set the name of the generated package")
-	transpileHelpFlag = transpileCommand.Bool("h", false, "print help information")
-	astCommand        = flag.NewFlagSet("ast", flag.ContinueOnError)
-	astHelpFlag       = astCommand.Bool("h", false, "print help information")
+	versionFlag   = flag.Bool("v", false, "print the version and exit")
+	wrapCommand   = flag.NewFlagSet("wrap", flag.ContinueOnError)
+	verboseFlag   = wrapCommand.Bool("V", false, "print progress as comments")
+	outputFlag    = wrapCommand.String("o", "", "output Go generated code to the specified file")
+	packageFlag   = wrapCommand.String("p", "main", "set the name of the generated package")
+	wrapHelpFlag  = wrapCommand.Bool("h", false, "print help information")
+	astCommand    = flag.NewFlagSet("ast", flag.ContinueOnError)
+	astHelpFlag   = astCommand.Bool("h", false, "print help information")
 )
 
 func main() {
@@ -259,8 +260,8 @@ func runCommand() int {
 	flag.Usage = func() {
 		usage := "Usage: %s [-v] [<command>] [<flags>] file1.c ...\n\n"
 		usage += "Commands:\n"
-		usage += "  transpile\ttranspile an input C source file or files to Go\n"
-		usage += "  ast\t\tprint AST before translated Go code\n\n"
+		usage += "  wrap\twrap an Objective-C interface for Go\n"
+		usage += "  ast\t\tprint AST\n\n"
 
 		usage += "Flags:\n"
 		fmt.Printf(usage, os.Args[0])
@@ -299,20 +300,20 @@ func runCommand() int {
 		args.ast = true
 		args.inputFiles = astCommand.Args()
 		args.clangFlags = clangFlags
-	case "transpile":
-		err := transpileCommand.Parse(os.Args[2:])
+	case "wrap":
+		err := wrapCommand.Parse(os.Args[2:])
 		if err != nil {
-			fmt.Printf("transpile command cannot parse: %v", err)
+			fmt.Printf("wrap command cannot parse: %v", err)
 			return 1
 		}
 
-		if *transpileHelpFlag || transpileCommand.NArg() == 0 {
-			fmt.Printf("Usage: %s transpile [-V] [-o file.go] [-p package] file1.c ...\n", os.Args[0])
-			transpileCommand.PrintDefaults()
+		if *wrapHelpFlag || wrapCommand.NArg() == 0 {
+			fmt.Printf("Usage: %s wrap [-V] [-o file.go] [-p package] file1.c ...\n", os.Args[0])
+			wrapCommand.PrintDefaults()
 			return 1
 		}
 
-		args.inputFiles = transpileCommand.Args()
+		args.inputFiles = wrapCommand.Args()
 		args.outputFile = *outputFlag
 		args.packageName = *packageFlag
 		args.verbose = *verboseFlag

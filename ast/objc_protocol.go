@@ -3,19 +3,21 @@ package ast
 // ObjCProtocol is an Objective-C protocol
 type ObjCProtocol struct {
 	Addr       Address
-	Type       string
+	Name       string
+	Content    string
 	ChildNodes []Node
 }
 
 func parseObjCProtocol(line string) *ObjCProtocol {
 	groups := groupsFromRegex(
-		"'(?P<type>.*)'",
+		"'(?P<name>.*)'",
 		line,
 	)
 
 	return &ObjCProtocol{
 		Addr:       ParseAddress(groups["address"]),
-		Type:       groups["type"],
+		Name:       groups["name"],
+		Content:    groups["content"],
 		ChildNodes: []Node{},
 	}
 }
