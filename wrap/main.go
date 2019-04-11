@@ -141,9 +141,9 @@ func (m Method) isVoid() bool {
 	return typeOrType2(m.Type,m.Type2) == "void"
 }
 
-func (m Method) isObject() bool { // FIXME
-	tp := typeOrType2(m.Type,m.Type2)
-	if len(tp) > 1 && tp[0:2] == "NS" {
+func (w Wrapper) isObject(m Method) bool { // FIXME NEEDED?
+	tp,_ := goType(typeOrType2(m.Type,m.Type2),m.Class)
+	if _,ok := w.Interfaces[tp]; ok {
 		return true
 	}
 	return false
@@ -481,15 +481,11 @@ func (o *%s) %s(%s) %s%s {
 			if !y.isVoid() {
 				cret = "return "
 			}
-			ccast := ""
-			if y.isObject() {
-				cret = "(id)"
-			}
 			w.cCode.WriteString(fmt.Sprintf(`
 %s
 %s_%s(%s) {
-	%s[%sobj %s];
-}`, cmtype, v.Name, y.Name, y.cparamlist(), cret, ccast, y.objcparamlist()))
+	%s[(id)obj %s];
+}`, cmtype, v.Name, y.Name, y.cparamlist(), cret, y.objcparamlist()))
 		}
 	}
 	fmt.Println(`package main
