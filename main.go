@@ -203,7 +203,7 @@ func Start(args ProgramArgs) (err error) {
 	}
 	tree := buildTree(nodes, 0)
 	unit := tree[0]
-	w := wrap.NewWrapper()
+	w := wrap.NewWrapper(*debugFlag)
 	for _, n := range(unit.Children()) {
 		switch x := n.(type) {
 		case *ast.ObjCInterfaceDecl:
@@ -212,7 +212,7 @@ func Start(args ProgramArgs) (err error) {
 			w.AddCategory(x)
 		}
 	}
-	w.Wrap("ClassOne")
+	w.Wrap("NSString")
 	return nil
 }
 
@@ -241,6 +241,7 @@ var (
 	versionFlag   = flag.Bool("v", false, "print the version and exit")
 	wrapCommand   = flag.NewFlagSet("wrap", flag.ContinueOnError)
 	verboseFlag   = wrapCommand.Bool("V", false, "print progress as comments")
+	debugFlag     = wrapCommand.Bool("d", false, "print debug information as comments")
 	outputFlag    = wrapCommand.String("o", "", "output Go generated code to the specified file")
 	packageFlag   = wrapCommand.String("p", "main", "set the name of the generated package")
 	wrapHelpFlag  = wrapCommand.Bool("h", false, "print help information")

@@ -8,13 +8,7 @@ type ObjCInterface struct {
 	ChildNodes []Node
 }
 
-func parseSuperObjCInterface(line string) *ObjCInterface {
-	ret := parseObjCInterface(line)
-	ret.Super = true
-	return ret
-}
-
-func parseObjCInterface(line string) *ObjCInterface {
+func parseObjCInterface(line string, super bool) *ObjCInterface {
 	groups := groupsFromRegex(
 		"'(?P<name>.*)'",
 		line,
@@ -23,7 +17,7 @@ func parseObjCInterface(line string) *ObjCInterface {
 	return &ObjCInterface{
 		Addr:       ParseAddress(groups["address"]),
 		Name:       groups["name"],
-		Super:      false,
+		Super:      super,
 		ChildNodes: []Node{},
 	}
 }

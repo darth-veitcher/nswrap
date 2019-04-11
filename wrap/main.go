@@ -65,22 +65,27 @@ var builtinTypes map[string]string = map[string]string{
 	"complex double": "C.complexdouble",
 }*/
 
-func (w *Wrapper) AddType(t string) {
+func (w *Wrapper) AddType(t,class string) {
 	if _,ok := builtinTypes[t]; ok {
 		return
 	}
-	nt, err := goType(t)
+	nt, err := goType(t,class)
 	if err != nil {
 		return
 	}
 	w.Types[nt] = t
 }
 
-func goType(t string) (string, error) {
+func goType(t,class string) (string, error) {
 	// strip off pointers, < > and blank space
 	nt := strings.ReplaceAll(t,"*","")
 	if len(nt) > 3 && nt[0:3] == "id<" {
 		nt = t[3:len(t)-1]
+	}
+	nt = strings.ReplaceAll(nt," _Nullable","")
+	nt = strings.ReplaceAll(nt," _Nonnull","")
+	if t == "instancetype" {
+		return class, nil
 	}
 	nt = strings.ReplaceAll(nt,"<","__")
 	nt = strings.ReplaceAll(nt,">","__")
@@ -101,7 +106,18 @@ func goType(t string) (string, error) {
 	return nt, nil
 }
 
-func NewWrapper() *Wrapper {
+func cType(t, class string) string {
+	nt := strings.ReplaceAll(t," _Nullable","")
+	nt = strings.ReplaceAll(nt," _Nonnull","")
+	if nt == "instancetype" {
+		return class + " *"
+	}
+	return nt
+}
+
+func NewWrapper(debug bool) *Wrapper {
+	Debug = debug
+	if Debug { fmt.Println("// Debug mode") }
 	return &Wrapper{
 		Interfaces: map[string]Interface{},
 		Types: map[string]string{},
@@ -113,22 +129,30 @@ type Property struct {
 }
 
 type Parameter struct {
-	Name, Type, Type2 string
+	Pname, Vname, Type, Type2 string
 }
 
 type Method struct {
-	Name, Type, Type2 string
-	Parameters map[string]Parameter
+	Name, Type, Type2, Class string
+	Parameters []Parameter
 }
 
 func (m Method) isVoid() bool {
 	return typeOrType2(m.Type,m.Type2) == "void"
 }
 
+func (m Method) isObject() bool { // FIXME
+	tp := typeOrType2(m.Type,m.Type2)
+	if len(tp) > 1 && tp[0:2] == "NS" {
+		return true
+	}
+	return false
+}
+
 func (m Method) cparamlist() string {
 	ret := []string{"void* obj"}
-	for k,v := range m.Parameters {
-		ret = append(ret,fmt.Sprintf("%s %s",typeOrType2(v.Type,v.Type2),k))
+	for _,p := range m.Parameters {
+		ret = append(ret,fmt.Sprintf("%s %s",typeOrType2(p.Type,p.Type2),p.Vname))
 	}
 	return strings.Join(ret,", ")
 }
@@ -137,31 +161,49 @@ func (m Method) objcparamlist() string {
 	if len(m.Parameters) == 0 {
 		return m.Name
 	}
-	ret := []string{fmt.Sprintf("%s:",m.Name)}
-	for k,_ := range m.Parameters {
-		ret = append(ret, fmt.Sprintf("%s:%s",k,k))
+	first := true
+	ret := []string{}
+	for _,p := range m.Parameters {
+		if first {
+			ret = append(ret,m.Name + ":" + p.Vname)
+			first = false
+		} else {
+			ret = append(ret, p.Pname + ":" + p.Vname)
+		}
 	}
 	return strings.Join(ret," ")
 }
 
-func (m Method) goparamlist() (string,[]string) {
+var goreserved map[string]bool = map[string]bool{
+	"range": true,
+}
+
+func (m Method) goparamlist() (string,[]string,bool) {
 	ret := []string{}
 	tps := []string{}
-	for k,v := range m.Parameters {
-		tp,err := goType(typeOrType2(v.Type,v.Type2))
+	for _,p := range m.Parameters {
+		gname := p.Vname
+		tp,err := goType(typeOrType2(p.Type,p.Type2),m.Class)
 		if err != nil {
-			return "UNSUPPORTED TYPE", []string{}
+			return "UNSUPPORTED TYPE", []string{},false
+		}
+		if goreserved[gname] {
+			gname = gname + "_"
 		}
 		tps = append(tps,tp)
-		ret = append(ret,fmt.Sprintf("%s %s",k,tp))
+		ret = append(ret,fmt.Sprintf("%s %s",gname,tp))
 	}
-	return strings.Join(ret,", "),tps
+	return strings.Join(ret,", "),tps,true
 }
 
 func (m Method) goparamnames() string {
 	ret := []string{"o.ptr"}
-	for k,_ := range m.Parameters {
-		ret = append(ret,k)
+	for _,p := range m.Parameters {
+		gname := p.Vname
+		if goreserved[gname] {
+			gname = gname + "_"
+		}
+		ret = append(ret,gname)
 	}
 	return strings.Join(ret, ", ")
 }
@@ -203,28 +245,36 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			Properties: map[string]Property{},
 			Methods: map[string]Method{},
 		}
-		w.AddType(name)
+		w.AddType(name,name)
 	}
+	var avail bool
 	for _,c := range ns {
 		switch x := c.(type) {
 		case *ast.ObjCPropertyDecl:
+			//fmt.Printf("ObjCPropertyDecl: %s\n",x.Name)
 			p := Property{
 				Name: x.Name,
 				Type: x.Type,
 				Type2: x.Type2,
 			}
-			w.AddType(typeOrType2(x.Type,x.Type2))
-			i.Properties[p.Name] = p
+			//_,avail = w.GetParms(x,name) // TODO
+			//if avail {
+				w.AddType(typeOrType2(x.Type,x.Type2),name)
+				i.Properties[p.Name] = p
+			//}
 		case *ast.ObjCMethodDecl:
 			//fmt.Printf("ObjCMethodDecl: %s\n",x.Name)
 			m := Method{
 				Name: x.Name,
 				Type: x.Type,
 				Type2: x.Type2,
+				Class: name,
 			}
-			w.AddType(typeOrType2(x.Type,x.Type2))
-			m.Parameters = w.GetParms(x)
-			i.Methods[m.Name] = m
+			m.Parameters, avail = w.GetParms(x,name)
+			if avail {
+				w.AddType(typeOrType2(x.Type,x.Type2),name)
+				i.Methods[m.Name] = m
+			}
 		case *ast.ObjCProtocol:
 			//fmt.Printf("ast.ObjCProtocol: %s\n",x.Name)
 		case *ast.ObjCInterface:
@@ -241,55 +291,63 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 	w.Interfaces[i.Name] = i
 }
 
-func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl) map[string]Parameter {
-	ps := make([]Parameter,0)
-	avail := make([][]string,len(n.Children()))
-	var c ast.Node
-	i := -1
-	for i,c = range n.Children() {
+type AvailAttr struct {
+	OS, Version string
+	Deprecated bool
+}
+
+func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool) {
+	ret := make([]Parameter,0)
+	avail := make([]AvailAttr,0)
+	j := 0
+	for _,c := range n.Children() {
 		switch x := c.(type) {
 		case *ast.ParmVarDecl:
-			i++
 			p := Parameter{
+				Pname: n.Parameters[j],
+				Vname: x.Name,
 				Type: x.Type,
 				Type2: x.Type2,
 			}
-			ps = append(ps,p)
-			avail = append(avail,[]string{})
+			ret = append(ret,p)
+			j++
 		case *ast.AvailabilityAttr:
-			avail[i] = append(avail[i],x.OS)
+			avail = append(avail,
+				AvailAttr{
+					OS: x.OS,
+					Version: x.Version,
+					Deprecated: x.Unknown1 != "0",
+				})
+			//fmt.Println("AvailAttr ",avail,x)
+		case *ast.UnavailableAttr:
+			avail = append(avail,
+				AvailAttr{ OS: "macos", Deprecated: true })
+		case *ast.Unknown:
+			if Debug { fmt.Printf("GetParms(): ast.Unknown: %s\n",x.Name) }
 		}
 	}
-	isAvail := func(l []string) bool {
-		if len(l) == 0 {
+	a := func() bool {
+		if len(avail) == 0 {
 			return true
 		}
-		for _,x := range l {
-			if x == "macos" {
+		for _,x := range avail {
+			if x.OS == "macos" && x.Deprecated == false {
 				return true
 			}
 		}
 		return false
+	}()
+	if !a {
+		return nil, false
 	}
-	ret := make(map[string]Parameter)
-	j := 0
-	for i,p := range ps {
-		if isAvail(avail[i]) {
-			ret[n.Parameters[j]] = p
-			j++
-		}
+	if len(ret) != len(n.Parameters) {
+		fmt.Printf("Error in method declaration %s: Wrong number of ParmVarDecl children: %d parameters but %d ParmVarDecl children\n",n.Name,len(n.Parameters),len(ret))
 	}
-	for _,p := range ret {
-		w.AddType(typeOrType2(p.Type,p.Type2))
-	}
-	if j != len(n.Parameters) {
-		fmt.Printf("Error in method declaration %s: Wrong number of ParmVarDecl children: %d parameters but %d ParmVarDecl children\n",n.Name,len(n.Parameters),i)
-	}
-	return ret
+	return ret, true
 }
 
 func typeOrType2(t1, t2 string) string {
-	if t2 != "" {
+	if t2 != ""  && t2 != "id" {
 		return t2
 	}
 	return t1
@@ -347,7 +405,9 @@ func (w *Wrapper) Wrap(toproc string) {
 
 	w.cCode.WriteString(`/*
 #cgo CFLAGS: -x objective-c
-#cgo LDFLAGS: -framework Foundation -framework CoreBluetooth
+#cgo LDFLAGS: -framework Foundation
+
+#import <Foundation/Foundation.h>
 `)
 
 	pInterfaces := map[string]Interface {toproc: w.Interfaces[toproc]}
@@ -385,12 +445,13 @@ New%s() {
 
 			grtype := ""
 			grptr := ""
-			cmtype := typeOrType2(y.Type,y.Type2)
+			cmtype := cType(typeOrType2(y.Type,y.Type2),v.Name)
 			if !y.isVoid() {
 				var err error
-				grtype,err = goType(cmtype)
+				grtype,err = goType(cmtype,v.Name)
 				if err != nil {
 					grtype = fmt.Sprintf("// goType(%s): NOT IMPLEMENTED\n",cmtype)
+					continue
 				}
 			}
 			gcast := ""
@@ -406,7 +467,10 @@ New%s() {
 				}
 			}
 			w.ProcessType(grtype)
-			gplist, gptypes := y.goparamlist()
+			gplist, gptypes,ok := y.goparamlist()
+			if !ok {
+				continue
+			}
 			w.ProcessTypes(gptypes)
 			w.goCode.WriteString(fmt.Sprintf(`
 func (o *%s) %s(%s) %s%s {
@@ -417,11 +481,15 @@ func (o *%s) %s(%s) %s%s {
 			if !y.isVoid() {
 				cret = "return "
 			}
+			ccast := ""
+			if y.isObject() {
+				cret = "(id)"
+			}
 			w.cCode.WriteString(fmt.Sprintf(`
 %s
 %s_%s(%s) {
-	%s[(id)obj %s];
-}`, cmtype, v.Name, y.Name, y.cparamlist(), cret, y.objcparamlist()))
+	%s[%sobj %s];
+}`, cmtype, v.Name, y.Name, y.cparamlist(), cret, ccast, y.objcparamlist()))
 		}
 	}
 	fmt.Println(`package main

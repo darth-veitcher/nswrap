@@ -191,13 +191,13 @@ func Parse(fullline string) Node {
 	case "ObjCImplementation":
 		return parseObjCImplementation(line)
 	case "ObjCInterface":
-		return parseObjCInterface(line)
-	case "ObjCInterfaceType":
-		return parseObjCInterfaceType(line)
+		return parseObjCInterface(line,false)
 	case "super ObjCInterface":
-		return parseSuperObjCInterface(line)
+		return parseObjCInterface(line,true)
 	case "ObjCInterfaceDecl":
 		return parseObjCInterfaceDecl(line)
+	case "ObjCInterfaceType":
+		return parseObjCInterfaceType(line)
 	case "getter ObjCMethod":
 		return parseObjCMethod(line)
 	case "ObjCMethod":
@@ -272,6 +272,8 @@ func Parse(fullline string) Node {
 		return parseUnaryExprOrTypeTraitExpr(line)
 	case "UnaryOperator":
 		return parseUnaryOperator(line)
+	case "UnavailableAttr":
+		return parseUnavailableAttr(line)
 	case "UnusedAttr":
 		return parseUnusedAttr(line)
 	case "VAArgExpr":
