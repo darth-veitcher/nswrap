@@ -135,6 +135,7 @@ type Parameter struct {
 
 type Method struct {
 	Name, Type, Type2, Class string
+	ClassMethod bool
 	Parameters []Parameter
 }
 
@@ -150,7 +151,10 @@ func (w Wrapper) isObject(tp string) bool { // takes a goType
 }
 
 func (w Wrapper) cparamlist(m Method) string {
-	ret := []string{"void* obj"}
+	ret := make([]string,0)
+	if !m.ClassMethod {
+		ret = append(ret,"void* obj")
+	}
 	for _,p := range m.Parameters {
 		tp := typeOrType2(p.Type,p.Type2)
 		gtp,_ := goType(tp,m.Class)
@@ -205,7 +209,10 @@ func (w Wrapper) goparamlist(m Method) (string,[]string,bool) {
 }
 
 func (w Wrapper) goparamnames(m Method) string {
-	ret := []string{"o.ptr"}
+	ret := make([]string,0)
+	if !m.ClassMethod {
+		ret = append(ret,"o.ptr")
+	}
 	for _,p := range m.Parameters {
 		gname := p.Vname
 		if goreserved[gname] {
@@ -281,6 +288,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 				Type: x.Type,
 				Type2: x.Type2,
 				Class: name,
+				ClassMethod: x.ClassMethod,
 			}
 			m.Parameters, avail = w.GetParms(x,name)
 			if avail {
@@ -443,7 +451,7 @@ func New%s() *%s {
 		w.cCode.WriteString(fmt.Sprintf(`
 %s*
 New%s() {
-	return [[%s alloc] init];
+	return [%s alloc];
 }
 `, v.Name, v.Name, v.Name))
 
@@ -499,11 +507,17 @@ func (o *%s) %s(%s) %s%s {
 			if !y.isVoid() {
 				cret = "return "
 			}
+			var cobj string
+			if y.ClassMethod {
+				cobj = v.Name
+			} else {
+				cobj = "(id)obj"
+			}
 			w.cCode.WriteString(fmt.Sprintf(`
 %s
 %s_%s(%s) {
-	%s[(id)obj %s];
-}`, cmtype, v.Name, y.Name, w.cparamlist(y), cret, y.objcparamlist()))
+	%s[%s %s];
+}`, cmtype, v.Name, y.Name, w.cparamlist(y), cret, cobj, y.objcparamlist()))
 		}
 	}
 	fmt.Println(`package main

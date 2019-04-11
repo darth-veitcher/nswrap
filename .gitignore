@@ -2,3 +2,6 @@ clast
 ast.txt
 *.ast
 simple
+complex
+program
+types
