@@ -34,8 +34,8 @@ var builtinTypes map[string]string = map[string]string{
 	"unsigned long": "int",
 	"long long": "int",
 	"unsigned long long": "int",
-	"float": "float",
-	"double": "float",
+	"float": "float64",
+	"double": "float64",
 	"complex float": "C.complexfloat",
 	"complex double": "C.complexdouble",
 }
@@ -43,7 +43,7 @@ var builtinTypes map[string]string = map[string]string{
 var gobuiltinTypes map[string]bool = map[string]bool{
 	"byte": true,
 	"int": true,
-	"float": true,
+	"float64": true,
 }
 
 /*
@@ -82,6 +82,7 @@ func goType(t,class string) (string, error) {
 	if len(nt) > 3 && nt[0:3] == "id<" {
 		nt = t[3:len(t)-1]
 	}
+	nt = strings.ReplaceAll(nt,"const ","")
 	nt = strings.ReplaceAll(nt," _Nullable","")
 	nt = strings.ReplaceAll(nt," _Nonnull","")
 	if t == "instancetype" {
@@ -141,18 +142,22 @@ func (m Method) isVoid() bool {
 	return typeOrType2(m.Type,m.Type2) == "void"
 }
 
-func (w Wrapper) isObject(m Method) bool { // FIXME NEEDED?
-	tp,_ := goType(typeOrType2(m.Type,m.Type2),m.Class)
+func (w Wrapper) isObject(tp string) bool { // takes a goType
 	if _,ok := w.Interfaces[tp]; ok {
 		return true
 	}
 	return false
 }
 
-func (m Method) cparamlist() string {
+func (w Wrapper) cparamlist(m Method) string {
 	ret := []string{"void* obj"}
 	for _,p := range m.Parameters {
-		ret = append(ret,fmt.Sprintf("%s %s",typeOrType2(p.Type,p.Type2),p.Vname))
+		tp := typeOrType2(p.Type,p.Type2)
+		gtp,_ := goType(tp,m.Class)
+		if w.isObject(gtp) {
+			tp = "void*"
+		}
+		ret = append(ret,fmt.Sprintf("%s %s",tp,p.Vname))
 	}
 	return strings.Join(ret,", ")
 }
@@ -178,7 +183,7 @@ var goreserved map[string]bool = map[string]bool{
 	"range": true,
 }
 
-func (m Method) goparamlist() (string,[]string,bool) {
+func (w Wrapper) goparamlist(m Method) (string,[]string,bool) {
 	ret := []string{}
 	tps := []string{}
 	for _,p := range m.Parameters {
@@ -186,6 +191,9 @@ func (m Method) goparamlist() (string,[]string,bool) {
 		tp,err := goType(typeOrType2(p.Type,p.Type2),m.Class)
 		if err != nil {
 			return "UNSUPPORTED TYPE", []string{},false
+		}
+		if w.isObject(tp) {
+			tp = "*" + tp
 		}
 		if goreserved[gname] {
 			gname = gname + "_"
@@ -196,12 +204,16 @@ func (m Method) goparamlist() (string,[]string,bool) {
 	return strings.Join(ret,", "),tps,true
 }
 
-func (m Method) goparamnames() string {
+func (w Wrapper) goparamnames(m Method) string {
 	ret := []string{"o.ptr"}
 	for _,p := range m.Parameters {
 		gname := p.Vname
 		if goreserved[gname] {
 			gname = gname + "_"
+		}
+		gt,_ := goType(typeOrType2(p.Type,p.Type2),m.Class)
+		if w.isObject(gt) {
+			gname = gname + ".ptr"
 		}
 		ret = append(ret,gname)
 	}
@@ -357,6 +369,9 @@ func (w *Wrapper) ProcessType(gotype string) {
 	if gotype == "" {
 		return
 	}
+	if gotype[0] == '*' {
+		gotype = gotype[1:]
+	}
 	if _,ok := gobuiltinTypes[gotype]; ok {
 		return
 	}
@@ -466,8 +481,11 @@ New%s() {
 					gcast2 = ")"
 				}
 			}
+			if grtype == "id" { // can't return id
+				continue
+			}
 			w.ProcessType(grtype)
-			gplist, gptypes,ok := y.goparamlist()
+			gplist, gptypes, ok := w.goparamlist(y)
 			if !ok {
 				continue
 			}
@@ -475,7 +493,7 @@ New%s() {
 			w.goCode.WriteString(fmt.Sprintf(`
 func (o *%s) %s(%s) %s%s {
 	%sC.%s_%s(%s)%s
-}`,v.Name, gname, gplist, grptr, grtype, gcast, v.Name, y.Name, y.goparamnames(),gcast2))
+}`,v.Name, gname, gplist, grptr, grtype, gcast, v.Name, y.Name, w.goparamnames(y),gcast2))
 
 			cret := ""
 			if !y.isVoid() {
@@ -485,7 +503,7 @@ func (o *%s) %s(%s) %s%s {
 %s
 %s_%s(%s) {
 	%s[(id)obj %s];
-}`, cmtype, v.Name, y.Name, y.cparamlist(), cret, y.objcparamlist()))
+}`, cmtype, v.Name, y.Name, w.cparamlist(y), cret, y.objcparamlist()))
 		}
 	}
 	fmt.Println(`package main
