@@ -65,11 +65,16 @@ var builtinTypes map[string]string = map[string]string{
 	"complex double": "C.complexdouble",
 }*/
 
-func (w *Wrapper) AddType(t,class string) {
+func (w *Wrapper) AddType(t1,t2,class string) {
+	fmt.Printf("Type: %s\n",t1)
+	t := typeOrType2(t1,t2)
 	if _,ok := builtinTypes[t]; ok {
 		return
 	}
 	nt, err := goType(t,class)
+	if Debug {
+		fmt.Printf("AddType(): (%s) (%s) -> %s\n",t1,t2,nt)
+	}
 	if err != nil {
 		return
 	}
@@ -264,7 +269,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			Properties: map[string]Property{},
 			Methods: map[string]Method{},
 		}
-		w.AddType(name,name)
+		w.AddType(name,"",name)
 	}
 	var avail bool
 	for _,c := range ns {
@@ -278,7 +283,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			}
 			//_,avail = w.GetParms(x,name) // TODO
 			//if avail {
-				w.AddType(typeOrType2(x.Type,x.Type2),name)
+				w.AddType(x.Type,x.Type2,name)
 				i.Properties[p.Name] = p
 			//}
 		case *ast.ObjCMethodDecl:
@@ -292,7 +297,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			}
 			m.Parameters, avail = w.GetParms(x,name)
 			if avail {
-				w.AddType(typeOrType2(x.Type,x.Type2),name)
+				w.AddType(x.Type,x.Type2,name)
 				i.Methods[m.Name] = m
 			}
 		case *ast.ObjCProtocol:
@@ -346,6 +351,7 @@ func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool
 			if Debug { fmt.Printf("GetParms(): ast.Unknown: %s\n",x.Name) }
 		}
 	}
+	// check that the method is available for this OS and not deprecated
 	a := func() bool {
 		if len(avail) == 0 {
 			return true
@@ -360,6 +366,7 @@ func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool
 	if !a {
 		return nil, false
 	}
+	// check that we found the right number of parameters
 	if len(ret) != len(n.Parameters) {
 		fmt.Printf("Error in method declaration %s: Wrong number of ParmVarDecl children: %d parameters but %d ParmVarDecl children\n",n.Name,len(n.Parameters),len(ret))
 	}
