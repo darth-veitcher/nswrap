@@ -158,7 +158,7 @@ func Longest(ps ...Parser) Parser {
 //node. Returns nil and the input string unless the entire sequence succeeds
 func Seq(ps ...Parser) Parser {
 	dbg("Seq(%p)\n",ps)
-	return func(s string, n *Node) (string, *Node) {
+	p := func(s string, n *Node) (string, *Node) {
 		ret := NewNode("Seq")
 		s2, n2 := s,n
 		for _,p := range ps {
@@ -173,15 +173,13 @@ func Seq(ps ...Parser) Parser {
 		}
 		return s2,ret
 	}
-}
-func SeqC(ps ...Parser) Parser {
-	return Children(Seq(ps...))
+	return Children(p)
 }
 
 //Like Seq but subsequent children are nested inside their earlier siblings.
 func Nest(ps ...Parser) Parser {
 	dbg("Nest(%p)\n",ps)
-	return func(s string, n *Node) (string, *Node) {
+	p := func(s string, n *Node) (string, *Node) {
 		s2,n2 := Seq(ps...)(s,n)
 		if n2 == nil {
 			return s,nil
@@ -194,9 +192,7 @@ func Nest(ps ...Parser) Parser {
 		}
 		return s2,ret
 	}
-}
-func NestC(ps ...Parser) Parser {
-	return Children(Nest(ps...))
+	return Children(p)
 }
 
 //ZeroOrMore returns a sequence of zero or more nodes

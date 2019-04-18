@@ -37,7 +37,7 @@ func (n *Node) String(ls ...int) string {
 		}
 	}
 	prefix := strings.Repeat("-",level)
-	ret.WriteString(fmt.Sprintf("%s<%s> %p '%s'\n",prefix, n.Kind, n, n.Content))
+	ret.WriteString(fmt.Sprintf("%s<%s> '%s'\n",prefix, n.Kind, n.Content))
 	for _,c := range n.Children {
 		ret.WriteString(c.String(level+1))
 	}
