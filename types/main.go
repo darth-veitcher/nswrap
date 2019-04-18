@@ -8,6 +8,12 @@ var (
 	Debug bool = false
 )
 
+func dbg(f string, xs ...interface{}) {
+	if Debug {
+		fmt.Printf(f,xs...)
+	}
+}
+
 func Parse(s string) *Node {
 	_, n2 := TypeName(s,NewNode("AST"))
 	return n2
@@ -23,6 +29,9 @@ func (n *Node) isAbstract(k string) bool {
 
 //Strip one level of pointer or array indirection from a node
 func (n *Node) stripAbstract(k string) *Node {
+	if n == nil {
+		return nil
+	}
 	i := len(n.Children) - 1
 	if i < 1 {
 		return nil
@@ -30,19 +39,23 @@ func (n *Node) stripAbstract(k string) *Node {
 	ret := NewNode(n.Kind)
 	cs := n.Children[:]
 
-	fmt.Printf("stripAbstract(): i = %d\n",i)
-	//Scan backwords skipping NullableAnnotation tags
-	for ;i > 0 && cs[i].Kind == "NullableAnnotation"; i-- { }
+	dbg("stripAbstract(): i = %d\n",i)
+	//Scan backwords skipping TypeQualifier and NullableAnnotation tags
+	for ;i > 0 &&
+		(cs[i].Kind == "TypeQualifier" ||
+		 cs[i].Kind == "NullableAnnotation") ; i-- { }
 
 	if cs[i].Kind == k {
-		fmt.Printf("stripAbstract(): last node is %s\n",k)
+		dbg("stripAbstract(): last node is %s\n",k)
 		ret.Children = cs[:i]
 		return ret
 	}
 	if i > 1 && cs[i-1].Kind == "Parenthesized" {
 		j := len(cs[i-1].Children) - 1
-		//Scan backwards skipping TypeQualifier tags
-		for ;j > 0 && cs[i-1].Children[j].Kind == "TypeQualifier"; j-- { }
+		for ;j > 0 &&
+			(cs[i-1].Children[j].Kind == "TypeQualifier" ||
+			 cs[i-1].Children[j].Kind == "NullableAnnotation");
+		     j-- { }
 		if cs[i-1].Children[j].Kind != k {
 			return nil
 		}
@@ -62,7 +75,7 @@ func (n *Node) stripAbstract(k string) *Node {
 //PointsTo, when called on a pointer node returns a node describing the type
 //pointed to. Otherwise returns nil when called on non-pointer types.
 func (n *Node) PointsTo() *Node {
-	fmt.Printf("PointsTo()\n")
+	dbg("PointsTo()\n")
 	return n.stripAbstract("Pointer")
 }
 
@@ -70,7 +83,7 @@ func (n *Node) PointsTo() *Node {
 //of the elements of the array. Otherwise returns nil when called on
 //non-array types.
 func (n *Node) ArrayOf() *Node {
-	fmt.Printf("ArrayOf()\n")
+	dbg("ArrayOf()\n")
 	return n.stripAbstract("Array")
 }
 

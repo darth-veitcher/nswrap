@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"regexp"
 )
 
@@ -15,12 +14,6 @@ func init() {
 	whitespace = regexp.MustCompile(" *")
 	wordchars = regexp.MustCompile(`[_0-9a-zA-Z]`)
 	reservedwords = regexp.MustCompile("^(void|char|short|int|long|float|double|signed|unsigned|_Bool|_Complex|const|restrict|volatile|struct|union|enum)$")
-}
-
-func dbg(f string, xs ...interface{}) {
-	if Debug {
-		fmt.Printf(f,xs...)
-	}
 }
 
 type Parser func(string, *Node) (string, *Node)
@@ -201,6 +194,9 @@ func Nest(ps ...Parser) Parser {
 		}
 		return s2,ret
 	}
+}
+func NestC(ps ...Parser) Parser {
+	return Children(Nest(ps...))
 }
 
 //ZeroOrMore returns a sequence of zero or more nodes

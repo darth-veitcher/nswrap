@@ -3,7 +3,7 @@ package types
 // Parsers for recognizing type names in C/Objective-C
 
 func TypeName(s string, n *Node) (string, *Node) {
-	return NodeNamed("TypeName",Seq(
+	return ChildOf(NewNode("TypeName"),SeqC(
 		SpecifierQualifierList,
 		Opt(AbstractDeclarator),
 	))(s,n)
@@ -30,8 +30,8 @@ func DirectAbstractDeclarator(s string, n *Node) (string, *Node) {
 
 func ParameterList(s string, n *Node) (string, *Node) {
 	return SeqC(
-	Opt(Children(OneOrMore(SeqC(ParameterDeclaration,Lit(","))))),
-	ParameterDeclaration,
+		Opt(Children(OneOrMore(SeqC(ParameterDeclaration,Lit(","))))),
+		ParameterDeclaration,
 	)(s,n)
 }
 
@@ -47,8 +47,9 @@ func DeclarationSpecifiers(s string, n *Node) (string, *Node) {
 	return OneOf(
 		SeqC(StorageClassSpecifier,Opt(DeclarationSpecifiers)),
 		SeqC(TypeSpecifier,Opt(DeclarationSpecifiers)),
+		SeqC(StructOrUnionSpecifier,Opt(DeclarationSpecifiers)),
 		SeqC(TypeQualifier,Opt(DeclarationSpecifiers)),
-		SeqC(Identifier,Opt(DeclarationSpecifiers)),
+		SeqC(TypedefName,Opt(DeclarationSpecifiers)),
 	//	SeqC(FunctionSpecifier,Opt(DeclarationSpecifiers)),
 	)(s,n)
 }
@@ -64,8 +65,8 @@ func StorageClassSpecifier(s string, n *Node) (string, *Node) {
 }
 
 func Declarator(s string, n *Node) (string, *Node) {
-	return NodeNamed("Declarator",
-		Seq(ZeroOrMore(Pointer), DirectDeclarator))(s,n)
+	return ChildOf(NewNode("Declarator"),
+		SeqC(ZeroOrMore(Pointer), DirectDeclarator))(s,n)
 }
 
 func DirectDeclarator(s string, n *Node) (string, *Node) {
@@ -140,10 +141,10 @@ func TypeQualifier(s string, n *Node) (string, *Node) {
 }
 
 func StructOrUnionSpecifier(s string, n *Node) (string, *Node) {
-	return NodeNamed("StructOrUnionSpecifier",Children(OneOf(
-		Seq(StructOrUnion,Opt(Identifier),StructDeclarationList),
-		Nest(StructOrUnion,Identifier),
-	)))(s,n)
+	return NodeNamed("StructOrUnionSpecifier",OneOf(
+		SeqC(StructOrUnion,Opt(Identifier),StructDeclarationList),
+		NestC(StructOrUnion,Identifier),
+	))(s,n)
 }
 
 func StructOrUnion(s string, n *Node) (string, *Node) {
