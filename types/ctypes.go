@@ -2,7 +2,23 @@ package types
 
 // Parsers for recognizing type names in C/Objective-C
 
-func TypeName(s string, n *Node) (string, *Node) {
+var TypeName func(s string, n *Node) (string, *Node)
+
+func init() {
+	cache := map[string]*Node{}
+	TypeName = func(s string, n *Node) (string, *Node) {
+		if n2,ok := cache[s]; ok {
+			return "",n2
+		}
+		s2,n2 := _TypeName(s,n)
+		if s2 == "" {
+			cache[s] = n2
+		}
+		return s2,n2
+	}
+}
+
+func _TypeName(s string, n *Node) (string, *Node) {
 	return ChildOf(NewNode("TypeName"),Seq(
 		SpecifierQualifierList,
 		Opt(AbstractDeclarator),

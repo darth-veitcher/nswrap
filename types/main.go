@@ -15,9 +15,12 @@ func dbg(f string, xs ...interface{}) {
 }
 
 
-func Parse(s string) *Node {
-	_, n2 := TypeName(s,NewNode("AST"))
-	return n2
+func Parse(s string) (*Node, error) {
+	s2, n := TypeName(s,NewNode("AST"))
+	if s2 != "" {
+		return n,fmt.Errorf("Parse failed or incomplete. Remainder: %s",s2)
+	}
+	return n, nil
 }
 
 //Evaluate a node to determine if it is a pointer or array
