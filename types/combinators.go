@@ -1,6 +1,7 @@
 package types
 
 import (
+	//"fmt"
 	"regexp"
 )
 
@@ -180,13 +181,15 @@ func Seq(ps ...Parser) Parser {
 func Nest(ps ...Parser) Parser {
 	dbg("Nest(%p)\n",ps)
 	p := func(s string, n *Node) (string, *Node) {
-		s2,n2 := Seq(ps...)(s,n)
+		ret := NewNode("Nest")
+		s2,n2 := Seq(ps...)(s,ret)
 		if n2 == nil {
 			return s,nil
 		}
-		ret := NewNode("Nest")
+		ocs := n2.Children
+		ret.Children = []*Node{}
 		n3 := ret
-		for _,c := range n2.Children {
+		for _,c := range ocs {
 			n3.AddChild(c)
 			n3 = c
 		}
@@ -197,7 +200,7 @@ func Nest(ps ...Parser) Parser {
 
 //ZeroOrMore returns a sequence of zero or more nodes
 func ZeroOrMore(p Parser) Parser {
-	return func(s string, n *Node) (string, *Node) {
+	ret := func(s string, n *Node) (string, *Node) {
 		ret := NewNode("ZeroOrMore")
 		dbg("ZeroOrMore(%s %p) ret = %p\n",n.Kind,n,ret)
 		var s2 string
@@ -211,10 +214,11 @@ func ZeroOrMore(p Parser) Parser {
 		}
 		return s,n
 	}
+	return Children(ret)
 }
 
 func OneOrMore(p Parser) Parser {
-	return Seq(p,Children(ZeroOrMore(p)))
+	return Seq(p,ZeroOrMore(p))
 }
 
 func Parenthesized(p Parser) Parser {

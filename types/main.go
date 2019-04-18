@@ -14,6 +14,7 @@ func dbg(f string, xs ...interface{}) {
 	}
 }
 
+
 func Parse(s string) *Node {
 	_, n2 := TypeName(s,NewNode("AST"))
 	return n2

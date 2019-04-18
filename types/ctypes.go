@@ -104,12 +104,10 @@ func Declarator(s string, n *Node) (string, *Node) {
 }
 
 func DirectDeclarator(s string, n *Node) (string, *Node) {
-	return NodeNamed("DirectDeclarator",
-		OneOf(
+	return OneOf(
 			Identifier,
 			Parenthesized(Declarator),
 			// INCOMPLETE
-		),
 	)(s,n)
 }
 
@@ -189,10 +187,10 @@ func Generic(s string, n *Node) (string, *Node) {
 }
 
 func GenericList(s string, n *Node) (string, *Node) {
-	return OneOf(
-		Seq(Generic,Lit(","),GenericList),
+	return ChildOf(NewNode("GenericList"),Seq(
 		Generic,
-	)(s,n)
+		ZeroOrMore(Seq(Lit(","),Generic)),
+	))(s,n)
 }
 
 func BareTypedefName(s string, n *Node) (string, *Node) {
