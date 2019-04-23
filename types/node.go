@@ -67,8 +67,21 @@ func (n *Node) AddChild(c *Node) *Node {
 	return n
 }
 
+func (n *Node) CtypeSimplified() string {
+	ignore := map[string]bool{
+		"NullableAnnotation": true,
+		"TypeQualifier": true,
+		"GenericList": true,
+	}
+	return n._Ctype(ignore)
+}
+
 func (n *Node) Ctype() string {
-	if n == nil {
+	return n._Ctype(map[string]bool{})
+}
+
+func (n *Node) _Ctype(ignore map[string]bool) string {
+	if n == nil || ignore[n.Kind] {
 		return ""
 	}
 	var ret strings.Builder
@@ -76,8 +89,8 @@ func (n *Node) Ctype() string {
 		if n == nil { return []string{} }
 		ret := []string{}
 		for _,c := range n.Children {
-			if x := c.Ctype(); x != "" {
-				ret = append(ret, c.Ctype())
+			if x := c._Ctype(ignore); x != "" {
+				ret = append(ret, x)
 			}
 		}
 		return ret

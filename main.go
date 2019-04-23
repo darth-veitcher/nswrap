@@ -212,7 +212,7 @@ func Start(args ProgramArgs) (err error) {
 			w.AddCategory(x)
 		}
 	}
-	w.Wrap("NSString")
+	w.Wrap([]string{"ClassOne"})
 	return nil
 }
 

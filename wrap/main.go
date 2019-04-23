@@ -6,38 +6,29 @@ import (
 	"strings"
 
 	"gitlab.wow.st/gmp/clast/ast"
+	"gitlab.wow.st/gmp/clast/types"
 )
 
 var (
 	Debug = false
 )
 
+type cStruct struct {
+	goName, cName string
+}
+
 type Wrapper struct {
 	Interfaces map[string]Interface
 	Types map[string]string
-	cCode strings.Builder // put cGo code here
-	goTypes strings.Builder // put Go type declarations here
-	goCode strings.Builder // put Go code here
-	Processed map[string]bool
-}
+	gtMap map[string]string
+	ctMap map[string]*types.Node 	 // map from go type as a string.
+	goStructTypes map[string]cStruct // map from gotype to struct descr.
+	goInterfaceTypes []string
 
-// translate C builtin types to CGo
-var builtinTypes map[string]string = map[string]string{
-	"char": "byte",
-	"signed char": "byte",
-	"unsigned char": "byte",
-	"short": "int",
-	"unsigned short": "int",
-	"int": "int",
-	"unsigned int": "int",
-	"long": "int",
-	"unsigned long": "int",
-	"long long": "int",
-	"unsigned long long": "int",
-	"float": "float64",
-	"double": "float64",
-	"complex float": "C.complexfloat",
-	"complex double": "C.complexdouble",
+	cCode strings.Builder	// put cGo code here
+	goTypes strings.Builder // put Go type declarations here
+	goCode strings.Builder	// put Go code here
+	Processed map[string]bool
 }
 
 var gobuiltinTypes map[string]bool = map[string]bool{
@@ -46,7 +37,7 @@ var gobuiltinTypes map[string]bool = map[string]bool{
 	"float64": true,
 }
 
-/*
+// translate C builtin types to CGo
 var builtinTypes map[string]string = map[string]string{
 	"char": "C.char",
 	"signed char": "C.schar",
@@ -63,58 +54,114 @@ var builtinTypes map[string]string = map[string]string{
 	"double": "C.double",
 	"complex float": "C.complexfloat",
 	"complex double": "C.complexdouble",
-}*/
+}
 
-func (w *Wrapper) AddType(t1,t2,class string) {
-	fmt.Printf("Type: %s\n",t1)
-	t := typeOrType2(t1,t2)
+//AddType registers a type that needs a Go wrapper struct
+func (w *Wrapper) AddType(t, class string) {
+	//fmt.Printf("Type: %s\n",t)
 	if _,ok := builtinTypes[t]; ok {
 		return
 	}
-	nt, err := goType(t,class)
+	nt := w.goType(t,class)
 	if Debug {
-		fmt.Printf("AddType(): (%s) (%s) -> %s\n",t1,t2,nt)
+		fmt.Printf("AddType(): (%s) -> %s\n",t,nt)
 	}
-	if err != nil {
+	if nt == "" {
+		return
+	}
+	if _,ok := w.Interfaces[nt]; !ok { // not an interface
 		return
 	}
 	w.Types[nt] = t
 }
 
-func goType(t,class string) (string, error) {
-	// strip off pointers, < > and blank space
-	nt := strings.ReplaceAll(t,"*","")
-	if len(nt) > 3 && nt[0:3] == "id<" {
-		nt = t[3:len(t)-1]
+func (w *Wrapper) goType(t,class string) string {
+	n,err := types.Parse(t)
+	if err != nil {
+		//fmt.Printf("Cannot parse type %s\n",t)
+		return ""
 	}
-	nt = strings.ReplaceAll(nt,"const ","")
-	nt = strings.ReplaceAll(nt," _Nullable","")
-	nt = strings.ReplaceAll(nt," _Nonnull","")
-	if t == "instancetype" {
-		return class, nil
+	if n.HasFunc() {
+		//fmt.Printf("Function types not supported (%s)\n",t)
+		return ""
 	}
-	nt = strings.ReplaceAll(nt,"<","__")
-	nt = strings.ReplaceAll(nt,">","__")
-	nt = strings.ReplaceAll(nt,",","_")
-	if x,ok := builtinTypes[nt]; ok { // do not add builtin types
-		return x, nil
+	ct := n.CtypeSimplified()
+	ret := ""
+	if nt, ok := w.gtMap[ct]; ok { // we already know this type
+		return nt
 	}
-	if len(nt) > 5 && nt[0:5] == "enum " { // FIXME: deal with enums?
-		return "", fmt.Errorf("goType(): enum")
+	if x := n.PointsTo(); x != nil {
+		pt := x.CtypeSimplified()
+//		if _,ok := w.Interfaces[pt]; ok {
+//		// pointer to Objective-C interface, stop here
+//			//fmt.Printf("goType(): %s -> %s\n",t,pt)
+//			w.gtMap[ct] = pt
+//			w.goInterfaceTypes = append(w.goInterfaceTypes,pt)
+//			return pt
+//		}
+//		pt = x.BaseType().CtypeSimplified()
+//		if _,ok := w.Interfaces[pt]; ok {
+//		// ultimately points to an interface, so need a wrapper
+//			w.AddType(pt,class)
+//			ret = w.goType(pt,class) + "Ptr"
+//			//fmt.Printf("goType(): %s -> %s\n",t,ret)
+//			w.gtMap[ct] = ret
+//			return ret
+//		}
+		// pointer to non-interface type
+		ret = "*" + w.goType(pt,class)
+		w.gtMap[ct] = ret
+		w.ctMap[ret] = n
+		return ret
 	}
-	nt = strings.ReplaceAll(nt," ","")
-	if nt == "void" {
-		return "", fmt.Errorf("goType(): void")
+	if x := n.ArrayOf(); x != nil {
+		pt := x.CtypeSimplified()
+		w.AddType(pt,class)
+		ret = w.goType(pt,class) + "Arr"
+		//fmt.Printf("goType(): %s -> %s\n",t,ret)
+		w.gtMap[ct] = ret
+		w.ctMap[ret] = n
+		return ret
 	}
-	if nt[len(nt)-1] == ')' { // skip function pointers
-		return "", fmt.Errorf("goType(): function pointer")
+	if ct == "id" { ct = "NSObject" }
+	if ct == "instancename" { ct = class }
+	if bt,ok := builtinTypes[ct]; ok {
+		ct = bt
 	}
-	return nt, nil
+	if _,ok := w.Interfaces[ct]; ok {
+		// pointer to Objective-C interface, stop here
+		//fmt.Printf("goType(): %s -> %s\n",t,pt)
+		w.gtMap[ct] = ct
+		w.goInterfaceTypes = append(w.goInterfaceTypes,ct)
+		w.ctMap[ct] = n
+		return ct
+	}
+	if n.IsStruct() {
+		gt := strings.Title(ct)
+		gt = strings.ReplaceAll(gt, " ", "")
+		w.gtMap[ct] = gt
+		w.goStructTypes[gt] = cStruct{ goName: gt, cName: ct }
+		//fmt.Printf("goType(): %s -> %s\n",t,gt)
+		w.ctMap[gt] = n
+		return gt
+	}
+	//fmt.Printf("goType(): %s -> %s\n",t,ct)
+	w.gtMap[ct] = ct
+	w.ctMap[ct] = n
+	return ct
 }
 
+//FIXME: to be deleted
 func cType(t, class string) string {
-	nt := strings.ReplaceAll(t," _Nullable","")
-	nt = strings.ReplaceAll(nt," _Nonnull","")
+	n, err := types.Parse(t)
+	if err != nil {
+		//fmt.Printf("Cannot parse type %s\n",t)
+		return "NOT IMPLEMENTED"
+	}
+	nt := n.CtypeSimplified()
+	if nt == "id" {
+		return "NSObject"
+	}
 	if nt == "instancetype" {
 		return class + " *"
 	}
@@ -127,25 +174,29 @@ func NewWrapper(debug bool) *Wrapper {
 	return &Wrapper{
 		Interfaces: map[string]Interface{},
 		Types: map[string]string{},
+		gtMap: map[string]string{},
+		ctMap: map[string]*types.Node{},
+		goStructTypes: map[string]cStruct{},
+		Processed: map[string]bool{},
 	}
 }
 
 type Property struct {
-	Name, Type, Type2, Attr string
+	Name, Type, Attr string
 }
 
 type Parameter struct {
-	Pname, Vname, Type, Type2 string
+	Pname, Vname, Type string
 }
 
 type Method struct {
-	Name, Type, Type2, Class string
+	Name, Type, Class string
 	ClassMethod bool
 	Parameters []Parameter
 }
 
 func (m Method) isVoid() bool {
-	return typeOrType2(m.Type,m.Type2) == "void"
+	return m.Type == "void"
 }
 
 func (w Wrapper) isObject(tp string) bool { // takes a goType
@@ -161,8 +212,9 @@ func (w Wrapper) cparamlist(m Method) string {
 		ret = append(ret,"void* obj")
 	}
 	for _,p := range m.Parameters {
-		tp := typeOrType2(p.Type,p.Type2)
-		gtp,_ := goType(tp,m.Class)
+		tp := p.Type
+		gtp := w.goType(tp,m.Class)
+		//w.goType(tp,m.Class)
 		if w.isObject(gtp) {
 			tp = "void*"
 		}
@@ -171,7 +223,7 @@ func (w Wrapper) cparamlist(m Method) string {
 	return strings.Join(ret,", ")
 }
 
-func (m Method) objcparamlist() string {
+func (w Wrapper) objcparamlist(m Method) string {
 	if len(m.Parameters) == 0 {
 		return m.Name
 	}
@@ -188,6 +240,8 @@ func (m Method) objcparamlist() string {
 	return strings.Join(ret," ")
 }
 
+//goreserved is a map telling whether a word is a go reserved word that is not
+//also a C/Objective-C reserved word.
 var goreserved map[string]bool = map[string]bool{
 	"range": true,
 }
@@ -197,8 +251,9 @@ func (w Wrapper) goparamlist(m Method) (string,[]string,bool) {
 	tps := []string{}
 	for _,p := range m.Parameters {
 		gname := p.Vname
-		tp,err := goType(typeOrType2(p.Type,p.Type2),m.Class)
-		if err != nil {
+		w.AddType(p.Type,m.Class)
+		tp := w.goType(p.Type,m.Class)
+		if tp == "" {
 			return "UNSUPPORTED TYPE", []string{},false
 		}
 		if w.isObject(tp) {
@@ -223,9 +278,27 @@ func (w Wrapper) goparamnames(m Method) string {
 		if goreserved[gname] {
 			gname = gname + "_"
 		}
-		gt,_ := goType(typeOrType2(p.Type,p.Type2),m.Class)
+		gt := w.goType(p.Type,m.Class)
+		if gt == "" {
+			return "UNSUPPORTED TYPE " + p.Type
+		}
 		if w.isObject(gt) {
 			gname = gname + ".ptr"
+		} else {
+			n := w.ctMap[gt]
+			star := ""
+			for pt := n.PointsTo(); pt != nil; pt = pt.PointsTo() {
+				star = star + "*"
+			}
+			ct := n.BaseType().CtypeSimplified()
+			if n.IsStruct() {
+				ct = strings.ReplaceAll(ct,"struct ","")
+				ct = "struct_" + ct
+			}
+			if gt[0] == '*' { // wrap pointers in unsafe.Pointer()
+				gname = "unsafe.Pointer(" + gname + ")"
+			}
+			gname = "(" + star + "C." + ct + ")(" + gname + ")"
 		}
 		ret = append(ret,gname)
 	}
@@ -252,12 +325,14 @@ func (w *Wrapper) AddInterface(n *ast.ObjCInterfaceDecl) {
 
 func (w *Wrapper) AddCategory(n *ast.ObjCCategoryDecl) {
 	ns := n.Children()
-	switch x := ns[0].(type) {
-	case *ast.ObjCInterface:
-		w.add(x.Name, ns[1:])
-	default:
-		fmt.Printf("Not adding methods for %s: interface name not found in first child node of category defclaration\n",n.Name)
+	if len(ns) > 0 {
+		switch x := ns[0].(type) {
+		case *ast.ObjCInterface:
+			w.add(x.Name, ns[1:])
+			return
+		}
 	}
+	fmt.Printf("Not adding methods for %s: interface name not found in first child node of category defclaration\n",n.Name)
 }
 
 func (w *Wrapper) add(name string, ns []ast.Node) {
@@ -269,7 +344,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			Properties: map[string]Property{},
 			Methods: map[string]Method{},
 		}
-		w.AddType(name,"",name)
+		w.AddType(name,name)
 	}
 	var avail bool
 	for _,c := range ns {
@@ -279,11 +354,10 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			p := Property{
 				Name: x.Name,
 				Type: x.Type,
-				Type2: x.Type2,
 			}
 			//_,avail = w.GetParms(x,name) // TODO
 			//if avail {
-				w.AddType(x.Type,x.Type2,name)
+//				w.AddType(x.Type,name)
 				i.Properties[p.Name] = p
 			//}
 		case *ast.ObjCMethodDecl:
@@ -291,13 +365,12 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			m := Method{
 				Name: x.Name,
 				Type: x.Type,
-				Type2: x.Type2,
 				Class: name,
 				ClassMethod: x.ClassMethod,
 			}
 			m.Parameters, avail = w.GetParms(x,name)
 			if avail {
-				w.AddType(x.Type,x.Type2,name)
+//				w.AddType(x.Type,name)
 				i.Methods[m.Name] = m
 			}
 		case *ast.ObjCProtocol:
@@ -313,6 +386,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			//fmt.Println(reflect.TypeOf(x))
 		}
 	}
+	//fmt.Println("Add interface ",i.Name)
 	w.Interfaces[i.Name] = i
 }
 
@@ -321,6 +395,9 @@ type AvailAttr struct {
 	Deprecated bool
 }
 
+//GetParms returns the parameters of a method declaration and a bool
+//indicating whether the given method is available on MacOS and not
+//deprecated.
 func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool) {
 	ret := make([]Parameter,0)
 	avail := make([]AvailAttr,0)
@@ -332,7 +409,6 @@ func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool
 				Pname: n.Parameters[j],
 				Vname: x.Name,
 				Type: x.Type,
-				Type2: x.Type2,
 			}
 			ret = append(ret,p)
 			j++
@@ -373,13 +449,6 @@ func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool
 	return ret, true
 }
 
-func typeOrType2(t1, t2 string) string {
-	if t2 != ""  && t2 != "id" {
-		return t2
-	}
-	return t1
-}
-
 func (w *Wrapper) ProcessType(gotype string) {
 	if gotype == "" {
 		return
@@ -407,20 +476,27 @@ func (w *Wrapper) ProcessType(gotype string) {
 		if i.Name != i.Super {
 			w.ProcessType(i.Super)
 		}
-	}
-	var fields string
+		var fields string
 // if there is an Interface known for this type, decide if it is the
 // root object and if so give it a pointer element:
-	if i,ok := w.Interfaces[gotype]; ok && i.IsRoot() {
-		fields = "ptr unsafe.Pointer"
-	} else {
-		fields = i.Super // embed superclass
-	}
-	w.goTypes.WriteString(fmt.Sprintf(`
+		if i.IsRoot() {
+			fields = "ptr unsafe.Pointer"
+		} else {
+			fields = i.Super // embed superclass
+		}
+		w.goTypes.WriteString(fmt.Sprintf(`
 // %s
 type %s struct { %s }
 `,ctype, gotype, fields))
-	w.Processed[gotype] = true
+		w.Processed[gotype] = true
+	}
+	if s,ok := w.goStructTypes[gotype]; ok {
+		ct := strings.ReplaceAll(s.cName," ","_")
+		w.goTypes.WriteString(fmt.Sprintf(`
+type %s %s
+`,s.goName,"C." + ct))
+		w.Processed[gotype] = true
+	}
 }
 
 func (w *Wrapper) ProcessTypes(tps []string) {
@@ -429,9 +505,7 @@ func (w *Wrapper) ProcessTypes(tps []string) {
 	}
 }
 
-func (w *Wrapper) Wrap(toproc string) {
-
-	w.Processed = make(map[string]bool)
+func (w *Wrapper) Wrap(toproc []string) {
 
 	w.cCode.WriteString(`/*
 #cgo CFLAGS: -x objective-c
@@ -440,46 +514,51 @@ func (w *Wrapper) Wrap(toproc string) {
 #import <Foundation/Foundation.h>
 `)
 
-	pInterfaces := map[string]Interface {toproc: w.Interfaces[toproc]}
-	for k,v := range pInterfaces {
+	pInterfaces := map[string]Interface{}
+	for _,iface := range toproc {
+		pInterfaces[iface] = w.Interfaces[iface]
+	}
+	for iname,i := range pInterfaces {
 		if Debug {
 			fmt.Printf("Interface %s: %d properties, %d methods\n",
-			k, len(v.Properties), len(v.Methods))
+			iname, len(i.Properties), len(i.Methods))
 		}
 
 		w.goCode.WriteString(fmt.Sprintf(`
 func New%s() *%s {
 	ret := &%s{}
 	ret.ptr = unsafe.Pointer(C.New%s())
+	ret = ret.Init()
 	return ret
 }
-`,v.Name,v.Name,v.Name,v.Name))
+`,i.Name,i.Name,i.Name,i.Name))
 
 		w.cCode.WriteString(fmt.Sprintf(`
 %s*
 New%s() {
 	return [%s alloc];
 }
-`, v.Name, v.Name, v.Name))
+`, i.Name, i.Name, i.Name))
 
-		for _,y := range v.Properties {
+		for _,p := range i.Properties {
 			if Debug {
-				fmt.Printf("  property: %s (%s)\n", y.Name, typeOrType2(y.Type,y.Type2))
+				fmt.Printf("  property: %s (%s)\n", p.Name, p.Type)
 			}
+			w.AddType(p.Type,i.Name)
 		}
-		for _,y := range v.Methods {
+		for _,m := range i.Methods {
 			if Debug {
-				fmt.Printf("  method: %s (%s)\n", y.Name, typeOrType2(y.Type,y.Type2))
+				fmt.Printf("  method: %s (%s)\n", m.Name, m.Type)
 			}
-			gname := strings.Title(y.Name)
+			gname := strings.Title(m.Name)
 
 			grtype := ""
 			grptr := ""
-			cmtype := cType(typeOrType2(y.Type,y.Type2),v.Name)
-			if !y.isVoid() {
-				var err error
-				grtype,err = goType(cmtype,v.Name)
-				if err != nil {
+			w.AddType(m.Type,i.Name)
+			cmtype := cType(m.Type,i.Name)
+			if !m.isVoid() {
+				grtype = w.goType(cmtype,i.Name)
+				if grtype == "" {
 					grtype = fmt.Sprintf("// goType(%s): NOT IMPLEMENTED\n",cmtype)
 					continue
 				}
@@ -487,10 +566,15 @@ New%s() {
 			gcast := ""
 			gcast2 := ""
 			if grtype != "" {
-				if _,ok := w.Interfaces[grtype]; ok {
-					grptr = "*"
-					gcast = "ret := &" + grtype + "{}\n	ret.ptr = unsafe.Pointer("
-					gcast2 = ")\n	return ret"
+				if grtype[0] == '*' { // pointer return type
+					if _,ok := w.Interfaces[grtype[1:]]; ok {
+						//grptr = "*"
+						gcast = "ret := &" + grtype[1:] + "{}\n	ret.ptr = unsafe.Pointer("
+						gcast2 = ")\n	return ret"
+					} else {
+						gcast = "return (" + grtype + ")(unsafe.Pointer("
+						gcast2 = "))"
+					}
 				} else {
 					gcast = fmt.Sprintf("return (%s)(",grtype)
 					gcast2 = ")"
@@ -500,7 +584,7 @@ New%s() {
 				continue
 			}
 			w.ProcessType(grtype)
-			gplist, gptypes, ok := w.goparamlist(y)
+			gplist, gptypes, ok := w.goparamlist(m)
 			if !ok {
 				continue
 			}
@@ -508,15 +592,15 @@ New%s() {
 			w.goCode.WriteString(fmt.Sprintf(`
 func (o *%s) %s(%s) %s%s {
 	%sC.%s_%s(%s)%s
-}`,v.Name, gname, gplist, grptr, grtype, gcast, v.Name, y.Name, w.goparamnames(y),gcast2))
+}`,i.Name, gname, gplist, grptr, grtype, gcast, i.Name, m.Name, w.goparamnames(m),gcast2))
 
 			cret := ""
-			if !y.isVoid() {
+			if !m.isVoid() {
 				cret = "return "
 			}
 			var cobj string
-			if y.ClassMethod {
-				cobj = v.Name
+			if m.ClassMethod {
+				cobj = i.Name
 			} else {
 				cobj = "(id)obj"
 			}
@@ -524,7 +608,7 @@ func (o *%s) %s(%s) %s%s {
 %s
 %s_%s(%s) {
 	%s[%s %s];
-}`, cmtype, v.Name, y.Name, w.cparamlist(y), cret, cobj, y.objcparamlist()))
+}`, cmtype, i.Name, m.Name, w.cparamlist(m), cret, cobj, w.objcparamlist(m)))
 		}
 	}
 	fmt.Println(`package main

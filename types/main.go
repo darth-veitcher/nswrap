@@ -14,6 +14,17 @@ func dbg(f string, xs ...interface{}) {
 	}
 }
 
+func (n *Node) HasFunc() bool {
+	if n == nil {
+		return false
+	}
+	for _,c := range n.Children {
+		if c.Kind == "Function" || c.HasFunc() {
+			return true
+		}
+	}
+	return false
+}
 
 func Parse(s string) (*Node, error) {
 	s2, n := TypeName(s,NewNode("AST"))
@@ -83,6 +94,11 @@ func (n *Node) PointsTo() *Node {
 	return n.stripAbstract("Pointer")
 }
 
+//IsPointer returns true if the node is a pointer
+func (n *Node) IsPointer() bool {
+	return n.PointsTo != nil
+}
+
 //ArrayOf, when called on an array node returns a node describing the type
 //of the elements of the array. Otherwise returns nil when called on
 //non-array types.
@@ -91,3 +107,26 @@ func (n *Node) ArrayOf() *Node {
 	return n.stripAbstract("Array")
 }
 
+//IsArray returns true if the node is an array
+func (n *Node) IsArray() bool {
+	return n.ArrayOf() != nil
+}
+
+func (n *Node) IsStruct() bool {
+	if n == nil || len(n.Children) < 1 {
+		return false
+	}
+	return n.Children[0].Kind == "Struct"
+}
+
+//BaseType strips off all layers of pointer indirection
+func (n *Node) BaseType() *Node {
+	if n == nil {
+		return nil
+	}
+	if n2 := n.PointsTo(); n2 == nil {
+		return n
+	} else {
+		return n2.BaseType()
+	}
+}
