@@ -109,20 +109,37 @@ func _goType(ct string) string {
 
 
 func (t *Type) CType() string {
+	return t._CType(false)
+}
+
+func (t *Type) CTypeAttrib() string {
+	return t._CType(true)
+}
+
+func (t *Type) _CType(attrib bool) string {
 	if t.ctype != "" { // cache
 		return t.ctype
 	}
-	ct := t.Node.CtypeSimplified()
+	var ct string
+	if attrib {
+		ct = t.Node.Ctype()
+	} else {
+		ct = t.Node.CtypeSimplified()
+	}
 	ct = strings.ReplaceAll(ct,"instancename",t.Class)
 	ct = strings.ReplaceAll(ct,"instancetype",t.Class + " *")
 	if len(ct) > 1 && ct[:2] == "id" {
 		ct = "NSObject *" + ct[2:]
 	}
 	if len(ct) > 11 {
-		if ct[:12] == "instancename" { ct = t.Class }
-		if ct[:12] == "instancetype" { ct = t.Class + " *" }
+		if ct[:12] == "instancename" { ct = t.Class + ct[12:] }
+		if ct[:12] == "instancetype" { ct = t.Class + ct[12:] + " *" }
 	}
-	t.ctype = ct
+	if attrib {
+		t._CType(false)
+	} else {
+		t.ctype = ct
+	}
 	return ct
 }
 
