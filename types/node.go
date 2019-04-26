@@ -86,8 +86,8 @@ func (n *Node) _Ctype(ignore map[string]bool) string {
 	}
 	var ret strings.Builder
 	childStrings := func(n *Node) []string {
-		if n == nil { return []string{} }
 		ret := []string{}
+		if n == nil { return ret }
 		for _,c := range n.Children {
 			if x := c._Ctype(ignore); x != "" {
 				ret = append(ret, x)

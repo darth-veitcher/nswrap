@@ -96,7 +96,7 @@ func (n *Node) PointsTo() *Node {
 
 //IsPointer returns true if the node is a pointer
 func (n *Node) IsPointer() bool {
-	return n.PointsTo != nil
+	return n.PointsTo() != nil
 }
 
 //ArrayOf, when called on an array node returns a node describing the type

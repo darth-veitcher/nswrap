@@ -19,6 +19,7 @@ type cStruct struct {
 
 type Wrapper struct {
 	Interfaces map[string]Interface
+	Tps map[string]*types.Node
 	Types map[string]string
 	gtMap map[string]string
 	ctMap map[string]*types.Node 	 // map from go type as a string.
@@ -72,10 +73,14 @@ func (w *Wrapper) AddType(t, class string) {
 	if _,ok := w.Interfaces[nt]; !ok { // not an interface
 		return
 	}
-	w.Types[nt] = t
 }
 
 func (w *Wrapper) goType(t,class string) string {
+	if len(t) > 1 && t[:2] == "id" { t = "NSObject *" }
+	if len(t) > 11 {
+		if t[:12] == "instancename" { t = class }
+		if t[:12] == "instancetype" { t = class + " *" }
+	}
 	n,err := types.Parse(t)
 	if err != nil {
 		//fmt.Printf("Cannot parse type %s\n",t)
@@ -117,14 +122,12 @@ func (w *Wrapper) goType(t,class string) string {
 	if x := n.ArrayOf(); x != nil {
 		pt := x.CtypeSimplified()
 		w.AddType(pt,class)
-		ret = w.goType(pt,class) + "Arr"
+		ret = "[]" + w.goType(pt,class)
 		//fmt.Printf("goType(): %s -> %s\n",t,ret)
 		w.gtMap[ct] = ret
 		w.ctMap[ret] = n
 		return ret
 	}
-	if ct == "id" { ct = "NSObject" }
-	if ct == "instancename" { ct = class }
 	if bt,ok := builtinTypes[ct]; ok {
 		ct = bt
 	}
@@ -134,6 +137,7 @@ func (w *Wrapper) goType(t,class string) string {
 		w.gtMap[ct] = ct
 		w.goInterfaceTypes = append(w.goInterfaceTypes,ct)
 		w.ctMap[ct] = n
+		w.Types[ct] = t
 		return ct
 	}
 	if n.IsStruct() {
@@ -183,14 +187,17 @@ func NewWrapper(debug bool) *Wrapper {
 
 type Property struct {
 	Name, Type, Attr string
+	Tp *types.Type
 }
 
 type Parameter struct {
 	Pname, Vname, Type string
+	Tp *types.Type
 }
 
 type Method struct {
 	Name, Type, Class string
+	Tp *types.Type
 	ClassMethod bool
 	Parameters []Parameter
 }
@@ -244,6 +251,20 @@ func (w Wrapper) objcparamlist(m Method) string {
 //also a C/Objective-C reserved word.
 var goreserved map[string]bool = map[string]bool{
 	"range": true,
+}
+
+func gpntp(m Method) ([]string,[]*types.Type) {
+	ns := []string{}
+	tps := []*types.Type{}
+	for _,p := range m.Parameters {
+		gname := p.Vname
+		if goreserved[gname] {
+			gname = gname + "_"
+		}
+		ns = append(ns,gname)
+		tps = append(tps,p.Tp)
+	}
+	return ns,tps
 }
 
 func (w Wrapper) goparamlist(m Method) (string,[]string,bool) {
@@ -344,7 +365,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			Properties: map[string]Property{},
 			Methods: map[string]Method{},
 		}
-		w.AddType(name,name)
+		w.AddType(name,name) // need this?
 	}
 	var avail bool
 	for _,c := range ns {
@@ -354,6 +375,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			p := Property{
 				Name: x.Name,
 				Type: x.Type,
+				Tp: types.NewTypeFromString(x.Type,name),
 			}
 			//_,avail = w.GetParms(x,name) // TODO
 			//if avail {
@@ -365,6 +387,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			m := Method{
 				Name: x.Name,
 				Type: x.Type,
+				Tp: types.NewTypeFromString(x.Type,name),
 				Class: name,
 				ClassMethod: x.ClassMethod,
 			}
@@ -379,6 +402,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			if x.Super {
 				//fmt.Printf("ast.ObjCInterface: %s inherits from %s\n",name,x.Name)
 				i.Super = x.Name
+				types.SetSuper(name,x.Name)
 			}
 		case *ast.Unknown:
 			//fmt.Printf("(*ast.Unkonwn %s: %s)\n",x.Name,x.Content)
@@ -409,6 +433,7 @@ func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool
 				Pname: n.Parameters[j],
 				Vname: x.Name,
 				Type: x.Type,
+				Tp: types.NewTypeFromString(x.Name,class),
 			}
 			ret = append(ret,p)
 			j++
@@ -456,6 +481,10 @@ func (w *Wrapper) ProcessType(gotype string) {
 	if gotype[0] == '*' {
 		gotype = gotype[1:]
 	}
+	if w.Processed[gotype] {
+		return
+	}
+	w.Processed[gotype] = true
 	if _,ok := gobuiltinTypes[gotype]; ok {
 		return
 	}
@@ -465,9 +494,6 @@ func (w *Wrapper) ProcessType(gotype string) {
 	}
 	if Debug {
 		fmt.Printf("Processing %s (%s)\n",gotype,ctype)
-	}
-	if w.Processed[gotype] {
-		return
 	}
 	if i,ok := w.Interfaces[gotype]; ok {
 		if Debug {
@@ -488,14 +514,12 @@ func (w *Wrapper) ProcessType(gotype string) {
 // %s
 type %s struct { %s }
 `,ctype, gotype, fields))
-		w.Processed[gotype] = true
 	}
 	if s,ok := w.goStructTypes[gotype]; ok {
 		ct := strings.ReplaceAll(s.cName," ","_")
 		w.goTypes.WriteString(fmt.Sprintf(`
 type %s %s
 `,s.goName,"C." + ct))
-		w.Processed[gotype] = true
 	}
 }
 
@@ -554,8 +578,10 @@ New%s() {
 
 			grtype := ""
 			grptr := ""
+			_ = grptr
 			w.AddType(m.Type,i.Name)
-			cmtype := cType(m.Type,i.Name)
+			//cmtype := cType(m.Type,i.Name)
+			cmtype := w.ctMap[w.goType(m.Type,i.Name)].CtypeSimplified()
 			if !m.isVoid() {
 				grtype = w.goType(cmtype,i.Name)
 				if grtype == "" {
@@ -565,6 +591,8 @@ New%s() {
 			}
 			gcast := ""
 			gcast2 := ""
+			_ = gcast
+			_ = gcast2
 			if grtype != "" {
 				if grtype[0] == '*' { // pointer return type
 					if _,ok := w.Interfaces[grtype[1:]]; ok {
@@ -585,14 +613,23 @@ New%s() {
 			}
 			w.ProcessType(grtype)
 			gplist, gptypes, ok := w.goparamlist(m)
+			_ = gplist
 			if !ok {
 				continue
 			}
 			w.ProcessTypes(gptypes)
+			ns,tps := gpntp(m)
 			w.goCode.WriteString(fmt.Sprintf(`
-func (o *%s) %s(%s) %s%s {
+func (o *%s) %s(%s) %s {
+	`,i.Name,gname,gplist,m.Tp.GoType()))
+			w.goCode.WriteString(types.GoToC(gname,ns,m.Tp,tps))
+			w.goCode.WriteString(`
+}
+`)
+
+			/*w.goCode.WriteString(fmt.Sprintf(`
 	%sC.%s_%s(%s)%s
-}`,i.Name, gname, gplist, grptr, grtype, gcast, i.Name, m.Name, w.goparamnames(m),gcast2))
+}`,i.Name, gname, gplist, grptr, grtype, gcast, i.Name, m.Name, w.goparamnames(m),gcast2))*/
 
 			cret := ""
 			if !m.isVoid() {
