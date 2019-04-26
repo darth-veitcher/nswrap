@@ -42,6 +42,9 @@ func NewType(n *Node, c string) *Type {
 
 func NewTypeFromString(t,c string) *Type {
 	n,err := Parse(t)
+	if n.CtypeSimplified() == "id" {
+		n,err = Parse("NSObject*")
+	}
 	if err != nil {
 		return &Type{}
 	}
@@ -56,12 +59,12 @@ func (t *Type) String() string {
 	return t.Node.String()
 }
 
-func (t *Type) Wrap() {
+func Wrap(s string) {
 	if wrapped == nil {
 		wrapped = make(map[string]bool)
 	}
 	// it is the pointers to this type that get wrapped
-	wrapped["*" + t.GoType()] = true
+	wrapped["*" + s] = true
 }
 
 func (t *Type) BaseType() *Type {
@@ -85,6 +88,9 @@ func swapstars(s string) string {
 func (t *Type) CGoType() string {
 	ct := swapstars("C." + t.CType())
 	ct = strings.ReplaceAll(ct," ","_")
+	if ct == "C.long_long" {
+		ct = "C.long" // FIXME why?
+	}
 	return ct
 }
 
@@ -124,29 +130,30 @@ func (t *Type) GoTypeDecl() string {
 		return t.GoInterfaceDecl()
 	}
 	tp := t.BaseType()
-	return fmt.Sprintf(`
+	gt := tp.GoType()
+	switch gt {
+	case "", "Void":
+		return ""
+	default:
+		return fmt.Sprintf(`
 type %s %s
-`,tp.GoType(),tp.CGoType())
+`,gt,tp.CGoType())
+	}
 }
 
 func (t *Type) GoInterfaceDecl() string {
-	return _goInterfaceDecl(t.GoType())
-}
-
-func _goInterfaceDecl(c string) string {
-	if c[0] == '*' {
-		c = c[1:] // dereference wrapped types
+	gt := t.GoType()
+	if gt[0] == '*' {
+		gt = gt[1:] // dereference wrapped types
 	}
 	x := ""
-	super := Super(c)
+	super := Super(gt)
 	if super == "" {
 		super = "ptr unsafe.Pointer"
-	} else {
-		x = _goInterfaceDecl(super) + "\n"
 	}
 	return fmt.Sprintf(`
 %stype %s struct { %s }
-`,x,c,super)
+`,x,gt,super)
 }
 
 func (t *Type) CToGo(cval string) string { // cast C value to CGo
@@ -179,7 +186,11 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 		if wrapped[pt.GoType()] {
 			p = pn + ".ptr"
 		} else {
-			p = "(" + pt.CGoType() + ")(" + pn + ")"
+			if pt.Node.IsPointer() {
+				p = "unsafe.Pointer(" + pn + ")"
+			} else {
+				p = "(" + pt.CGoType() + ")(" + pn + ")"
+			}
 		}
 		parms = append(parms,p)
 	}

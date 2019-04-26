@@ -30,6 +30,7 @@ func AbstractDeclarator(s string, n *Node) (string, *Node) {
 			Opt(Pointer),
 			OneOrMore(DirectAbstractDeclarator)),
 		Pointer,
+		Block,
 	)(s,n)
 }
 
@@ -134,12 +135,21 @@ func NullableAnnotation(s string, n *Node) (string, *Node) {
 		Word("_Null_unspecified"),
 	))(s,n)
 }
+
 func Pointer(s string, n *Node) (string, *Node) {
 	return Seq(
 		NodeNamed("Pointer",Lit("*")),
 		Opt(TypeQualifierList),
 		Opt(NullableAnnotation),
 		Opt(Pointer),
+	)(s,n)
+}
+
+//FIXME: not sure how correct this is...
+func Block(s string, n *Node) (string, *Node) {
+	return Seq(
+		NodeNamed("Block",Lit("^")),
+		Opt(NullableAnnotation),
 	)(s,n)
 }
 

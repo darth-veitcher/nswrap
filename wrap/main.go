@@ -26,9 +26,10 @@ type Wrapper struct {
 	goStructTypes map[string]cStruct // map from gotype to struct descr.
 	goInterfaceTypes []string
 
-	cCode strings.Builder	// put cGo code here
-	goTypes strings.Builder // put Go type declarations here
-	goCode strings.Builder	// put Go code here
+	cCode strings.Builder	  // put cGo code here
+	goTypes strings.Builder   // put Go type declarations here
+	goCode strings.Builder    // put Go code here
+	goHelpers strings.Builder // put Go helper functions here
 	Processed map[string]bool
 	Processed2 map[string]bool
 }
@@ -191,6 +192,16 @@ func (m Method) isVoid() bool {
 	return m.Type == "void"
 }
 
+//hasFunctionParam() returns true if a method has a function as a parameter.
+func (m Method) hasFunctionParam() bool {
+	for _,p := range m.Parameters {
+		if p.Tp.Node.IsFunction() {
+			return true
+		}
+	}
+	return false
+}
+
 func (w Wrapper) isObject(tp string) bool { // takes a goType
 	if _,ok := w.Interfaces[tp]; ok {
 		return true
@@ -204,11 +215,11 @@ func (w Wrapper) cparamlist(m Method) string {
 		ret = append(ret,"void* obj")
 	}
 	for _,p := range m.Parameters {
-		tp := p.Type
-		gtp := w.goType(tp,m.Class)
-		//w.goType(tp,m.Class)
-		if w.isObject(gtp) {
+		var tp string
+		if p.Tp.Node.IsPointer() {
 			tp = "void*"
+		} else {
+			tp = p.Tp.CType()
 		}
 		ret = append(ret,fmt.Sprintf("%s %s",tp,p.Vname))
 	}
@@ -257,7 +268,11 @@ func (m *Method) gpntp() ([]string,[]*types.Type,string) {
 	i := 0
 	if !m.ClassMethod { i = 1 }
 	for ; i < len(ns); i++ {
-		ret = append(ret,ns[i] + " " + tps[i].GoType())
+		gt := tps[i].GoType()
+		if gt == "*Void" {
+			gt = "unsafe.Pointer"
+		}
+		ret = append(ret,ns[i] + " " + gt)
 	}
 	return ns, tps, strings.Join(ret,", ")
 }
@@ -363,7 +378,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 		w.AddType(name,name) // need this?
 	}
 	tp := types.NewTypeFromString(name,name)
-	tp.Wrap()
+	types.Wrap(tp.GoType())
 	var avail bool
 	for _,c := range ns {
 		switch x := c.(type) {
@@ -477,20 +492,48 @@ func (w *Wrapper) pt2(tps ...*types.Type) {
 	case 0:
 		return
 	case 1:
-		break
+		w._pt2(tps[0])
 	default:
 		for _,tp := range tps {
 			w.pt2(tp)
 		}
 		return
 	}
-	tp := tps[0].BaseType()
-	if w.Processed2[tp.GoType()] { return }
-	w.Processed2[tp.GoType()] = true
-	if tp.Node.IsFunction() {
+}
+
+func (w *Wrapper) _pt2(tp *types.Type) {
+	bt := tp.BaseType()
+	if w.Processed2[bt.GoType()] { return }
+	w.Processed2[bt.GoType()] = true
+	if bt.Node.IsFunction() {
 		return
 	}
-	w.goTypes.WriteString(tps[0].GoTypeDecl())
+	w.goTypes.WriteString(tp.GoTypeDecl())
+	if tp.GoType() == "*Char" {
+		w.CharHelpers()
+	}
+	super := types.Super(bt.GoType())
+	if super != "" {
+		types.Wrap(super)
+		pt := types.NewTypeFromString(super + "*","")
+		w._pt2(pt)
+	}
+}
+
+func (w *Wrapper) CharHelpers() {
+	w.goHelpers.WriteString(`
+func CharFromString(s string) *Char {
+	return (*Char)(unsafe.Pointer(C.CString(s)))
+}
+
+func CharFromBytes(b []byte) *Char {
+	return (*Char)(unsafe.Pointer(C.CString(string(b))))
+}
+
+func (c *Char) String() string {
+	return C.GoString((*C.char)(c))
+}
+`)
 }
 
 func (w *Wrapper) ProcessType(gotype string) {
@@ -596,6 +639,9 @@ New%s() {
 			if m.Tp.Node.IsFunction() {
 				continue
 			}
+			if m.hasFunctionParam() {
+				continue
+			}
 			gname := strings.Title(m.Name)
 			cname := i.Name + "_" + m.Name
 
@@ -605,9 +651,13 @@ New%s() {
 			ns,tps,gplist := m.gpntp()
 			w.pt2(tps...)
 			w.pt2(m.Tp)
+			grtype := m.Tp.GoType()
+			if grtype == "Void" {
+				grtype = ""
+			}
 			w.goCode.WriteString(fmt.Sprintf(`
 func (o *%s) %s(%s) %s {
-`,i.Name,gname,gplist,m.Tp.GoType()))
+`,i.Name,gname,gplist,grtype))
 			w.goCode.WriteString(
 				types.GoToC(cname,ns,m.Tp,tps) + "}\n\n")
 
@@ -640,5 +690,6 @@ import (
 )
 `)
 	fmt.Println(w.goTypes.String())
+	fmt.Println(w.goHelpers.String())
 	fmt.Println(w.goCode.String())
 }
