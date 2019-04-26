@@ -119,6 +119,13 @@ func (n *Node) IsStruct() bool {
 	return n.Children[0].Kind == "Struct"
 }
 
+func (n *Node) IsFunction() bool {
+	if n == nil || len(n.Children) < 1 {
+		return false
+	}
+	return n.Children[len(n.Children)-1].Kind == "Function"
+}
+
 //BaseType strips off all layers of pointer indirection
 func (n *Node) BaseType() *Node {
 	if n == nil {

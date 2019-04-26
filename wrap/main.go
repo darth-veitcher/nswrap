@@ -30,6 +30,7 @@ type Wrapper struct {
 	goTypes strings.Builder // put Go type declarations here
 	goCode strings.Builder	// put Go code here
 	Processed map[string]bool
+	Processed2 map[string]bool
 }
 
 var gobuiltinTypes map[string]bool = map[string]bool{
@@ -155,23 +156,6 @@ func (w *Wrapper) goType(t,class string) string {
 	return ct
 }
 
-//FIXME: to be deleted
-func cType(t, class string) string {
-	n, err := types.Parse(t)
-	if err != nil {
-		//fmt.Printf("Cannot parse type %s\n",t)
-		return "NOT IMPLEMENTED"
-	}
-	nt := n.CtypeSimplified()
-	if nt == "id" {
-		return "NSObject"
-	}
-	if nt == "instancetype" {
-		return class + " *"
-	}
-	return nt
-}
-
 func NewWrapper(debug bool) *Wrapper {
 	Debug = debug
 	if Debug { fmt.Println("// Debug mode") }
@@ -182,6 +166,7 @@ func NewWrapper(debug bool) *Wrapper {
 		ctMap: map[string]*types.Node{},
 		goStructTypes: map[string]cStruct{},
 		Processed: map[string]bool{},
+		Processed2: map[string]bool{},
 	}
 }
 
@@ -367,6 +352,8 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 		}
 		w.AddType(name,name) // need this?
 	}
+	tp := types.NewTypeFromString(name,name)
+	tp.Wrap()
 	var avail bool
 	for _,c := range ns {
 		switch x := c.(type) {
@@ -433,7 +420,7 @@ func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool
 				Pname: n.Parameters[j],
 				Vname: x.Name,
 				Type: x.Type,
-				Tp: types.NewTypeFromString(x.Name,class),
+				Tp: types.NewTypeFromString(x.Type,class),
 			}
 			ret = append(ret,p)
 			j++
@@ -472,6 +459,30 @@ func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool
 		fmt.Printf("Error in method declaration %s: Wrong number of ParmVarDecl children: %d parameters but %d ParmVarDecl children\n",n.Name,len(n.Parameters),len(ret))
 	}
 	return ret, true
+}
+
+// new version of ProcessType
+func (w *Wrapper) pt2(tps ...*types.Type) {
+	switch len(tps) {
+	case 0:
+		return
+	case 1:
+		break
+	default:
+		for _,tp := range tps {
+			w.pt2(tp)
+		}
+		return
+	}
+	tp := tps[0].BaseType()
+	if w.Processed2[tp.GoType()] {
+		return
+	}
+	w.Processed2[tp.GoType()] = true
+	if tp.Node.IsFunction() {
+		return
+	}
+	w.goTypes.WriteString(tp.GoTypeDecl())
 }
 
 func (w *Wrapper) ProcessType(gotype string) {
@@ -574,62 +585,24 @@ New%s() {
 			if Debug {
 				fmt.Printf("  method: %s (%s)\n", m.Name, m.Type)
 			}
+			if m.Tp.Node.IsFunction() {
+				continue
+			}
 			gname := strings.Title(m.Name)
+			cname := i.Name + "_" + m.Name
 
-			grtype := ""
-			grptr := ""
-			_ = grptr
 			w.AddType(m.Type,i.Name)
-			//cmtype := cType(m.Type,i.Name)
-			cmtype := w.ctMap[w.goType(m.Type,i.Name)].CtypeSimplified()
-			if !m.isVoid() {
-				grtype = w.goType(cmtype,i.Name)
-				if grtype == "" {
-					grtype = fmt.Sprintf("// goType(%s): NOT IMPLEMENTED\n",cmtype)
-					continue
-				}
-			}
-			gcast := ""
-			gcast2 := ""
-			_ = gcast
-			_ = gcast2
-			if grtype != "" {
-				if grtype[0] == '*' { // pointer return type
-					if _,ok := w.Interfaces[grtype[1:]]; ok {
-						//grptr = "*"
-						gcast = "ret := &" + grtype[1:] + "{}\n	ret.ptr = unsafe.Pointer("
-						gcast2 = ")\n	return ret"
-					} else {
-						gcast = "return (" + grtype + ")(unsafe.Pointer("
-						gcast2 = "))"
-					}
-				} else {
-					gcast = fmt.Sprintf("return (%s)(",grtype)
-					gcast2 = ")"
-				}
-			}
-			if grtype == "id" { // can't return id
-				continue
-			}
-			w.ProcessType(grtype)
-			gplist, gptypes, ok := w.goparamlist(m)
-			_ = gplist
-			if !ok {
-				continue
-			}
-			w.ProcessTypes(gptypes)
+			//cmtype := w.ctMap[w.goType(m.Type,i.Name)].CtypeSimplified()
+			gplist,_,_ := w.goparamlist(m)
+			cmtype := m.Tp.CType()
 			ns,tps := gpntp(m)
+			w.pt2(tps...)
+			w.pt2(m.Tp)
 			w.goCode.WriteString(fmt.Sprintf(`
 func (o *%s) %s(%s) %s {
-	`,i.Name,gname,gplist,m.Tp.GoType()))
-			w.goCode.WriteString(types.GoToC(gname,ns,m.Tp,tps))
-			w.goCode.WriteString(`
-}
-`)
-
-			/*w.goCode.WriteString(fmt.Sprintf(`
-	%sC.%s_%s(%s)%s
-}`,i.Name, gname, gplist, grptr, grtype, gcast, i.Name, m.Name, w.goparamnames(m),gcast2))*/
+`,i.Name,gname,gplist,m.Tp.GoType()))
+			w.goCode.WriteString(
+				types.GoToC(cname,ns,m.Tp,tps) + "}\n")
 
 			cret := ""
 			if !m.isVoid() {
@@ -643,9 +616,9 @@ func (o *%s) %s(%s) %s {
 			}
 			w.cCode.WriteString(fmt.Sprintf(`
 %s
-%s_%s(%s) {
+%s(%s) {
 	%s[%s %s];
-}`, cmtype, i.Name, m.Name, w.cparamlist(m), cret, cobj, w.objcparamlist(m)))
+}`, cmtype, cname, w.cparamlist(m), cret, cobj, w.objcparamlist(m)))
 		}
 	}
 	fmt.Println(`package main

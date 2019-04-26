@@ -5,7 +5,12 @@ import (
 	"strings"
 )
 
+//super is a map recording which class is the parent of each other class
 var super map[string]string
+
+//wrapped is a map recording whether a given GoType is to be "wrapped" in a
+//go struct.
+var wrapped map[string]bool
 
 func Super(c string) string {
 	if super == nil {
@@ -25,7 +30,6 @@ type Type struct {
 	Node *Node
 	Class string
 	ctype string
-	wrapped bool
 }
 
 func NewType(n *Node, c string) *Type {
@@ -52,9 +56,12 @@ func (t *Type) String() string {
 	return t.Node.String()
 }
 
-func (t *Type) Wrap() *Type {
-	t.wrapped = true
-	return t
+func (t *Type) Wrap() {
+	if wrapped == nil {
+		wrapped = make(map[string]bool)
+	}
+	// it is the pointers to this type that get wrapped
+	wrapped["*" + t.GoType()] = true
 }
 
 func (t *Type) BaseType() *Type {
@@ -108,7 +115,8 @@ func (t *Type) CType() string {
 }
 
 func (t *Type) GoTypeDecl() string {
-	if t.wrapped {
+	if wrapped[t.GoType()] {
+		fmt.Printf("%s -> %s: %s is wrapped\n",t.GoType(),t.CGoType(),t.Class)
 		return t.GoInterfaceDecl()
 	}
 	return fmt.Sprintf(`
@@ -138,11 +146,11 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	var ret strings.Builder
 	rt := rtype.CType()
 	if rt != "void" {
-		if rtype.wrapped {
-			ret.WriteString("ret := &" + rtype.GoType()[1:] + "{}\n")
-			ret.WriteString("ret.ptr = unsafe.Pointer(")
+		if wrapped[rtype.GoType()] {
+			ret.WriteString("	ret := &" + rtype.GoType()[1:] + "{}\n")
+			ret.WriteString("	ret.ptr = unsafe.Pointer(")
 		} else {
-			ret.WriteString("return (" + rtype.GoType() + ")(")
+			ret.WriteString("	return (" + rtype.GoType() + ")(")
 			if rtype.Node.IsPointer() {
 				ret.WriteString("unsafe.Pointer(")
 			}
@@ -153,7 +161,7 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	for i := 0; i < len(pnames); i++ {
 		pn,pt := pnames[i],ptypes[i]
 		p := pn
-		if pt.wrapped {
+		if wrapped[pt.GoType()] {
 			p = pn + ".ptr"
 		} else {
 			p = "(" + pt.CGoType() + ")(" + pn + ")"
@@ -163,15 +171,16 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	ret.WriteString(strings.Join(parms,", "))
 	ret.WriteString(")")
 	if rt != "void" {
-		if rtype.wrapped {
+		if wrapped[rtype.GoType()] {
 			ret.WriteString(`)
-return ret
+	return ret
 `)
 		} else {
 			ret.WriteString(")")
 			if rtype.Node.IsPointer() {
 				ret.WriteString(")")
 			}
+			ret.WriteString("\n")
 		}
 	}
 	return ret.String()
