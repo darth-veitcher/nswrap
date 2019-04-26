@@ -87,10 +87,11 @@ func swapstars(s string) string {
 
 func (t *Type) CGoType() string {
 	ct := swapstars("C." + t.CType())
+	ct = strings.ReplaceAll(ct,"unsigned ","u")
+	ct = strings.ReplaceAll(ct,"signed ","u")
+	ct = strings.ReplaceAll(ct,"long ","long")
+	ct = strings.ReplaceAll(ct,"complex ","complex")
 	ct = strings.ReplaceAll(ct," ","_")
-	if ct == "C.long_long" {
-		ct = "C.long" // FIXME why?
-	}
 	return ct
 }
 
