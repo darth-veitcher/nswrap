@@ -89,12 +89,17 @@ func (t *Type) CGoType() string {
 }
 
 func (t *Type) GoType() string {
-	ct := swapstars(t.CType())
+	return _goType(t.CType())
+}
+
+func _goType(ct string) string {
+	ct = swapstars(ct)
 	ct = strings.Title(ct)
 	ct = strings.ReplaceAll(ct," ","")
 	ct = strings.ReplaceAll(ct,"Struct","")
 	return ct
 }
+
 
 func (t *Type) CType() string {
 	if t.ctype != "" { // cache
@@ -116,22 +121,32 @@ func (t *Type) CType() string {
 
 func (t *Type) GoTypeDecl() string {
 	if wrapped[t.GoType()] {
-		fmt.Printf("%s -> %s: %s is wrapped\n",t.GoType(),t.CGoType(),t.Class)
 		return t.GoInterfaceDecl()
 	}
+	tp := t.BaseType()
 	return fmt.Sprintf(`
 type %s %s
-`,t.GoType(),t.CGoType())
+`,tp.GoType(),tp.CGoType())
 }
 
 func (t *Type) GoInterfaceDecl() string {
-	super := Super(t.Class)
+	return _goInterfaceDecl(t.GoType())
+}
+
+func _goInterfaceDecl(c string) string {
+	if c[0] == '*' {
+		c = c[1:] // dereference wrapped types
+	}
+	x := ""
+	super := Super(c)
 	if super == "" {
 		super = "ptr unsafe.Pointer"
+	} else {
+		x = _goInterfaceDecl(super) + "\n"
 	}
 	return fmt.Sprintf(`
-type %s struct { %s }
-`,t.GoType(), super)
+%stype %s struct { %s }
+`,x,c,super)
 }
 
 func (t *Type) CToGo(cval string) string { // cast C value to CGo

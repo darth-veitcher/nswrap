@@ -238,9 +238,13 @@ var goreserved map[string]bool = map[string]bool{
 	"range": true,
 }
 
-func gpntp(m Method) ([]string,[]*types.Type) {
+func (m *Method) gpntp() ([]string,[]*types.Type,string) {
 	ns := []string{}
 	tps := []*types.Type{}
+	if !m.ClassMethod {
+		ns = append(ns,"o")
+		tps = append(tps,types.NewTypeFromString(m.Class + "*",""))
+	}
 	for _,p := range m.Parameters {
 		gname := p.Vname
 		if goreserved[gname] {
@@ -249,7 +253,13 @@ func gpntp(m Method) ([]string,[]*types.Type) {
 		ns = append(ns,gname)
 		tps = append(tps,p.Tp)
 	}
-	return ns,tps
+	ret := []string{}
+	i := 0
+	if !m.ClassMethod { i = 1 }
+	for ; i < len(ns); i++ {
+		ret = append(ret,ns[i] + " " + tps[i].GoType())
+	}
+	return ns, tps, strings.Join(ret,", ")
 }
 
 func (w Wrapper) goparamlist(m Method) (string,[]string,bool) {
@@ -475,14 +485,12 @@ func (w *Wrapper) pt2(tps ...*types.Type) {
 		return
 	}
 	tp := tps[0].BaseType()
-	if w.Processed2[tp.GoType()] {
-		return
-	}
+	if w.Processed2[tp.GoType()] { return }
 	w.Processed2[tp.GoType()] = true
 	if tp.Node.IsFunction() {
 		return
 	}
-	w.goTypes.WriteString(tp.GoTypeDecl())
+	w.goTypes.WriteString(tps[0].GoTypeDecl())
 }
 
 func (w *Wrapper) ProcessType(gotype string) {
@@ -593,16 +601,15 @@ New%s() {
 
 			w.AddType(m.Type,i.Name)
 			//cmtype := w.ctMap[w.goType(m.Type,i.Name)].CtypeSimplified()
-			gplist,_,_ := w.goparamlist(m)
 			cmtype := m.Tp.CType()
-			ns,tps := gpntp(m)
+			ns,tps,gplist := m.gpntp()
 			w.pt2(tps...)
 			w.pt2(m.Tp)
 			w.goCode.WriteString(fmt.Sprintf(`
 func (o *%s) %s(%s) %s {
 `,i.Name,gname,gplist,m.Tp.GoType()))
 			w.goCode.WriteString(
-				types.GoToC(cname,ns,m.Tp,tps) + "}\n")
+				types.GoToC(cname,ns,m.Tp,tps) + "}\n\n")
 
 			cret := ""
 			if !m.isVoid() {
