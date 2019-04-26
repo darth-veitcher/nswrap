@@ -19,6 +19,7 @@ type conf struct {
 	Classes []string
 	Imports []string
 	SysImports []string
+	Pragma []string
 }
 
 var Config conf
@@ -166,6 +167,7 @@ func Start() (err error) {
 	w := wrap.NewWrapper(Debug)
 	w.Import(Config.Imports)
 	w.SysImport(Config.SysImports)
+	w.Pragma(Config.Pragma)
 	for _, n := range(unit.Children()) {
 		switch x := n.(type) {
 		case *ast.ObjCInterfaceDecl:

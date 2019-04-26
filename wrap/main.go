@@ -46,9 +46,13 @@ func (w *Wrapper) Import(ss []string) {
 
 func (w *Wrapper) SysImport(ss []string) {
 	for _,s := range ss {
-		w.cCode.WriteString(`
-#import <` + s + `>
-`)
+		w.cCode.WriteString("\n#import <" + s + ">\n")
+	}
+}
+
+func (w *Wrapper) Pragma(ss []string) {
+	for _,s := range ss {
+		w.cCode.WriteString("\n#pragma " + s + "\n")
 	}
 }
 
