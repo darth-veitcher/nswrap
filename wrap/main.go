@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"gitlab.wow.st/gmp/clast/ast"
-	"gitlab.wow.st/gmp/clast/types"
+	"gitlab.wow.st/gmp/nswrap/ast"
+	"gitlab.wow.st/gmp/nswrap/types"
 )
 
 var (
@@ -25,9 +25,30 @@ type Wrapper struct {
 func NewWrapper(debug bool) *Wrapper {
 	Debug = debug
 	if Debug { fmt.Println("// Debug mode") }
-	return &Wrapper{
+	ret := &Wrapper{
 		Interfaces: map[string]Interface{},
 		Processed: map[string]bool{},
+	}
+	ret.cCode.WriteString(`/*
+#cgo CFLAGS: -x objective-c
+#cgo LDFLAGS: -framework Foundation
+`)
+	return ret
+}
+
+func (w *Wrapper) Import(ss []string) {
+	for _,s := range ss {
+		w.cCode.WriteString(`
+#import "` + s + `"
+`)
+	}
+}
+
+func (w *Wrapper) SysImport(ss []string) {
+	for _,s := range ss {
+		w.cCode.WriteString(`
+#import <` + s + `>
+`)
 	}
 }
 
@@ -321,13 +342,6 @@ func (c *Char) String() string {
 
 func (w *Wrapper) Wrap(toproc []string) {
 
-	w.cCode.WriteString(`/*
-#cgo CFLAGS: -x objective-c
-#cgo LDFLAGS: -framework Foundation
-
-#import <Foundation/Foundation.h>
-`)
-
 	pInterfaces := map[string]Interface{}
 	for _,iface := range toproc {
 		pInterfaces[iface] = w.Interfaces[iface]
@@ -339,11 +353,11 @@ func (w *Wrapper) Wrap(toproc []string) {
 			iname, len(i.Properties), len(i.Methods))
 		}
 
-		/*w.goCode.WriteString(fmt.Sprintf(`
+		w.goCode.WriteString(fmt.Sprintf(`
 func New%s() *%s {
 	ret := &%s{}
 	ret.ptr = unsafe.Pointer(C.New%s())
-	ret = ret.Init()
+	//ret = ret.Init()
 	return ret
 }
 `,i.Name,i.Name,i.Name,i.Name))
@@ -353,7 +367,7 @@ func New%s() *%s {
 New%s() {
 	return [%s alloc];
 }
-`, i.Name, i.Name, i.Name))*/
+`, i.Name, i.Name, i.Name))
 
 		//FIXME: sort properties
 		for _,p := range i.Properties {

@@ -1,39 +1,27 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 
-	"gitlab.wow.st/gmp/clast/ast"
-	"gitlab.wow.st/gmp/clast/wrap"
+	"github.com/BurntSushi/toml"
+	"gitlab.wow.st/gmp/nswrap/ast"
+	"gitlab.wow.st/gmp/nswrap/wrap"
 )
 
-type ProgramArgs struct {
-        verbose     bool
-        ast         bool
-        inputFiles  []string
-        clangFlags  []string
-        outputFile  string
-        packageName string
+var Debug = false
 
-        // A private option to output the Go as a *_test.go file.
-        outputAsTest bool
+type conf struct {
+	InputFiles []string
+	Classes []string
+	Imports []string
+	SysImports []string
 }
 
-// DefaultProgramArgs default value of ProgramArgs
-func DefaultProgramArgs() ProgramArgs {
-        return ProgramArgs{
-                verbose:      false,
-                ast:          false,
-                packageName:  "main",
-                clangFlags:   []string{},
-                outputAsTest: false,
-        }
-}
+var Config conf
 
 func readAST(data []byte) []string {
 	return strings.Split(string(data), "\n")
@@ -143,17 +131,9 @@ func buildTree(nodes []treeNode, depth int) []ast.Node {
 }
 
 // Start begins transpiling an input file.
-func Start(args ProgramArgs) (err error) {
-	if args.verbose {
-		fmt.Println("Start tanspiling ...")
-	}
-
-	if os.Getenv("GOPATH") == "" {
-		return fmt.Errorf("The $GOPATH must be set")
-	}
-
+func Start() (err error) {
 	// 1. Compile it first (checking for errors)
-	for _, in := range args.inputFiles {
+	for _, in := range Config.InputFiles {
 		_, err := os.Stat(in)
 		if err != nil {
 			return fmt.Errorf("Input file %s is not found", in)
@@ -163,12 +143,9 @@ func Start(args ProgramArgs) (err error) {
 	// 2. Preprocess NOT DONE
 
 	// 3. Generate JSON from AST
-	if args.verbose {
-		fmt.Println("Running clang for AST tree...")
-	}
 	cargs := []string{"-xobjective-c", "-Xclang", "-ast-dump",
 			"-fsyntax-only","-fno-color-diagnostics"}
-	cargs = append(cargs,args.inputFiles...)
+	cargs = append(cargs,Config.InputFiles...)
 	astPP, err := exec.Command("clang",cargs...).Output()
 	if err != nil {
 		// If clang fails it still prints out the AST, so we have to run it
@@ -178,32 +155,17 @@ func Start(args ProgramArgs) (err error) {
 		panic("clang failed: " + err.Error() + ":\n\n" + string(errBody))
 	}
 
-	if args.verbose {
-		fmt.Println("Reading clang AST tree...")
-	}
 	lines := readAST(astPP)
-	if args.ast {
-		for _, l := range lines {
-			fmt.Println(l)
-		}
-		fmt.Println()
-
-		return nil
-	}
 
 	// Converting to nodes
-	if args.verbose {
-		fmt.Println("Converting to nodes...")
-	}
 	nodes := convertLinesToNodesParallel(lines)
 
 	// build tree
-	if args.verbose {
-		fmt.Println("Building tree...")
-	}
 	tree := buildTree(nodes, 0)
 	unit := tree[0]
-	w := wrap.NewWrapper(*debugFlag)
+	w := wrap.NewWrapper(Debug)
+	w.Import(Config.Imports)
+	w.SysImport(Config.SysImports)
 	for _, n := range(unit.Children()) {
 		switch x := n.(type) {
 		case *ast.ObjCInterfaceDecl:
@@ -212,122 +174,17 @@ func Start(args ProgramArgs) (err error) {
 			w.AddCategory(x)
 		}
 	}
-	w.Wrap([]string{"NSString"})
+	w.Wrap(Config.Classes)
 	return nil
 }
-
-type inputDataFlags []string
-
-func (i *inputDataFlags) String() (s string) {
-	for pos, item := range *i {
-		s += fmt.Sprintf("Flag %d. %s\n", pos, item)
-	}
-	return
-}
-
-func (i *inputDataFlags) Set(value string) error {
-	*i = append(*i, value)
-	return nil
-}
-
-var clangFlags inputDataFlags
-
-func init() {
-	wrapCommand.Var(&clangFlags, "clang-flag", "Pass arguments to clang. You may provide multiple -clang-flag items.")
-	astCommand.Var(&clangFlags, "clang-flag", "Pass arguments to clang. You may provide multiple -clang-flag items.")
-}
-
-var (
-	versionFlag   = flag.Bool("v", false, "print the version and exit")
-	wrapCommand   = flag.NewFlagSet("wrap", flag.ContinueOnError)
-	verboseFlag   = wrapCommand.Bool("V", false, "print progress as comments")
-	debugFlag     = wrapCommand.Bool("d", false, "print debug information as comments")
-	outputFlag    = wrapCommand.String("o", "", "output Go generated code to the specified file")
-	packageFlag   = wrapCommand.String("p", "main", "set the name of the generated package")
-	wrapHelpFlag  = wrapCommand.Bool("h", false, "print help information")
-	astCommand    = flag.NewFlagSet("ast", flag.ContinueOnError)
-	astHelpFlag   = astCommand.Bool("h", false, "print help information")
-)
 
 func main() {
-	code := runCommand()
-	if code != 0 {
-		os.Exit(code)
+	if _, err := toml.DecodeFile("conf.toml",&Config); err != nil {
+		fmt.Printf("Cannot open config file conf.toml.\n")
+		os.Exit(-1)
 	}
-}
-
-func runCommand() int {
-
-	flag.Usage = func() {
-		usage := "Usage: %s [-v] [<command>] [<flags>] file1.c ...\n\n"
-		usage += "Commands:\n"
-		usage += "  wrap\twrap an Objective-C interface for Go\n"
-		usage += "  ast\t\tprint AST\n\n"
-
-		usage += "Flags:\n"
-		fmt.Printf(usage, os.Args[0])
-		flag.PrintDefaults()
-	}
-
-	flag.Parse()
-
-	if *versionFlag {
-		// Simply print out the version and exit.
-		fmt.Println("version")
-		return 0
-	}
-
-	if flag.NArg() < 1 {
-		flag.Usage()
-		return 1
-	}
-
-	args := DefaultProgramArgs()
-
-	switch os.Args[1] {
-	case "ast":
-		err := astCommand.Parse(os.Args[2:])
-		if err != nil {
-			fmt.Printf("ast command cannot parse: %v", err)
-			return 1
-		}
-
-		if *astHelpFlag || astCommand.NArg() == 0 {
-			fmt.Printf("Usage: %s ast file.c\n", os.Args[0])
-			astCommand.PrintDefaults()
-			return 1
-		}
-
-		args.ast = true
-		args.inputFiles = astCommand.Args()
-		args.clangFlags = clangFlags
-	case "wrap":
-		err := wrapCommand.Parse(os.Args[2:])
-		if err != nil {
-			fmt.Printf("wrap command cannot parse: %v", err)
-			return 1
-		}
-
-		if *wrapHelpFlag || wrapCommand.NArg() == 0 {
-			fmt.Printf("Usage: %s wrap [-V] [-o file.go] [-p package] file1.c ...\n", os.Args[0])
-			wrapCommand.PrintDefaults()
-			return 1
-		}
-
-		args.inputFiles = wrapCommand.Args()
-		args.outputFile = *outputFlag
-		args.packageName = *packageFlag
-		args.verbose = *verboseFlag
-		args.clangFlags = clangFlags
-	default:
-		flag.Usage()
-		return 1
-	}
-
-	if err := Start(args); err != nil {
+	if err := Start(); err != nil {
 		fmt.Printf("Error: %v\n", err)
-		return 1
+		os.Exit(-1)
 	}
-
-	return 0
 }
