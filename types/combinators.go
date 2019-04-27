@@ -102,11 +102,6 @@ func NodeNamed(k string, p Parser) Parser {
 
 // Combinators
 
-//Id is the identity parser
-func Id(s string, n *Node) (string, *Node) {
-	return s,n
-}
-
 //Opt optionally runs a Parser, returning the input node if it fails
 func Opt(p Parser) Parser {
 	return func(s string, n *Node) (string, *Node) {

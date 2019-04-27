@@ -67,6 +67,24 @@ func (n *Node) AddChild(c *Node) *Node {
 	return n
 }
 
+//returns true if anything gets renamed
+func (n *Node) renameTypedefs(a,b string) (ret bool) {
+	ret = false
+	if n == nil { return }
+	for i,c := range n.Children {
+		if c.Kind == "TypedefName" && c.Content == a {
+			ret = true
+			n.Children[i] = NewNode("TypedefName", b)
+			n.Children[i].Children = c.Children
+		}
+		if len(c.Children) > 0 {
+			ret2 := c.renameTypedefs(a,b)
+			ret = ret || ret2
+		}
+	}
+	return
+}
+
 func (n *Node) CtypeSimplified() string {
 	ignore := map[string]bool{
 		"NullableAnnotation": true,

@@ -1,0 +1,4 @@
+Package = "ClassOne"
+InputFiles = [ "ClassOne/simple.h" ]
+Classes = [ "ClassOne" ]
+Imports = [ "simple.h" ]

@@ -12,6 +12,12 @@ var super map[string]string
 //go struct.
 var wrapped map[string]bool
 
+//TypeParameters maps, for each class, a TypedefName to a type, representing
+//the Objective-C type parameters for that class
+var TypeParameters map[string]map[string]string
+
+var Typedefs map[string]*Type
+
 func Super(c string) string {
 	if super == nil {
 		super = make(map[string]string)
@@ -24,6 +30,23 @@ func SetSuper(c, p string) {
 		super = make(map[string]string)
 	}
 	super[c] = p
+}
+
+func SetTypeParam(c, n, t string) {
+	if TypeParameters == nil {
+		TypeParameters = make(map[string]map[string]string)
+	}
+	if TypeParameters[c] == nil {
+		TypeParameters[c] = make(map[string]string)
+	}
+	TypeParameters[c][n] = t
+}
+
+func AddTypedef(n,t string) {
+	if Typedefs == nil {
+		Typedefs = make(map[string]*Type)
+	}
+	Typedefs[n] = NewTypeFromString(t,"")
 }
 
 type Type struct {
@@ -42,11 +65,21 @@ func NewType(n *Node, c string) *Type {
 
 func NewTypeFromString(t,c string) *Type {
 	n,err := Parse(t)
-	if n.CtypeSimplified() == "id" {
+	if n.IsId() {
+	//if n.CtypeSimplified() == "id" {
 		n,err = Parse("NSObject*")
 	}
 	if err != nil {
 		return &Type{}
+	}
+	if TypeParameters[c] != nil {
+		recur := false
+		for k,v := range TypeParameters[c] {
+			recur = n.renameTypedefs(k,v)
+		}
+		if recur {
+			return NewTypeFromString(n.Ctype(),c)
+		}
 	}
 	return &Type{
 		Node: n,
@@ -117,19 +150,21 @@ func (t *Type) CTypeAttrib() string {
 }
 
 func (t *Type) _CType(attrib bool) string {
+	//if !attrib && c.ctype != "" ... FIXME?
 	if t.ctype != "" { // cache
 		return t.ctype
 	}
 	var ct string
 	if attrib {
-		ct = t.Node.Ctype()
+		ignore := map[string]bool { "GenericList": true }
+		ct = t.Node._Ctype(ignore)
 	} else {
 		ct = t.Node.CtypeSimplified()
 	}
 	ct = strings.ReplaceAll(ct,"instancename",t.Class)
 	ct = strings.ReplaceAll(ct,"instancetype",t.Class + " *")
 	if len(ct) > 1 && ct[:2] == "id" {
-		ct = "NSObject *" + ct[2:]
+		ct = "NSObject*" + ct[2:]
 	}
 	if len(ct) > 11 {
 		if ct[:12] == "instancename" { ct = t.Class + ct[12:] }
@@ -148,14 +183,18 @@ func (t *Type) GoTypeDecl() string {
 		return t.GoInterfaceDecl()
 	}
 	tp := t.BaseType()
+	if tp.Node.IsId() {
+		return ""
+	}
 	gt := tp.GoType()
 	switch gt {
 	case "", "Void":
 		return ""
 	default:
 		return fmt.Sprintf(`
+//%s
 type %s %s
-`,gt,tp.CGoType())
+`,t.Node.CtypeSimplified(),gt,tp.CGoType())
 	}
 }
 
@@ -170,12 +209,27 @@ func (t *Type) GoInterfaceDecl() string {
 		super = "ptr unsafe.Pointer"
 	}
 	return fmt.Sprintf(`
+//%s
 %stype %s struct { %s }
-`,x,gt,super)
+`,t.CTypeAttrib(),x,gt,super)
+}
+
+func (t *Type) IsFunction() bool {
+	if td,ok := Typedefs[t.BaseType().CType()]; ok {
+		return td.IsFunction()
+	}
+	return t.Node.IsFunction()
+}
+
+func (t *Type) IsPointer() bool {
+	if td,ok := Typedefs[t.BaseType().CType()]; ok {
+		return td.IsPointer()
+	}
+	return t.Node.IsPointer()
 }
 
 func (t *Type) CToGo(cval string) string { // cast C value to CGo
-	if t.Node.IsPointer() {
+	if t.IsPointer() {
 		cval = "unsafe.Pointer(" + cval + ")"
 	}
 	return fmt.Sprintf("(%s)(%s)",t.GoType(),cval)

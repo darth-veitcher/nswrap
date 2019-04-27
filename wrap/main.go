@@ -2,6 +2,8 @@ package wrap
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strings"
 
 	"gitlab.wow.st/gmp/nswrap/ast"
@@ -13,6 +15,7 @@ var (
 )
 
 type Wrapper struct {
+	Package string
 	Interfaces map[string]Interface
 
 	cCode strings.Builder	  // put cGo code here
@@ -81,7 +84,7 @@ func (m Method) isVoid() bool {
 //hasFunctionParam() returns true if a method has a function as a parameter.
 func (m Method) hasFunctionParam() bool {
 	for _,p := range m.Parameters {
-		if p.Type.Node.IsFunction() {
+		if p.Type.IsFunction() {
 			return true
 		}
 	}
@@ -224,6 +227,9 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 				//fmt.Printf("ast.ObjCInterface: %s inherits from %s\n",name,x.Name)
 				types.SetSuper(name,x.Name)
 			}
+		case *ast.ObjCTypeParamDecl:
+			//fmt.Printf("ObjCTypeParamDecl: %s = %s\n",x.Name,x.Type)
+			types.SetTypeParam(name,x.Name,x.Type)
 		case *ast.Unknown:
 			//fmt.Printf("(*ast.Unkonwn %s: %s)\n",x.Name,x.Content)
 		default:
@@ -312,7 +318,7 @@ func (w *Wrapper) processType(tp *types.Type) {
 	bt := tp.BaseType()
 	if w.Processed[bt.GoType()] { return }
 	w.Processed[bt.GoType()] = true
-	if bt.Node.IsFunction() {
+	if bt.IsFunction() {
 		return
 	}
 	w.goTypes.WriteString(tp.GoTypeDecl())
@@ -345,17 +351,26 @@ func (c *Char) String() string {
 
 
 func (w *Wrapper) Wrap(toproc []string) {
-
+	if w.Package == "" { w.Package = "ns" }
+	err := os.MkdirAll(w.Package,0755)
+	if err != nil {
+		fmt.Printf("Error creating directory '%s'\n%s\n",w.Package,err)
+		os.Exit(-1)
+	}
+	of,err := os.Create(path.Join(w.Package,"main.go"))
+	if err != nil {
+		fmt.Printf("Error opening file %s\n%s\n",path.Join(w.Package,"main.go"),err)
+		os.Exit(-1)
+	}
+	fmt.Printf("Writing output to %s\n",path.Join(w.Package,"main.go"))
 	pInterfaces := map[string]Interface{}
 	for _,iface := range toproc {
 		pInterfaces[iface] = w.Interfaces[iface]
 	}
 	//FIXME: sort pInterfaces
-	for iname,i := range pInterfaces {
-		if Debug {
-			fmt.Printf("Interface %s: %d properties, %d methods\n",
-			iname, len(i.Properties), len(i.Methods))
-		}
+	for _,i := range pInterfaces {
+		fmt.Printf("Interface %s: %d properties, %d methods\n",
+			i.Name, len(i.Properties), len(i.Methods))
 
 		w.goCode.WriteString(fmt.Sprintf(`
 func New%s() *%s {
@@ -384,16 +399,14 @@ New%s() {
 			if Debug {
 				fmt.Printf("  method: %s (%s)\n", m.Name, m.Type)
 			}
-			if m.Type.Node.IsFunction() {
+			if m.Type.IsFunction() {
 				continue
 			}
 			if m.hasFunctionParam() {
 				continue
 			}
 			gname := strings.Title(m.Name)
-			if m.ClassMethod {
-				gname = i.Name + gname
-			} else {
+			if !m.ClassMethod {
 				gname = "(o *" + i.Name + ") " + gname
 			}
 			cname := i.Name + "_" + m.Name
@@ -429,10 +442,9 @@ func %s(%s) %s {
 }`, cmtype, cname, w.cparamlist(m), cret, cobj, w.objcparamlist(m)))
 		}
 	}
-	fmt.Println(`package main
-`)
-	fmt.Println(w.cCode.String())
-	fmt.Println(`
+	of.WriteString("package " + w.Package + "\n\n")
+	of.WriteString(w.cCode.String())
+	of.WriteString(`
 */
 import "C"
 
@@ -440,7 +452,8 @@ import (
 	"unsafe"
 )
 `)
-	fmt.Println(w.goTypes.String())
-	fmt.Println(w.goHelpers.String())
-	fmt.Println(w.goCode.String())
+	of.WriteString(w.goTypes.String())
+	of.WriteString(w.goHelpers.String())
+	of.WriteString(w.goCode.String())
+	of.Close()
 }

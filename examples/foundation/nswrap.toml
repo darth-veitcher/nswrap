@@ -1,0 +1,10 @@
+InputFiles = [
+    "/System/Library/Frameworks/Foundation.framework/Headers/NSDictionary.h",
+    "/System/Library/Frameworks/Foundation.framework/Headers/NSString.h",
+]
+Classes = [
+	"NSString",
+	"NSDictionary",
+]
+SysImports = [ "Foundation/Foundation.h" ]
+Pragma = [ 'clang diagnostic ignored "-Wformat-security"' ]

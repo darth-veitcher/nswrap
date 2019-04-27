@@ -1,6 +1,8 @@
 clast
 ast.txt
 *.ast
-simple
-complex
 program
+examples/foundation/foundation
+examples/foundation/ns
+examples/simple/simple
+examples/simple/simple/ClassOne

@@ -212,6 +212,8 @@ func Parse(fullline string) Node {
 		return parseObjCProtocol(line)
 	case "ObjCPropertyDecl":
 		return parseObjCPropertyDecl(line)
+	case "ObjCTypeParamDecl":
+		return parseObjCTypeParamDecl(line)
 	case "OffsetOfExpr":
 		return parseOffsetOfExpr(line)
 	case "PackedAttr":

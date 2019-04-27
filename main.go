@@ -9,12 +9,14 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"gitlab.wow.st/gmp/nswrap/ast"
+	"gitlab.wow.st/gmp/nswrap/types"
 	"gitlab.wow.st/gmp/nswrap/wrap"
 )
 
 var Debug = false
 
 type conf struct {
+	Package string
 	InputFiles []string
 	Classes []string
 	Imports []string
@@ -163,17 +165,22 @@ func Start() (err error) {
 
 	// build tree
 	tree := buildTree(nodes, 0)
-	unit := tree[0]
+	//unit := tree[0]
 	w := wrap.NewWrapper(Debug)
+	w.Package = Config.Package
 	w.Import(Config.Imports)
 	w.SysImport(Config.SysImports)
 	w.Pragma(Config.Pragma)
-	for _, n := range(unit.Children()) {
-		switch x := n.(type) {
-		case *ast.ObjCInterfaceDecl:
-			w.AddInterface(x)
-		case *ast.ObjCCategoryDecl:
-			w.AddCategory(x)
+	for _, u := range tree {
+		for _, n := range(u.Children()) {
+			switch x := n.(type) {
+			case *ast.ObjCInterfaceDecl:
+				w.AddInterface(x)
+			case *ast.ObjCCategoryDecl:
+				w.AddCategory(x)
+			case *ast.TypedefDecl:
+				types.AddTypedef(x.Name,x.Type)
+			}
 		}
 	}
 	w.Wrap(Config.Classes)
@@ -181,8 +188,8 @@ func Start() (err error) {
 }
 
 func main() {
-	if _, err := toml.DecodeFile("conf.toml",&Config); err != nil {
-		fmt.Printf("Cannot open config file conf.toml.\n")
+	if _, err := toml.DecodeFile("nswrap.toml",&Config); err != nil {
+		fmt.Printf("Cannot open config file nswrap.toml.\n")
 		os.Exit(-1)
 	}
 	if err := Start(); err != nil {
