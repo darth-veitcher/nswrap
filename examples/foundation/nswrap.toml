@@ -1,10 +1,20 @@
 InputFiles = [
-    "/System/Library/Frameworks/Foundation.framework/Headers/NSDictionary.h",
-    "/System/Library/Frameworks/Foundation.framework/Headers/NSString.h",
+    "/System/Library/Frameworks/Foundation.framework/Headers/Foundation.h",
+#    "/System/Library/Frameworks/Foundation.framework/Headers/NSDictionary.h",
+#    "/System/Library/Frameworks/Foundation.framework/Headers/NSString.h",
 ]
 Classes = [
-	"NSString",
+	"NSArray",
 	"NSDictionary",
+	"NSSet",
+	"NSDate",
+	"NSTimeZone",
+	"NSCalendar",
+	"NSLocale",
+	"NSCharacterSet",
+	"NSString",
+	"NSScanner",
+	"NSFileManager",
 ]
 SysImports = [ "Foundation/Foundation.h" ]
 Pragma = [ 'clang diagnostic ignored "-Wformat-security"' ]

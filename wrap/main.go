@@ -299,7 +299,6 @@ func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool
 	return ret, true
 }
 
-// new version of ProcessType
 func (w *Wrapper) processTypes(tps []*types.Type) {
 	switch len(tps) {
 	case 0:
@@ -315,21 +314,27 @@ func (w *Wrapper) processTypes(tps []*types.Type) {
 }
 
 func (w *Wrapper) processType(tp *types.Type) {
-	bt := tp.BaseType()
-	if w.Processed[bt.GoType()] { return }
-	w.Processed[bt.GoType()] = true
-	if bt.IsFunction() {
+	gt := tp.GoType()
+	if gt == "" {
+		return
+	}
+	if gt[0] == '*' {
+		w.processType(tp.PointsTo())
+		return
+	}
+	if w.Processed[gt] { return }
+	w.Processed[gt] = true
+	if gt == "Char" {
+		w.CharHelpers()
+	}
+	if tp.IsFunction() {
 		return
 	}
 	w.goTypes.WriteString(tp.GoTypeDecl())
-	if tp.GoType() == "*Char" {
-		w.CharHelpers()
-	}
-	super := types.Super(bt.GoType())
+	super := types.Super(gt)
 	if super != "" {
 		types.Wrap(super)
-		pt := types.NewTypeFromString(super + "*","")
-		w.processType(pt)
+		w.processType(types.NewTypeFromString(super,""))
 	}
 }
 

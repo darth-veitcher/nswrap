@@ -92,12 +92,16 @@ func (t *Type) String() string {
 	return t.Node.String()
 }
 
+func (t *Type) PointsTo() *Type {
+	return NewType(t.Node.PointsTo(), t.Class)
+}
+
 func Wrap(s string) {
 	if wrapped == nil {
 		wrapped = make(map[string]bool)
 	}
 	// it is the pointers to this type that get wrapped
-	wrapped["*" + s] = true
+	wrapped[s] = true
 }
 
 func (t *Type) BaseType() *Type {
@@ -105,9 +109,9 @@ func (t *Type) BaseType() *Type {
 		t.Node.BaseType(),
 		t.Class,
 	)
-	if ret.CType() == ret.Class + " *" { // "instancename"
-		ret.ctype = ret.Class
-	}
+//	if ret.CType() == ret.Class + " *" { // "instancename"
+//		ret.ctype = ret.Class
+//	}
 	return ret
 }
 
@@ -203,15 +207,14 @@ func (t *Type) GoInterfaceDecl() string {
 	if gt[0] == '*' {
 		gt = gt[1:] // dereference wrapped types
 	}
-	x := ""
 	super := Super(gt)
 	if super == "" {
 		super = "ptr unsafe.Pointer"
 	}
 	return fmt.Sprintf(`
-//%s
-%stype %s struct { %s }
-`,t.CTypeAttrib(),x,gt,super)
+//%s (%s)
+type %s struct { %s }
+`,t.Node.Ctype(),t.BaseType().GoType(),gt,super)
 }
 
 func (t *Type) IsFunction() bool {
@@ -239,8 +242,11 @@ func (t *Type) CToGo(cval string) string { // cast C value to CGo
 func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	var ret strings.Builder
 	rt := rtype.CType()
+	wrap := func(gt string) bool {
+		return gt != "" && gt[0] == '*' && wrapped[gt[1:]]
+	}
 	if rt != "void" {
-		if wrapped[rtype.GoType()] {
+		if wrap(rtype.GoType()) {
 			ret.WriteString("	ret := &" + rtype.GoType()[1:] + "{}\n")
 			ret.WriteString("	ret.ptr = unsafe.Pointer(")
 		} else {
@@ -255,7 +261,7 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	for i := 0; i < len(pnames); i++ {
 		pn,pt := pnames[i],ptypes[i]
 		p := pn
-		if wrapped[pt.GoType()] {
+		if wrap(pt.GoType()) {
 			p = pn + ".ptr"
 		} else {
 			if pt.Node.IsPointer() {
@@ -269,7 +275,7 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	ret.WriteString(strings.Join(parms,", "))
 	ret.WriteString(")")
 	if rt != "void" {
-		if wrapped[rtype.GoType()] {
+		if wrap(rtype.GoType()) {
 			ret.WriteString(`)
 	return ret
 `)
