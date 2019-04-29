@@ -298,9 +298,9 @@ func Parse(fullline string) Node {
 		return parseWeakAttr(line)
 	case "WhileStmt":
 		return parseWhileStmt(line)
+	case "...":
+		return parseVariadic(line)
 	case "NullStmt":
-		return nil
-	case "...": // FIXME for variadic functions
 		return nil
 	default:
 		return parseUnknown(nodeName,line)

@@ -11,6 +11,8 @@ func main() {
 	c1 := n1.CapitalizedString()
 	gs := c1.UTF8String().String()
 	fmt.Println(gs)
-	a := ns.ArrayWithObjects(n1)
-	_ = a
+	n2 := ns.StringWithUTF8String(ns.CharFromString("hi world"))
+	n3 := ns.StringWithUTF8String(ns.CharFromString("ok bye"))
+	a := ns.ArrayWithObjects(n1,n2,n3)
+	fmt.Println("Length(a) = ",a.Count())
 }

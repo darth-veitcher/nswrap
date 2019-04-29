@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"gitlab.wow.st/gmp/nswrap/ast"
@@ -23,6 +24,7 @@ type Wrapper struct {
 	goCode strings.Builder    // put Go code here
 	goHelpers strings.Builder // put Go helper functions here
 	Processed map[string]bool
+	VaArgs int
 }
 
 func NewWrapper(debug bool) *Wrapper {
@@ -31,6 +33,7 @@ func NewWrapper(debug bool) *Wrapper {
 	ret := &Wrapper{
 		Interfaces: map[string]Interface{},
 		Processed: map[string]bool{},
+		VaArgs: 16,
 	}
 	ret.cCode.WriteString(`/*
 #cgo CFLAGS: -x objective-c
@@ -102,7 +105,7 @@ func (w Wrapper) cparamlist(m Method) string {
 	}
 	for _,p := range m.Parameters {
 		var tp string
-		if p.Type.Node.IsPointer() {
+		if p.Type.Node.IsPointer() || p.Type.Variadic {
 			tp = "void*"
 		} else {
 			tp = p.Type.CType()
@@ -119,11 +122,20 @@ func (w Wrapper) objcparamlist(m Method) string {
 	first := true
 	ret := []string{}
 	for _,p := range m.Parameters {
-		if first {
+		if first && !p.Type.Variadic {
 			ret = append(ret,m.Name + ":" + p.Vname)
 			first = false
 		} else {
-			ret = append(ret, p.Pname + ":" + p.Vname)
+			if p.Type.Variadic {
+				str := []string{m.Name + ":arr[0]"}
+				for i := 1; i < w.VaArgs; i++ {
+					str = append(str,"arr["+strconv.Itoa(i)+"]")
+				}
+				str = append(str,"nil")
+				ret = append(ret, strings.Join(str,", "))
+			} else {
+				ret = append(ret, p.Pname + ":" + p.Vname)
+			}
 		}
 	}
 	return strings.Join(ret," ")
@@ -157,6 +169,10 @@ func (m *Method) gpntp() ([]string,[]*types.Type,string) {
 		gt := tps[i].GoType()
 		if gt == "*Void" {
 			gt = "unsafe.Pointer"
+		}
+		if tps[i].Variadic {
+			gt = "..." + gt
+			ns[i] = ns[i] + "s"
 		}
 		ret = append(ret,ns[i] + " " + gt)
 	}
@@ -266,6 +282,8 @@ func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool
 			}
 			ret = append(ret,p)
 			j++
+		case *ast.Variadic:
+			ret[j-1].Type.Variadic = true
 		case *ast.AvailabilityAttr:
 			avail = append(avail,
 				AvailAttr{
@@ -432,6 +450,18 @@ New%s() {
 			w.goCode.WriteString(fmt.Sprintf(`
 func %s(%s) %s {
 `,gname,gplist,grtype))
+			lparm := len(tps)-1
+			if len(tps) > 0 && tps[lparm].Variadic {
+				vn := ns[lparm]
+				vn = vn[:len(vn)-1]
+				ns[lparm] = vn
+				w.goCode.WriteString(fmt.Sprintf(
+`	var %s [%d]unsafe.Pointer
+	for i,o := range %ss {
+		%s[i] = o.Ptr()
+	}
+`,vn,w.VaArgs,vn,vn))
+			}
 			w.goCode.WriteString(
 				types.GoToC(cname,ns,m.Type,tps) + "}\n\n")
 
@@ -448,8 +478,14 @@ func %s(%s) %s {
 			w.cCode.WriteString(fmt.Sprintf(`
 %s
 %s(%s) {
-	%s[%s %s];
-}`, cmtype, cname, w.cparamlist(m), cret, cobj, w.objcparamlist(m)))
+`, cmtype, cname, w.cparamlist(m)))
+			if len(tps) > 0 && tps[lparm].Variadic {
+				w.cCode.WriteString(fmt.Sprintf(
+`	%s* arr = %s;
+`, tps[lparm].CType(), ns[lparm]))
+			}
+			w.cCode.WriteString(fmt.Sprintf(`	%s[%s %s];
+}`, cret, cobj, w.objcparamlist(m)))
 		}
 	}
 	of.WriteString("package " + w.Package + "\n\n")

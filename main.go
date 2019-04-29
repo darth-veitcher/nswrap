@@ -22,6 +22,7 @@ type conf struct {
 	Imports []string
 	SysImports []string
 	Pragma []string
+	VaArgs int
 }
 
 var Config conf
@@ -171,6 +172,9 @@ func Start() (err error) {
 	w.Import(Config.Imports)
 	w.SysImport(Config.SysImports)
 	w.Pragma(Config.Pragma)
+	if Config.VaArgs == 0 {
+		w.VaArgs = 16
+	}
 	for _, u := range tree {
 		for _, n := range(u.Children()) {
 			switch x := n.(type) {

@@ -66,6 +66,7 @@ type Type struct {
 	Node *Node
 	Class string
 	ctype string
+	Variadic bool
 }
 
 func NewType(n *Node, c string) *Type {
@@ -292,12 +293,15 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	for i := 0; i < len(pnames); i++ {
 		pn,pt := pnames[i],ptypes[i]
 		p := pn
-		if shouldWrap(pt.GoType()) || isGoInterface(pt.GoType()) {
+		if (shouldWrap(pt.GoType()) || isGoInterface(pt.GoType())) && !pt.Variadic {
 			p = pn + ".Ptr()"
 		} else {
-			if pt.Node.IsPointer() {
+			switch {
+			case pt.Variadic:
+				p = "unsafe.Pointer(&" + p + ")"
+			case pt.Node.IsPointer():
 				p = "unsafe.Pointer(" + pn + ")"
-			} else {
+			default:
 				p = "(" + pt.CGoType() + ")(" + pn + ")"
 			}
 		}
