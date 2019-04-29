@@ -13,10 +13,6 @@ var super map[string]string
 var wrapped map[string]bool
 
 func shouldWrap(gt string) bool {
-	if wrapped == nil {
-		wrapped = make(map[string]bool)
-		return false
-	}
 	return gt != "" && gt[0] == '*' && wrapped[gt[1:]]
 }
 
@@ -25,10 +21,6 @@ func shouldWrap(gt string) bool {
 var goInterfaces map[string]bool
 
 func isGoInterface(gt string) bool {
-	if goInterfaces == nil {
-		goInterfaces = make(map[string]bool)
-		return false
-	}
 	return goInterfaces[gt]
 }
 
@@ -36,26 +28,30 @@ func isGoInterface(gt string) bool {
 //the Objective-C type parameters for that class
 var TypeParameters map[string]map[string]string
 
-var Typedefs map[string]*Type
+//Typedefs maps from C types to the Type of a typedef with that name.
+var typedefs map[string]*Type
+
+func (t *Type) Typedef() *Type {
+	return typedefs[t.BaseType().CType()]
+}
+
+func init() {
+	super = make(map[string]string)
+	wrapped = make(map[string]bool)
+	goInterfaces = make(map[string]bool)
+	TypeParameters = make(map[string]map[string]string)
+	typedefs = make(map[string]*Type)
+}
 
 func Super(c string) string {
-	if super == nil {
-		super = make(map[string]string)
-	}
 	return super[c]
 }
 
 func SetSuper(c, p string) {
-	if super == nil {
-		super = make(map[string]string)
-	}
 	super[c] = p
 }
 
 func SetTypeParam(c, n, t string) {
-	if TypeParameters == nil {
-		TypeParameters = make(map[string]map[string]string)
-	}
 	if TypeParameters[c] == nil {
 		TypeParameters[c] = make(map[string]string)
 	}
@@ -63,10 +59,7 @@ func SetTypeParam(c, n, t string) {
 }
 
 func AddTypedef(n,t string) {
-	if Typedefs == nil {
-		Typedefs = make(map[string]*Type)
-	}
-	Typedefs[n] = NewTypeFromString(t,"")
+	typedefs[n] = NewTypeFromString(t,"")
 }
 
 type Type struct {
@@ -117,9 +110,6 @@ func (t *Type) PointsTo() *Type {
 }
 
 func Wrap(s string) {
-	if wrapped == nil {
-		wrapped = make(map[string]bool)
-	}
 	// it is the pointers to this type that get wrapped
 	wrapped[s] = true
 }
@@ -215,10 +205,18 @@ func (t *Type) GoTypeDecl() string {
 	case "", "Void":
 		return ""
 	default:
+		extra := t.Node.CtypeSimplified()
+		var cgt string
+		if td := tp.Typedef(); td != nil {
+			cgt = td.CGoType()
+			extra = "typedef " + td.Node.Ctype()
+		} else {
+			cgt = tp.CGoType()
+		}
 		return fmt.Sprintf(`
-//%s
+//%s (%s)
 type %s %s
-`,t.Node.CtypeSimplified(),gt,tp.CGoType())
+`,t.Node.Ctype(),extra,gt,cgt)
 	}
 }
 
@@ -228,9 +226,6 @@ func (t *Type) GoInterfaceDecl() string {
 		gt = gt[1:] // dereference wrapped types
 	}
 	super := Super(gt)
-	if goInterfaces == nil {
-		goInterfaces = make(map[string]bool)
-	}
 	if super == "" {
 		goInterfaces[gt] = true
 		return fmt.Sprintf(`
@@ -251,14 +246,14 @@ func (o *%s) Ptr() unsafe.Pointer { return o.ptr }
 }
 
 func (t *Type) IsFunction() bool {
-	if td,ok := Typedefs[t.BaseType().CType()]; ok {
+	if td := t.Typedef(); td != nil {
 		return td.IsFunction()
 	}
 	return t.Node.IsFunction()
 }
 
 func (t *Type) IsPointer() bool {
-	if td,ok := Typedefs[t.BaseType().CType()]; ok {
+	if td := t.Typedef(); td != nil {
 		return td.IsPointer()
 	}
 	return t.Node.IsPointer()

@@ -270,7 +270,7 @@ func TypeSpecifier(s string, n *Node) (string, *Node) {
 		Word("_Bool"),
 		Word("_Complex"),
 		//StructOrUnionSpecifier,
-		//EnumSpecifier,
+		EnumSpecifier,
 		//TypedefName,
 	))(s,n)
 }
@@ -284,16 +284,21 @@ func TypeQualifier(s string, n *Node) (string, *Node) {
 }
 
 func StructOrUnionSpecifier(s string, n *Node) (string, *Node) {
-	return NodeNamed("StructOrUnionSpecifier",OneOf(
+	return OneOf(
 //		Seq(StructOrUnion,Opt(Identifier),StructDeclarationList),
 		Nest(StructOrUnion,Identifier),
-	))(s,n)
+	)(s,n)
 }
 
 func StructOrUnion(s string, n *Node) (string, *Node) {
 	return OneOf(
 		NodeNamed("Struct",Word("struct")),
 		NodeNamed("Union",Word("union")))(s,n)
+}
+
+func EnumSpecifier(s string, n *Node) (string, *Node) {
+	return Nest(
+		NodeNamed("Enum",Word("enum")),Identifier)(s,n)
 }
 
 func Generic(s string, n *Node) (string, *Node) {
