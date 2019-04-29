@@ -1,6 +1,85 @@
 package types
 
-// Parsers for recognizing type names in C/Objective-C
+/* Parsers for recognizing type names in C/Objective-C
+
+type-name:
+	specifier-qualifier-list abstract-declarator<opt>
+abstract-declarator:
+	pointer
+	pointer<opt> direct-abstract-declarator
+direct-abstract-declarator:
+	( abstract-declarator )
+	direct-abstract-declarator<opt> [ type-qualifier-list<opt> assignment-expression<opt> ]
+	direct-abstract-declarator<opt> [ static type-qualifier-list<opt> assignment-expression ]
+	direct-abstract-declarator<opt> [ type-qualifier-list static assignment-expression ]
+	direct-abstract-declarator<opt> [ * ]
+	direct-abstract-declarator<opt> ( parameter-type-list<opt> )
+pointer:
+	* type-qualifier-list<opt>
+	* type-qualifier-list<opt> pointer
+parameter-type-list:
+	parameter-list
+	parameter-list , ...
+parameter-list:
+	parameter-declaration
+	parameter-list , parameter-declaration
+parameter-declaration:
+	declaration-specifiers declarator
+	declaration-specifiers abstract-declarator<opt>
+type-qualifier-list:
+	type-qualifier
+	type-qualifier-list type-qualifier
+specifier-qualifier-list:
+	type-specifier specifier-qualifier-list<opt>
+	type-qualifier specifier-qualifier-list<opt>
+type-specifier:
+	void
+	char
+	short
+	int
+	long
+	float
+	double
+	signed
+	unsigned
+	_Bool
+	_Complex
+	struct-or-union-specifier
+	enum-specifier
+	typedef-name
+type-qualifier:
+	const
+	restrict
+	volatile
+struct-or-union-specifier:
+	// DON'T DO struct-or-union identifier<opt> { struct-declaration-list }
+	struct-or-union identifier
+struct-or-union:
+	struct
+	union
+struct-declaration-list:
+	struct-declaration
+	struct-declaration-list struct-declaration
+struct-declaration:
+	specifier-qualifier-list struct-declarator-list ;
+struct-declarator-list:
+	struct-declarator
+	struct-declarator-list , struct-declarator
+struct-declarator:
+	declarator
+	declarator<opt>: constant-expression
+identifier:
+	identifier-non-digit
+	identifier identifier-nondigit
+	identifier digit
+identifier-nondigit:
+	nondigit
+	universal-character-name
+nondigit:
+	_ [a-zA-Z]
+digit:
+	[0-9]
+*/
 
 var TypeName func(s string, n *Node) (string, *Node)
 

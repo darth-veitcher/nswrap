@@ -314,12 +314,13 @@ func (w *Wrapper) processTypes(tps []*types.Type) {
 }
 
 func (w *Wrapper) processType(tp *types.Type) {
-	gt := tp.GoType()
+	bt := tp.BaseType()
+	gt := bt.GoType()
 	if gt == "" {
 		return
 	}
 	if gt[0] == '*' {
-		w.processType(tp.PointsTo())
+		w.processType(bt.PointsTo())
 		return
 	}
 	if w.Processed[gt] { return }
@@ -327,10 +328,10 @@ func (w *Wrapper) processType(tp *types.Type) {
 	if gt == "Char" {
 		w.CharHelpers()
 	}
-	if tp.IsFunction() {
+	if bt.IsFunction() {
 		return
 	}
-	w.goTypes.WriteString(tp.GoTypeDecl())
+	w.goTypes.WriteString(bt.GoTypeDecl())
 	super := types.Super(gt)
 	if super != "" {
 		types.Wrap(super)
