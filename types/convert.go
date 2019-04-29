@@ -12,6 +12,26 @@ var super map[string]string
 //go struct.
 var wrapped map[string]bool
 
+func shouldWrap(gt string) bool {
+	if wrapped == nil {
+		wrapped = make(map[string]bool)
+		return false
+	}
+	return gt != "" && gt[0] == '*' && wrapped[gt[1:]]
+}
+
+//goInterfaces records the names of top level Go interfaces. Pointers to these
+//are dereferenced to bare interface names.
+var goInterfaces map[string]bool
+
+func isGoInterface(gt string) bool {
+	if goInterfaces == nil {
+		goInterfaces = make(map[string]bool)
+		return false
+	}
+	return goInterfaces[gt]
+}
+
 //TypeParameters maps, for each class, a TypedefName to a type, representing
 //the Objective-C type parameters for that class
 var TypeParameters map[string]map[string]string
@@ -109,9 +129,6 @@ func (t *Type) BaseType() *Type {
 		t.Node.BaseType(),
 		t.Class,
 	)
-//	if ret.CType() == ret.Class + " *" { // "instancename"
-//		ret.ctype = ret.Class
-//	}
 	return ret
 }
 
@@ -141,6 +158,9 @@ func _goType(ct string) string {
 	ct = strings.Title(ct)
 	ct = strings.ReplaceAll(ct," ","")
 	ct = strings.ReplaceAll(ct,"Struct","")
+	if len(ct) > 0 && ct[0] == '*' && isGoInterface(ct[1:]) {
+		return ct[1:]
+	}
 	return ct
 }
 
@@ -208,13 +228,26 @@ func (t *Type) GoInterfaceDecl() string {
 		gt = gt[1:] // dereference wrapped types
 	}
 	super := Super(gt)
+	if goInterfaces == nil {
+		goInterfaces = make(map[string]bool)
+	}
 	if super == "" {
-		super = "ptr unsafe.Pointer"
+		goInterfaces[gt] = true
+		return fmt.Sprintf(`
+//%s (%s)
+type %s interface {
+	Ptr() unsafe.Pointer
+}
+`,t.Node.Ctype(),t.BaseType().GoType(),gt)
+	}
+	if isGoInterface(super) {
+		super = "Id"
 	}
 	return fmt.Sprintf(`
 //%s (%s)
 type %s struct { %s }
-`,t.Node.Ctype(),t.BaseType().GoType(),gt,super)
+func (o *%s) Ptr() unsafe.Pointer { return o.ptr }
+`,t.Node.Ctype(),t.BaseType().GoType(),gt,super,gt)
 }
 
 func (t *Type) IsFunction() bool {
@@ -242,12 +275,15 @@ func (t *Type) CToGo(cval string) string { // cast C value to CGo
 func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	var ret strings.Builder
 	rt := rtype.CType()
-	wrap := func(gt string) bool {
-		return gt != "" && gt[0] == '*' && wrapped[gt[1:]]
-	}
 	if rt != "void" {
-		if wrap(rtype.GoType()) {
-			ret.WriteString("	ret := &" + rtype.GoType()[1:] + "{}\n")
+		rtgt := rtype.GoType()
+		if shouldWrap(rtgt) || isGoInterface(rtgt) {
+			if isGoInterface(rtgt) {
+				rtgt = "Id"
+			} else {
+				rtgt = rtgt[1:]
+			}
+			ret.WriteString("	ret := &" + rtgt + "{}\n")
 			ret.WriteString("	ret.ptr = unsafe.Pointer(")
 		} else {
 			ret.WriteString("	return (" + rtype.GoType() + ")(")
@@ -261,8 +297,8 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	for i := 0; i < len(pnames); i++ {
 		pn,pt := pnames[i],ptypes[i]
 		p := pn
-		if wrap(pt.GoType()) {
-			p = pn + ".ptr"
+		if shouldWrap(pt.GoType()) || isGoInterface(pt.GoType()) {
+			p = pn + ".Ptr()"
 		} else {
 			if pt.Node.IsPointer() {
 				p = "unsafe.Pointer(" + pn + ")"
@@ -275,7 +311,7 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	ret.WriteString(strings.Join(parms,", "))
 	ret.WriteString(")")
 	if rt != "void" {
-		if wrap(rtype.GoType()) {
+		if shouldWrap(rtype.GoType()) || isGoInterface(rtype.GoType()) {
 			ret.WriteString(`)
 	return ret
 `)

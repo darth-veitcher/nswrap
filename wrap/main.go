@@ -36,6 +36,10 @@ func NewWrapper(debug bool) *Wrapper {
 #cgo CFLAGS: -x objective-c
 #cgo LDFLAGS: -framework Foundation
 `)
+	ret.goTypes.WriteString(`
+type Id struct { ptr unsafe.Pointer }
+func (o *Id) Ptr() unsafe.Pointer { return o.ptr }
+`)
 	return ret
 }
 
@@ -331,12 +335,12 @@ func (w *Wrapper) processType(tp *types.Type) {
 	if bt.IsFunction() {
 		return
 	}
-	w.goTypes.WriteString(bt.GoTypeDecl())
 	super := types.Super(gt)
 	if super != "" {
 		types.Wrap(super)
 		w.processType(types.NewTypeFromString(super,""))
 	}
+	w.goTypes.WriteString(bt.GoTypeDecl())
 }
 
 func (w *Wrapper) CharHelpers() {

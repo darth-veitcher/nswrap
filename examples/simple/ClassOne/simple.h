@@ -18,5 +18,11 @@ struct stru {int a,b;};
 - (int) hi2:(struct stru*)in;
 - (struct stru) nstru1;
 - (struct stru*) nstru2;
+- (void) hi:(id)in;
+- (void) hi3:(id)in;
 @end
 
+@interface ClassTwo : ClassOne
+{ }
+- (ClassTwo*) init;
+@end

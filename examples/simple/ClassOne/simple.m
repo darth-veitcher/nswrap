@@ -54,6 +54,19 @@
 	ret->b = 10;
 	return ret;
 }
-
+- (void) hi:(id)in
+{
+	NSLog(@"hi");
+}
+- (void) hi3:(id)in
+{
+	NSLog(@"hi");
+}
 @end
 
+@implementation ClassTwo
+- (ClassTwo*) init
+{
+	return [super init];
+}
+@end
