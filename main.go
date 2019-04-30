@@ -173,8 +173,9 @@ func Start() (err error) {
 	w.SysImport(Config.SysImports)
 	w.Pragma(Config.Pragma)
 	if Config.VaArgs == 0 {
-		w.VaArgs = 16
+		Config.VaArgs = 16
 	}
+	w.VaArgs = Config.VaArgs
 	for _, u := range tree {
 		for _, n := range(u.Children()) {
 			switch x := n.(type) {

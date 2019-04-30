@@ -16,3 +16,4 @@ Classes = [
 ]
 SysImports = [ "Foundation/Foundation.h" ]
 Pragma = [ 'clang diagnostic ignored "-Wformat-security"' ]
+VaArgs = 32
