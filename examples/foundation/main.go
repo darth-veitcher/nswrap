@@ -16,4 +16,6 @@ func main() {
 	n3 := ns.StringWithUTF8String(ns.CharFromString("ok bye"))
 	a := ns.ArrayWithObjects(n1,n2,n3)
 	fmt.Println("Length(a) = ",a.Count())
+	fmt.Println("is n2 in a?",a.ContainsObject(n2))
+	fmt.Println("is c1 in a?",a.ContainsObject(c1))
 }
