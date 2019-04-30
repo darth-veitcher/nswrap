@@ -2,7 +2,7 @@
 
 @implementation ClassOne
 
-- (ClassOne*) init
+- (instancetype) init
 {
 	ClassOne *ret;
 	ret = [ClassOne alloc];
@@ -65,7 +65,7 @@
 @end
 
 @implementation ClassTwo
-- (ClassTwo*) init
+- (instancetype) init
 {
 	return [super init];
 }

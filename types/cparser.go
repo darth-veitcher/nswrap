@@ -95,6 +95,7 @@ func init() {
 		}
 		return s2,n2
 	}
+	TypeName = _TypeName
 }
 
 func _TypeName(s string, n *Node) (string, *Node) {

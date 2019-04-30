@@ -10,7 +10,7 @@ struct stru {int a,b;};
 	int (*f)();
 }
 
-- (ClassOne*) init;
+- (instancetype) init;
 - (int) geti1;
 - (int *) getp1;
 - (int (*)()) getf1;
@@ -24,5 +24,5 @@ struct stru {int a,b;};
 
 @interface ClassTwo : ClassOne
 { }
-- (ClassTwo*) init;
+- (instancetype) init;
 @end

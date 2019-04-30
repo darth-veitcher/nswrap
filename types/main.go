@@ -28,6 +28,7 @@ func (n *Node) HasFunc() bool {
 
 func Parse(s string) (*Node, error) {
 	s2, n := TypeName(s,NewNode("AST"))
+	//fmt.Printf("%p Parsed %s\n",n,s)
 	if s2 != "" {
 		return n,fmt.Errorf("Parse failed or incomplete. Remainder: %s",s2)
 	}

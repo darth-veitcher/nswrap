@@ -32,7 +32,8 @@ var TypeParameters map[string]map[string]string
 var typedefs map[string]*Type
 
 func (t *Type) Typedef() *Type {
-	return typedefs[t.BaseType().CType()]
+	//return typedefs[t.BaseType().CType()]
+	return typedefs[t.CType()]
 }
 
 func init() {
@@ -59,46 +60,62 @@ func SetTypeParam(c, n, t string) {
 }
 
 func AddTypedef(n,t string) {
+	//fmt.Printf("AddTypedef(): %s -> %s\n",n,t)
 	typedefs[n] = NewTypeFromString(t,"")
 }
 
 type Type struct {
 	Node *Node
 	Class string
-	ctype string
+	//ctype string
 	Variadic bool
 }
 
+func clean(n *Node,c string) (*Node,bool) {
+	ret := NewNode(n.Kind,n.Content)
+	ret.Children = n.Children
+	//fmt.Printf("clean(%s,%s)\n",n.Ctype(),c)
+	recur := false
+	if TypeParameters[c] != nil {
+		for k,v := range TypeParameters[c] {
+			recur = ret.renameTypedefs(k,v)
+		}
+	}
+	recur = recur || ret.renameTypedefs("instancename",c)
+	recur = recur || ret.renameTypedefs("instancetype",c + "*")
+	if recur {
+		clean(n, c)
+		return ret,true
+	}
+	return n,false
+}
+
 func NewType(n *Node, c string) *Type {
+	n2,_ := clean(n, c)
 	return &Type{
-		Node: n,
+		Node: n2,
 		Class: c,
-		ctype: "",
+		//ctype: "",
 	}
 }
 
 func NewTypeFromString(t,c string) *Type {
+	//fmt.Printf("t/c: %s/%s\n",t,c)
 	n,err := Parse(t)
+	//fmt.Printf("%p %s",n,n.String())
 	if n.IsId() {
-	//if n.CtypeSimplified() == "id" {
 		n,err = Parse("NSObject*")
 	}
 	if err != nil {
 		return &Type{}
 	}
-	if TypeParameters[c] != nil {
-		recur := false
-		for k,v := range TypeParameters[c] {
-			recur = n.renameTypedefs(k,v)
-		}
-		if recur {
-			return NewTypeFromString(n.Ctype(),c)
-		}
+	if n2,ok := clean(n, c); ok {
+		return NewTypeFromString(n2.Ctype(),c)
 	}
 	return &Type{
 		Node: n,
 		Class: c,
-		ctype: "",
+		//ctype: "",
 	}
 }
 
@@ -166,9 +183,9 @@ func (t *Type) CTypeAttrib() string {
 
 func (t *Type) _CType(attrib bool) string {
 	//if !attrib && c.ctype != "" ... FIXME?
-	if t.ctype != "" { // cache
-		return t.ctype
-	}
+	//if t.ctype != "" { // cache
+	//	return t.ctype
+	//}
 	var ct string
 	if attrib {
 		ignore := map[string]bool { "GenericList": true }
@@ -176,19 +193,22 @@ func (t *Type) _CType(attrib bool) string {
 	} else {
 		ct = t.Node.CtypeSimplified()
 	}
+	/*
 	ct = strings.ReplaceAll(ct,"instancename",t.Class)
 	ct = strings.ReplaceAll(ct,"instancetype",t.Class + " *")
+	*/
 	if len(ct) > 1 && ct[:2] == "id" {
 		ct = "NSObject*" + ct[2:]
 	}
+	/*
 	if len(ct) > 11 {
 		if ct[:12] == "instancename" { ct = t.Class + ct[12:] }
 		if ct[:12] == "instancetype" { ct = t.Class + ct[12:] + " *" }
-	}
+	}*/
 	if attrib {
 		t._CType(false)
-	} else {
-		t.ctype = ct
+	//} else {
+		//t.ctype = ct
 	}
 	return ct
 }

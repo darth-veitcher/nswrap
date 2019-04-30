@@ -229,13 +229,14 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 				i.Properties[p.Name] = p
 			//}
 		case *ast.ObjCMethodDecl:
-			//fmt.Printf("ObjCMethodDecl: %s\n",x.Name)
+			//fmt.Printf("ObjCMethodDecl: %s (%s) %s\n",x.Type,name,x.Name)
 			m := Method{
 				Name: x.Name,
 				Type: types.NewTypeFromString(x.Type,name),
 				Class: name,
 				ClassMethod: x.ClassMethod,
 			}
+			//fmt.Println(m.Type.Node.String())
 			m.Parameters, avail = w.GetParms(x,name)
 			if avail {
 				i.Methods[m.Name] = m
@@ -448,8 +449,9 @@ New%s() {
 				grtype = ""
 			}
 			w.goCode.WriteString(fmt.Sprintf(`
+//%s
 func %s(%s) %s {
-`,gname,gplist,grtype))
+`,m.Type.CType(),gname,gplist,grtype))
 			lparm := len(tps)-1
 			if len(tps) > 0 && tps[lparm].Variadic {
 				vn := ns[lparm]
