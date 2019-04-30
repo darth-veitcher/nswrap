@@ -1,21 +1,24 @@
 package main
+//go:generate nswrap
 
 import (
 	"fmt"
-	"gitlab.wow.st/gmp/nswrap/examples/simple/ClassOne"
+	ns "gitlab.wow.st/gmp/nswrap/examples/simple/ClassOne"
 )
 
 func main() {
-	o := ClassOne.NewClassOne().Init()
+	o := ns.NewClassOne().Init()
 	fmt.Println("i1 = ",o.Geti1())
 	fmt.Println("p1 = ",o.Getp1())
 	p1 := o.Getp1()
 	fmt.Println("*p1 = ", *p1)
 	*p1 = 17
 	fmt.Println("*p1 = ", *o.Getp1())
-	ns := o.Nstru1()
+	ns1 := o.Nstru1()
 	np := o.Nstru2()
-	fmt.Println(o.Hi1(ns))
+	fmt.Println(o.Hi1(ns1))
 	fmt.Println(o.Hi2(np))
+	o2 := ns.NewClassTwo().Init()
+	fmt.Println(o2.Hi1(ns1))
 }
 

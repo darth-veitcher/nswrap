@@ -40,8 +40,8 @@ func NewWrapper(debug bool) *Wrapper {
 #cgo LDFLAGS: -framework Foundation
 `)
 	ret.goTypes.WriteString(`
-type Id struct { ptr unsafe.Pointer }
-func (o *Id) Ptr() unsafe.Pointer { return o.ptr }
+type Id struct { }
+func (o *Id) Ptr() unsafe.Pointer { return unsafe.Pointer(o) }
 `)
 	return ret
 }
@@ -403,10 +403,7 @@ func (w *Wrapper) Wrap(toproc []string) {
 
 		w.goCode.WriteString(fmt.Sprintf(`
 func New%s() *%s {
-	ret := &%s{}
-	ret.ptr = unsafe.Pointer(C.New%s())
-	//ret = ret.Init()
-	return ret
+	return (*%s)(unsafe.Pointer(C.New%s()))
 }
 `,i.Name,i.Name,i.Name,i.Name))
 

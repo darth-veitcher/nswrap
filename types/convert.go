@@ -67,11 +67,14 @@ func AddTypedef(n,t string) {
 type Type struct {
 	Node *Node
 	Class string
-	//ctype string
+	ctype string
 	Variadic bool
 }
 
 func clean(n *Node,c string) (*Node,bool) {
+	if n == nil {
+		return nil,false
+	}
 	ret := NewNode(n.Kind,n.Content)
 	ret.Children = n.Children
 	//fmt.Printf("clean(%s,%s)\n",n.Ctype(),c)
@@ -183,9 +186,9 @@ func (t *Type) CTypeAttrib() string {
 
 func (t *Type) _CType(attrib bool) string {
 	//if !attrib && c.ctype != "" ... FIXME?
-	//if t.ctype != "" { // cache
-	//	return t.ctype
-	//}
+	if t.ctype != "" { // cache
+		return t.ctype
+	}
 	var ct string
 	if attrib {
 		ignore := map[string]bool { "GenericList": true }
@@ -193,22 +196,13 @@ func (t *Type) _CType(attrib bool) string {
 	} else {
 		ct = t.Node.CtypeSimplified()
 	}
-	/*
-	ct = strings.ReplaceAll(ct,"instancename",t.Class)
-	ct = strings.ReplaceAll(ct,"instancetype",t.Class + " *")
-	*/
 	if len(ct) > 1 && ct[:2] == "id" {
 		ct = "NSObject*" + ct[2:]
 	}
-	/*
-	if len(ct) > 11 {
-		if ct[:12] == "instancename" { ct = t.Class + ct[12:] }
-		if ct[:12] == "instancetype" { ct = t.Class + ct[12:] + " *" }
-	}*/
 	if attrib {
 		t._CType(false)
-	//} else {
-		//t.ctype = ct
+	} else {
+		t.ctype = ct
 	}
 	return ct
 }
@@ -262,7 +256,7 @@ type %s interface {
 	return fmt.Sprintf(`
 //%s (%s)
 type %s struct { %s }
-func (o *%s) Ptr() unsafe.Pointer { return o.ptr }
+func (o *%s) Ptr() unsafe.Pointer { return unsafe.Pointer(o) }
 `,t.Node.Ctype(),t.BaseType().GoType(),gt,super,gt)
 }
 
@@ -293,19 +287,12 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	rt := rtype.CType()
 	if rt != "void" {
 		rtgt := rtype.GoType()
-		if shouldWrap(rtgt) || isGoInterface(rtgt) {
-			if isGoInterface(rtgt) {
-				rtgt = "Id"
-			} else {
-				rtgt = rtgt[1:]
-			}
-			ret.WriteString("	ret := &" + rtgt + "{}\n")
-			ret.WriteString("	ret.ptr = unsafe.Pointer(")
-		} else {
-			ret.WriteString("	return (" + rtype.GoType() + ")(")
-			if rtype.Node.IsPointer() {
-				ret.WriteString("unsafe.Pointer(")
-			}
+		if isGoInterface(rtgt) {
+			rtgt = "*Id"
+		}
+		ret.WriteString("	return (" + rtgt + ")(")
+		if rtype.Node.IsPointer() {
+			ret.WriteString("unsafe.Pointer(")
 		}
 	}
 	ret.WriteString("C." + name + "(")
@@ -330,17 +317,11 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	ret.WriteString(strings.Join(parms,", "))
 	ret.WriteString(")")
 	if rt != "void" {
-		if shouldWrap(rtype.GoType()) || isGoInterface(rtype.GoType()) {
-			ret.WriteString(`)
-	return ret
-`)
-		} else {
+		ret.WriteString(")")
+		if rtype.Node.IsPointer() {
 			ret.WriteString(")")
-			if rtype.Node.IsPointer() {
-				ret.WriteString(")")
-			}
-			ret.WriteString("\n")
 		}
+		ret.WriteString("\n")
 	}
 	return ret.String()
 }

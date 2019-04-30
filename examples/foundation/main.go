@@ -1,4 +1,5 @@
 package main
+//go:generate nswrap
 
 import (
 	"fmt"
