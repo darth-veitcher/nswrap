@@ -97,7 +97,7 @@ func (n *Node) PointsTo() *Node {
 
 //IsPointer returns true if the node is a pointer
 func (n *Node) IsPointer() bool {
-	return n.IsId() || n.PointsTo() != nil
+	return n.IsId() || n.IsInstancetype() || n.PointsTo() != nil
 }
 
 //ArrayOf, when called on an array node returns a node describing the type
@@ -127,11 +127,29 @@ func (n *Node) IsFunction() bool {
 	return n.Children[len(n.Children)-1].Kind == "Function"
 }
 
+func (n *Node) ReturnType() *Node {
+	if !n.IsFunction() {
+		return nil
+	}
+	ret := NewNode(n.Kind)
+	ret.Children = n.Children[:len(n.Children)-1]
+	return ret
+}
+
 func (n *Node) IsId() bool {
 	if n == nil || len(n.Children) < 1 {
 		return false
 	}
-	return n.Children[0].Kind == "TypedefName" && n.Children[0].Content == "id"
+	return n.Children[0].Kind == "TypedefName" &&
+		n.Children[0].Content == "id"
+}
+
+func (n *Node) IsInstancetype() bool {
+	if n == nil || len(n.Children) < 1 {
+		return false
+	}
+	return n.Children[0].Kind == "TypedefName" &&
+		n.Children[0].Content == "instancetype"
 }
 
 //BaseType strips off all layers of pointer indirection

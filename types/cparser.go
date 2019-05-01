@@ -110,7 +110,7 @@ func AbstractDeclarator(s string, n *Node) (string, *Node) {
 			Opt(Pointer),
 			OneOrMore(DirectAbstractDeclarator)),
 		Pointer,
-		Id,
+		//Id,
 		Block,
 	)(s,n)
 }

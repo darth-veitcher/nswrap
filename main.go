@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -19,6 +20,7 @@ type conf struct {
 	Package string
 	InputFiles []string
 	Classes []string
+	Functions []string
 	Imports []string
 	SysImports []string
 	Pragma []string
@@ -134,6 +136,15 @@ func buildTree(nodes []treeNode, depth int) []ast.Node {
 	return results
 }
 
+func matches(x string, rs []string) bool {
+	for _,r := range rs {
+		if m, _ := regexp.MatchString("^" + r + "$",x); m {
+			return true
+		}
+	}
+	return false
+}
+
 // Start begins transpiling an input file.
 func Start() (err error) {
 	// 1. Compile it first (checking for errors)
@@ -185,6 +196,10 @@ func Start() (err error) {
 				w.AddCategory(x)
 			case *ast.TypedefDecl:
 				types.AddTypedef(x.Name,x.Type)
+			case *ast.FunctionDecl:
+				if matches(x.Name,Config.Functions) {
+					w.AddFunction(x)
+				}
 			}
 		}
 	}

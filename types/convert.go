@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -36,12 +37,22 @@ func (t *Type) Typedef() *Type {
 	return typedefs[t.CType()]
 }
 
+var (
+	r_id *regexp.Regexp
+	r_instancename *regexp.Regexp
+	r_instancetype *regexp.Regexp
+)
+
 func init() {
 	super = make(map[string]string)
 	wrapped = make(map[string]bool)
 	goInterfaces = make(map[string]bool)
 	TypeParameters = make(map[string]map[string]string)
 	typedefs = make(map[string]*Type)
+
+	r_id = regexp.MustCompile("\bid\b")
+	r_instancename = regexp.MustCompile(`\binstancename\b`)
+	r_instancetype = regexp.MustCompile(`\binstancetype\b`)
 }
 
 func Super(c string) string {
@@ -71,6 +82,14 @@ type Type struct {
 	Variadic bool
 }
 
+func (t *Type) CloneToClass(c string) *Type {
+	return &Type{
+		Node: t.Node,
+		Class: c,
+		Variadic: t.Variadic,
+	}
+}
+
 func clean(n *Node,c string) (*Node,bool) {
 	if n == nil {
 		return nil,false
@@ -84,8 +103,8 @@ func clean(n *Node,c string) (*Node,bool) {
 			recur = ret.renameTypedefs(k,v)
 		}
 	}
-	recur = recur || ret.renameTypedefs("instancename",c)
-	recur = recur || ret.renameTypedefs("instancetype",c + "*")
+//	recur = recur || ret.renameTypedefs("instancename",c)
+//	recur = recur || ret.renameTypedefs("instancetype",c + "*")
 	if recur {
 		clean(n, c)
 		return ret,true
@@ -127,7 +146,14 @@ func (t *Type) String() string {
 }
 
 func (t *Type) PointsTo() *Type {
-	return NewType(t.Node.PointsTo(), t.Class)
+	if td := t.Typedef(); td != nil {
+		return td.PointsTo()
+	}
+	if pt := t.Node.PointsTo(); pt != nil {
+		return NewType(t.Node.PointsTo(), t.Class)
+	} else {
+		return nil
+	}
 }
 
 func Wrap(s string) {
@@ -136,6 +162,9 @@ func Wrap(s string) {
 }
 
 func (t *Type) BaseType() *Type {
+	if t == nil {
+		return nil
+	}
 	ret := NewType( 
 		t.Node.BaseType(),
 		t.Class,
@@ -172,9 +201,11 @@ func _goType(ct string) string {
 	if len(ct) > 0 && ct[0] == '*' && isGoInterface(ct[1:]) {
 		return ct[1:]
 	}
+	if ct == "Id" {
+		ct = "*Id"
+	}
 	return ct
 }
-
 
 func (t *Type) CType() string {
 	return t._CType(false)
@@ -185,6 +216,10 @@ func (t *Type) CTypeAttrib() string {
 }
 
 func (t *Type) _CType(attrib bool) string {
+	if t == nil {
+		fmt.Println("nil sent to _CType()")
+		return ""
+	}
 	//if !attrib && c.ctype != "" ... FIXME?
 	if t.ctype != "" { // cache
 		return t.ctype
@@ -196,9 +231,9 @@ func (t *Type) _CType(attrib bool) string {
 	} else {
 		ct = t.Node.CtypeSimplified()
 	}
-	if len(ct) > 1 && ct[:2] == "id" {
-		ct = "NSObject*" + ct[2:]
-	}
+	ct = r_id.ReplaceAllString(ct,"NSObject*")
+	ct = r_instancename.ReplaceAllString(ct,t.Class)
+	ct = r_instancetype.ReplaceAllString(ct,t.Class + "*")
 	if attrib {
 		t._CType(false)
 	} else {
@@ -261,10 +296,21 @@ func (o *%s) Ptr() unsafe.Pointer { return unsafe.Pointer(o) }
 }
 
 func (t *Type) IsFunction() bool {
+	if t == nil {
+		fmt.Println("nil sent to IsFunction()")
+		return false
+	}
 	if td := t.Typedef(); td != nil {
 		return td.IsFunction()
 	}
 	return t.Node.IsFunction()
+}
+
+func (t *Type) ReturnType() *Type {
+	if rt := t.Node.ReturnType(); rt != nil {
+		return NewType(rt,t.Class)
+	}
+	return nil
 }
 
 func (t *Type) IsPointer() bool {
@@ -283,6 +329,10 @@ func (t *Type) CToGo(cval string) string { // cast C value to CGo
 
 // Call a C function from Go with a given return type and parameter types
 func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
+	if rtype == nil {
+		fmt.Println("nil sent to GoToC")
+		return ""
+	}
 	var ret strings.Builder
 	rt := rtype.CType()
 	if rt != "void" {
@@ -290,8 +340,8 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 		if isGoInterface(rtgt) {
 			rtgt = "*Id"
 		}
-		ret.WriteString("	return (" + rtgt + ")(")
-		if rtype.Node.IsPointer() {
+		ret.WriteString("return (" + rtgt + ")(")
+		if rtype.IsPointer() {
 			ret.WriteString("unsafe.Pointer(")
 		}
 	}
@@ -306,7 +356,7 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 			switch {
 			case pt.Variadic:
 				p = "unsafe.Pointer(&" + p + ")"
-			case pt.Node.IsPointer():
+			case pt.IsPointer():
 				p = "unsafe.Pointer(" + pn + ")"
 			default:
 				p = "(" + pt.CGoType() + ")(" + pn + ")"
@@ -318,7 +368,7 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	ret.WriteString(")")
 	if rt != "void" {
 		ret.WriteString(")")
-		if rtype.Node.IsPointer() {
+		if rtype.IsPointer() {
 			ret.WriteString(")")
 		}
 		ret.WriteString("\n")

@@ -17,7 +17,8 @@ var (
 
 type Wrapper struct {
 	Package string
-	Interfaces map[string]Interface
+	Interfaces map[string]*Interface
+	Functions map[string]*Method
 
 	cCode strings.Builder	  // put cGo code here
 	goTypes strings.Builder   // put Go type declarations here
@@ -31,7 +32,8 @@ func NewWrapper(debug bool) *Wrapper {
 	Debug = debug
 	if Debug { fmt.Println("// Debug mode") }
 	ret := &Wrapper{
-		Interfaces: map[string]Interface{},
+		Interfaces: map[string]*Interface{},
+		Functions: map[string]*Method{},
 		Processed: map[string]bool{},
 		VaArgs: 16,
 	}
@@ -80,7 +82,7 @@ type Method struct {
 	Name, Class string
 	Type *types.Type
 	ClassMethod bool
-	Parameters []Parameter
+	Parameters []*Parameter
 }
 
 //isVoid() returns true if the method has no return value.
@@ -98,24 +100,26 @@ func (m Method) hasFunctionParam() bool {
 	return false
 }
 
-func (w Wrapper) cparamlist(m Method) string {
+func (w Wrapper) cparamlist(m *Method) (string,string) {
+	ns := make([]string,0)
 	ret := make([]string,0)
 	if !m.ClassMethod {
-		ret = append(ret,"void* obj")
+		ret = append(ret,"void* o")
 	}
 	for _,p := range m.Parameters {
 		var tp string
-		if p.Type.Node.IsPointer() || p.Type.Variadic {
+		if p.Type.IsPointer() || p.Type.Variadic {
 			tp = "void*"
 		} else {
 			tp = p.Type.CType()
 		}
+		ns = append(ns,p.Vname)
 		ret = append(ret,fmt.Sprintf("%s %s",tp,p.Vname))
 	}
-	return strings.Join(ret,", ")
+	return strings.Join(ns,", "),strings.Join(ret,", ")
 }
 
-func (w Wrapper) objcparamlist(m Method) string {
+func (w Wrapper) objcparamlist(m *Method) string {
 	if len(m.Parameters) == 0 {
 		return m.Name
 	}
@@ -182,8 +186,8 @@ func (m *Method) gpntp() ([]string,[]*types.Type,string) {
 
 type Interface struct {
 	Name string
-	Properties map[string]Property
-	Methods map[string]Method
+	Properties map[string]*Property
+	Methods map[string]*Method
 }
 
 func (w *Wrapper) AddInterface(n *ast.ObjCInterfaceDecl) {
@@ -203,14 +207,52 @@ func (w *Wrapper) AddCategory(n *ast.ObjCCategoryDecl) {
 	fmt.Printf("Not adding methods for %s: interface name not found in first child node of category defclaration\n",n.Name)
 }
 
+func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
+	//treat functions as class methods with no class
+	tp := types.NewTypeFromString(n.Type,"")
+	m := &Method{
+		Name: n.Name,
+		Type: tp.ReturnType(),
+		Class: "",
+		ClassMethod: true,
+		Parameters: []*Parameter{},
+	}
+	f := tp.Node.Children[len(tp.Node.Children)-1] // Function node
+	if f.Kind != "Function" {
+		//fmt.Printf("AddFunction(%s): not a function -- Node type is %s\n%s",n.Name,f.Kind,tp.String())
+		return
+	}
+	//fmt.Printf("FunctionDecl: %s (%s) %s\n",n.Type,m.Type.CType(),n.Name)
+	i := 0
+	for _,c := range n.Children() {
+		switch x := c.(type) {
+		case *ast.ParmVarDecl:
+			p := &Parameter{
+				Vname: x.Name,
+				Type: types.NewTypeFromString(x.Type,""),
+			}
+			m.Parameters = append(m.Parameters,p)
+			i++
+			//fmt.Printf("  %s\n",p.Type.CType())
+		}
+	}
+	if i > 0 && len(f.Children) > i {
+		if e := f.Children[i]; len(e.Children) > 0 {
+			//fmt.Println("  Next parameter: ",e.Children[0].String())
+			m.Parameters[i-1].Type.Variadic = true
+		}
+	}
+	w.Functions[n.Name] = m
+}
+
 func (w *Wrapper) add(name string, ns []ast.Node) {
-	var i Interface
+	var i *Interface
 	var ok bool
 	if i,ok = w.Interfaces[name]; !ok {
-		i = Interface{
+		i = &Interface{
 			Name: name,
-			Properties: map[string]Property{},
-			Methods: map[string]Method{},
+			Properties: map[string]*Property{},
+			Methods: map[string]*Method{},
 		}
 	}
 	tp := types.NewTypeFromString(name,name)
@@ -220,7 +262,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 		switch x := c.(type) {
 		case *ast.ObjCPropertyDecl:
 			//fmt.Printf("ObjCPropertyDecl: %s\n",x.Name)
-			p := Property{
+			p := &Property{
 				Name: x.Name,
 				Type: types.NewTypeFromString(x.Type,name),
 			}
@@ -230,7 +272,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			//}
 		case *ast.ObjCMethodDecl:
 			//fmt.Printf("ObjCMethodDecl: %s (%s) %s\n",x.Type,name,x.Name)
-			m := Method{
+			m := &Method{
 				Name: x.Name,
 				Type: types.NewTypeFromString(x.Type,name),
 				Class: name,
@@ -257,6 +299,37 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			//fmt.Println(reflect.TypeOf(x))
 		}
 	}
+	//Add class methods from super class
+	var supmethods func(*Interface,string)
+	supmethods = func(i *Interface, s string) {
+		if sup,ok := w.Interfaces[s]; !ok {
+			return
+		} else {
+			for _,m := range sup.Methods {
+				if !m.ClassMethod {
+					continue
+				}
+				m2 := &Method{
+					Name: m.Name,
+					Class: i.Name,
+					Type: m.Type.CloneToClass(i.Name),
+					ClassMethod: true,
+					Parameters: []*Parameter{},
+				}
+				for _,p := range m.Parameters {
+					m2.Parameters = append(m2.Parameters,
+					&Parameter{
+						Pname: p.Pname,
+						Vname: p.Vname,
+						Type: p.Type.CloneToClass(i.Name),
+					})
+				}
+				i.Methods[m.Name] = m2
+			}
+		}
+		supmethods(i,types.Super(s))
+	}
+	supmethods(i,types.Super(i.Name))
 	//fmt.Println("Add interface ",i.Name)
 	w.Interfaces[i.Name] = i
 }
@@ -269,17 +342,27 @@ type AvailAttr struct {
 //GetParms returns the parameters of a method declaration and a bool
 //indicating whether the given method is available on MacOS and not
 //deprecated.
-func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool) {
-	ret := make([]Parameter,0)
+func (w *Wrapper) GetParms(n ast.Node,class string) ([]*Parameter,bool) {
+	ret := make([]*Parameter,0)
 	avail := make([]AvailAttr,0)
+	var parms []string
+	switch x := n.(type) {
+	case *ast.ObjCMethodDecl:
+		parms = x.Parameters
+	case *ast.FunctionDecl:
+	default:
+		panic("GetParms called with wrong node type")
+	}
 	j := 0
 	for _,c := range n.Children() {
 		switch x := c.(type) {
 		case *ast.ParmVarDecl:
-			p := Parameter{
-				Pname: n.Parameters[j],
+			p := &Parameter{
 				Vname: x.Name,
 				Type: types.NewTypeFromString(x.Type,class),
+			}
+			if parms != nil {
+				p.Pname = parms[j]
 			}
 			ret = append(ret,p)
 			j++
@@ -316,9 +399,9 @@ func (w *Wrapper) GetParms(n *ast.ObjCMethodDecl,class string) ([]Parameter,bool
 		return nil, false
 	}
 	// check that we found the right number of parameters
-	if len(ret) != len(n.Parameters) {
-		fmt.Printf("Error in method declaration %s: Wrong number of ParmVarDecl children: %d parameters but %d ParmVarDecl children\n",n.Name,len(n.Parameters),len(ret))
-	}
+	//if len(ret) != len(n.Parameters) {
+	//	fmt.Printf("Error in method declaration %s: Wrong number of ParmVarDecl children: %d parameters but %d ParmVarDecl children\n",n.Name,len(n.Parameters),len(ret))
+	//}
 	return ret, true
 }
 
@@ -378,6 +461,91 @@ func (c *Char) String() string {
 `)
 }
 
+func (w *Wrapper) ProcessMethod(m *Method) {
+	w._processMethod(m,false)
+}
+
+func (w *Wrapper) ProcessFunction(m *Method) {
+	w._processMethod(m,true)
+}
+
+func (w *Wrapper) _processMethod(m *Method,fun bool) {
+	if Debug {
+		fmt.Printf("  method: %s (%s)\n", m.Name, m.Type)
+	}
+	if m.Type.IsFunction() || m.hasFunctionParam() {
+		return
+	}
+	gname := strings.Title(m.Name)
+	if !m.ClassMethod {
+		gname = "(o *" + m.Class + ") " + gname
+	} else {
+		gname = m.Class + gname
+	}
+	cname := m.Name
+	if m.Class != "" {
+		cname = m.Class + "_" + cname
+	}
+
+	cmtype := m.Type.CTypeAttrib()
+	ns,tps,gplist := m.gpntp()
+	w.processTypes(tps)
+	w.processType(m.Type)
+	grtype := m.Type.GoType()
+	if grtype == "Void" {
+		grtype = ""
+	}
+	w.goCode.WriteString(fmt.Sprintf(`
+//%s
+func %s(%s) %s {
+`,m.Type.CType(),gname,gplist,grtype))
+	lparm := len(tps)-1
+	if len(tps) > 0 && tps[lparm].Variadic {
+		vn := ns[lparm]
+		vn = vn[:len(vn)-1]
+		ns[lparm] = vn
+		w.goCode.WriteString(fmt.Sprintf(
+`	var %s [%d]unsafe.Pointer
+	for i,o := range %ss {
+		%s[i] = o.Ptr()
+	}
+`,vn,w.VaArgs,vn,vn))
+	}
+	w.goCode.WriteString(`	` +
+		types.GoToC(cname,ns,m.Type,tps) + "\n}\n\n")
+
+	cret := ""
+	if !m.isVoid() {
+		cret = "return "
+	}
+	var cobj string
+	if m.ClassMethod {
+		cobj = m.Class
+	} else {
+		cobj = "(id)o"
+	}
+	cns,cntps := w.cparamlist(m)
+	_ = cns
+	if fun {
+		return
+	}
+	w.cCode.WriteString(fmt.Sprintf(`
+%s
+%s(%s) {
+`, cmtype, cname, cntps))
+	if len(tps) > 0 && tps[lparm].Variadic {
+		w.cCode.WriteString(fmt.Sprintf(
+`	%s* arr = %s;
+`, tps[lparm].CType(), ns[lparm]))
+	}
+	if fun {
+		w.cCode.WriteString(fmt.Sprintf(`	%s%s(%s);
+}`, cret, m.Name, cns))
+	} else {
+		w.cCode.WriteString(fmt.Sprintf(`	%s[%s %s];
+}`, cret, cobj, w.objcparamlist(m)))
+	}
+}
 
 func (w *Wrapper) Wrap(toproc []string) {
 	if w.Package == "" { w.Package = "ns" }
@@ -392,7 +560,7 @@ func (w *Wrapper) Wrap(toproc []string) {
 		os.Exit(-1)
 	}
 	fmt.Printf("Writing output to %s\n",path.Join(w.Package,"main.go"))
-	pInterfaces := map[string]Interface{}
+	pInterfaces := map[string]*Interface{}
 	for _,iface := range toproc {
 		pInterfaces[iface] = w.Interfaces[iface]
 	}
@@ -422,71 +590,15 @@ New%s() {
 		}
 		//FIXME: sort methods
 		for _,m := range i.Methods {
-			if Debug {
-				fmt.Printf("  method: %s (%s)\n", m.Name, m.Type)
-			}
-			if m.Type.IsFunction() {
-				continue
-			}
-			if m.hasFunctionParam() {
-				continue
-			}
-			gname := strings.Title(m.Name)
-			if !m.ClassMethod {
-				gname = "(o *" + i.Name + ") " + gname
-			}
-			cname := i.Name + "_" + m.Name
+			w.ProcessMethod(m)
 
-			cmtype := m.Type.CTypeAttrib()
-			ns,tps,gplist := m.gpntp()
-			w.processTypes(tps)
-			w.processType(m.Type)
-			grtype := m.Type.GoType()
-			if grtype == "Void" {
-				grtype = ""
-			}
-			w.goCode.WriteString(fmt.Sprintf(`
-//%s
-func %s(%s) %s {
-`,m.Type.CType(),gname,gplist,grtype))
-			lparm := len(tps)-1
-			if len(tps) > 0 && tps[lparm].Variadic {
-				vn := ns[lparm]
-				vn = vn[:len(vn)-1]
-				ns[lparm] = vn
-				w.goCode.WriteString(fmt.Sprintf(
-`	var %s [%d]unsafe.Pointer
-	for i,o := range %ss {
-		%s[i] = o.Ptr()
-	}
-`,vn,w.VaArgs,vn,vn))
-			}
-			w.goCode.WriteString(
-				types.GoToC(cname,ns,m.Type,tps) + "}\n\n")
-
-			cret := ""
-			if !m.isVoid() {
-				cret = "return "
-			}
-			var cobj string
-			if m.ClassMethod {
-				cobj = i.Name
-			} else {
-				cobj = "(id)obj"
-			}
-			w.cCode.WriteString(fmt.Sprintf(`
-%s
-%s(%s) {
-`, cmtype, cname, w.cparamlist(m)))
-			if len(tps) > 0 && tps[lparm].Variadic {
-				w.cCode.WriteString(fmt.Sprintf(
-`	%s* arr = %s;
-`, tps[lparm].CType(), ns[lparm]))
-			}
-			w.cCode.WriteString(fmt.Sprintf(`	%s[%s %s];
-}`, cret, cobj, w.objcparamlist(m)))
 		}
 	}
+	for _,m := range w.Functions {
+		//fmt.Printf("Processing function %s %s\n",m.Type.CType(),m.Name)
+		w.ProcessFunction(m)
+	}
+	fmt.Printf("%d functions\n", len(w.Functions))
 	of.WriteString("package " + w.Package + "\n\n")
 	of.WriteString(w.cCode.String())
 	of.WriteString(`
