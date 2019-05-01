@@ -5,6 +5,7 @@ Classes = [
 	"NSArray",
 	"NSMutableArray",
 	"NSDictionary",
+	"NSEnumerator",
 	"NSSet",
 	"NSDate",
 	"NSTimeZone",

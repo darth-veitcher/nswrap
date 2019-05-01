@@ -220,8 +220,7 @@ func (t *Type) _CType(attrib bool) string {
 		//fmt.Println("nil sent to _CType()")
 		return ""
 	}
-	//if !attrib && c.ctype != "" ... FIXME?
-	if t.ctype != "" { // cache
+	if !attrib && t.ctype != "" { // cache
 		return t.ctype
 	}
 	var ct string
@@ -372,7 +371,6 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 		if rtype.IsPointer() {
 			ret.WriteString(")")
 		}
-		ret.WriteString("\n")
 	}
 	return ret.String()
 }
