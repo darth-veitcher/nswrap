@@ -21,7 +21,7 @@ func shouldWrap(gt string) bool {
 //are dereferenced to bare interface names.
 var goInterfaces map[string]bool
 
-func isGoInterface(gt string) bool {
+func IsGoInterface(gt string) bool {
 	return goInterfaces[gt]
 }
 
@@ -198,7 +198,7 @@ func _goType(ct string) string {
 	ct = strings.Title(ct)
 	ct = strings.ReplaceAll(ct," ","")
 	ct = strings.ReplaceAll(ct,"Struct","")
-	if len(ct) > 0 && ct[0] == '*' && isGoInterface(ct[1:]) {
+	if len(ct) > 0 && ct[0] == '*' && IsGoInterface(ct[1:]) {
 		return ct[1:]
 	}
 	if ct == "Id" {
@@ -285,14 +285,15 @@ type %s interface {
 }
 `,t.Node.Ctype(),t.BaseType().GoType(),gt)
 	}
-	if isGoInterface(super) {
+	if IsGoInterface(super) {
 		super = "Id"
 	}
 	return fmt.Sprintf(`
 //%s (%s)
 type %s struct { %s }
 func (o *%s) Ptr() unsafe.Pointer { return unsafe.Pointer(o) }
-`,t.Node.Ctype(),t.BaseType().GoType(),gt,super,gt)
+func (o *Id) %s() *%s { return (*%s)(unsafe.Pointer(o)) }
+`,t.Node.Ctype(),t.BaseType().GoType(),gt,super,gt,gt,gt,gt)
 }
 
 func (t *Type) IsFunction() bool {
@@ -337,7 +338,7 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	rt := rtype.CType()
 	if rt != "void" {
 		rtgt := rtype.GoType()
-		if isGoInterface(rtgt) {
+		if IsGoInterface(rtgt) {
 			rtgt = "*Id"
 		}
 		ret.WriteString("return (" + rtgt + ")(")
@@ -350,7 +351,7 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 	for i := 0; i < len(pnames); i++ {
 		pn,pt := pnames[i],ptypes[i]
 		p := pn
-		if (shouldWrap(pt.GoType()) || isGoInterface(pt.GoType())) && !pt.Variadic {
+		if (shouldWrap(pt.GoType()) || IsGoInterface(pt.GoType())) && !pt.Variadic {
 			p = pn + ".Ptr()"
 		} else {
 			switch {

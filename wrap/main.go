@@ -479,10 +479,23 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 		return
 	}
 	gname := strings.Title(m.Name)
-	if !m.ClassMethod {
+	switch {
+	case !m.ClassMethod:
 		gname = "(o *" + m.Class + ") " + gname
-	} else {
+	case m.Type.GoType() != "*" + m.Class:
 		gname = m.Class + gname
+	default:
+		lens1 := len(m.Class)
+		i := 0
+		if len(gname) < len(m.Class) { i = lens1 - len(gname) }
+		for ; i < lens1; i++ {
+			if m.Class[i:] == gname[:lens1 - i] { break }
+		}
+		if lens1 - i >= len(gname) {
+			gname = m.Class + gname
+		} else {
+			gname = m.Class + gname[lens1-i:]
+		}
 	}
 	cname := m.Name
 	if m.Class != "" {
@@ -494,6 +507,9 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	grtype := m.Type.GoType()
 	if grtype == "Void" {
 		grtype = ""
+	}
+	if types.IsGoInterface(grtype) {
+		grtype = "*Id"
 	}
 	w.goCode.WriteString(fmt.Sprintf(`
 //%s
