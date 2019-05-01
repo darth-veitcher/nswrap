@@ -151,7 +151,8 @@ var goreserved map[string]bool = map[string]bool{
 	"range": true,
 }
 
-func (m *Method) gpntp() ([]string,[]*types.Type,string) {
+func (w *Wrapper) gpntp(m *Method) ([]string,[]*types.Type,string) {
+	w.processType(m.Type)
 	ns := []string{}
 	tps := []*types.Type{}
 	if !m.ClassMethod {
@@ -166,6 +167,7 @@ func (m *Method) gpntp() ([]string,[]*types.Type,string) {
 		ns = append(ns,gname)
 		tps = append(tps,p.Type)
 	}
+	w.processTypes(tps)
 	ret := []string{}
 	i := 0
 	if !m.ClassMethod { i = 1 }
@@ -488,9 +490,7 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	}
 
 	cmtype := m.Type.CTypeAttrib()
-	ns,tps,gplist := m.gpntp()
-	w.processTypes(tps)
-	w.processType(m.Type)
+	ns,tps,gplist := w.gpntp(m)
 	grtype := m.Type.GoType()
 	if grtype == "Void" {
 		grtype = ""

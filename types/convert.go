@@ -217,7 +217,7 @@ func (t *Type) CTypeAttrib() string {
 
 func (t *Type) _CType(attrib bool) string {
 	if t == nil {
-		fmt.Println("nil sent to _CType()")
+		//fmt.Println("nil sent to _CType()")
 		return ""
 	}
 	//if !attrib && c.ctype != "" ... FIXME?
