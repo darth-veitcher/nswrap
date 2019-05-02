@@ -65,7 +65,6 @@
 - (void) stopScan 
 {
     [manager stopScan];
-    scanCallback(nil);
 }
 
 #pragma mark - CBCentralManager delegate methods
@@ -126,8 +125,6 @@
         [self stopScan];
     	printf("Connecting\n");
     	[manager connectPeripheral:aPeripheral options:[NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBConnectPeripheralOptionNotifyOnDisconnectionKey]];
-    } else {
-        scanCallback(aPeripheral);
     }
 }
 

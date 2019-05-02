@@ -7,7 +7,6 @@
 
     BOOL wantScan;
     BOOL autoConnect;
-    void (*scanCallback)(void* p);
     dispatch_queue_t q;
     CBUUID *looking_for;
 }
