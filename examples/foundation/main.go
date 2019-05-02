@@ -27,4 +27,8 @@ func main() {
 	fmt.Println("Length(a2) = ",a2.Count())
 	i1 := a.ObjectAtIndex(1).NSString()
 	fmt.Println(i1.UTF8String())
+	a.ObjectEnumerator().ForIn(func(o *ns.Id) bool {
+		fmt.Println(o.NSString().UTF8String())
+		return true
+	})
 }

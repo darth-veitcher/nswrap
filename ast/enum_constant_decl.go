@@ -1,5 +1,9 @@
 package ast
 
+import (
+	"strings"
+)
+
 // EnumConstantDecl is node represents a enum constant declaration.
 type EnumConstantDecl struct {
 	Addr       Address
@@ -8,6 +12,7 @@ type EnumConstantDecl struct {
 	Referenced bool
 	Name       string
 	Type       string
+	Type2      string
 	ChildNodes []Node
 }
 
@@ -16,18 +21,25 @@ func parseEnumConstantDecl(line string) *EnumConstantDecl {
 		`<(?P<position>.*)>
 		( (?P<position2>[^ ]+))?
 		( (?P<referenced>referenced))?
-		 (?P<name>.+)
-		 '(?P<type>.+?)'`,
+		(?P<name> \w+)
+		(?P<type> '.*?')?
+		(?P<type2>:'.*?')?`,
 		line,
 	)
+
+	type2 := groups["type2"]
+	if type2 != "" {
+		type2 = type2[2 : len(type2)-1]
+	}
 
 	return &EnumConstantDecl{
 		Addr:       ParseAddress(groups["address"]),
 		Pos:        NewPositionFromString(groups["position"]),
 		Position2:  groups["position2"],
 		Referenced: len(groups["referenced"]) > 0,
-		Name:       groups["name"],
-		Type:       groups["type"],
+		Name:       strings.TrimSpace(groups["name"]),
+		Type:       removeQuotes(groups["type"]),
+		Type2:       type2,
 		ChildNodes: []Node{},
 	}
 }

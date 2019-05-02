@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -19,9 +20,13 @@ type Wrapper struct {
 	Package string
 	Interfaces map[string]*Interface
 	Functions map[string]*Method
+	NamedEnums map[string]*Enum
+	AnonEnums []*Enum
 
+	cgoFlags strings.Builder  // put cGo directives here
 	cCode strings.Builder	  // put cGo code here
 	goTypes strings.Builder   // put Go type declarations here
+	goConst strings.Builder   // put Go constants (from C enums) here
 	goCode strings.Builder    // put Go code here
 	goHelpers strings.Builder // put Go helper functions here
 	Processed map[string]bool
@@ -34,13 +39,14 @@ func NewWrapper(debug bool) *Wrapper {
 	ret := &Wrapper{
 		Interfaces: map[string]*Interface{},
 		Functions: map[string]*Method{},
+		NamedEnums: map[string]*Enum{},
+		AnonEnums: []*Enum{},
 		Processed: map[string]bool{},
 		VaArgs: 16,
 	}
-	ret.cCode.WriteString(`/*
+	ret.cgoFlags.WriteString(fmt.Sprintf(`/*
 #cgo CFLAGS: -x objective-c
-#cgo LDFLAGS: -framework Foundation
-`)
+`))
 	ret.goTypes.WriteString(`
 type Id struct { }
 func (o *Id) Ptr() unsafe.Pointer { return unsafe.Pointer(o) }
@@ -48,11 +54,19 @@ func (o *Id) Ptr() unsafe.Pointer { return unsafe.Pointer(o) }
 	return ret
 }
 
+func (w *Wrapper) Frameworks(ss []string) {
+	if len(ss) == 0 {
+		return
+	}
+	for _,s := range ss {
+		w.cCode.WriteString(fmt.Sprintf("#import <%s/%s.h>\n",s,s))
+	}
+	w.cgoFlags.WriteString("#cgo LDFLAGS: -framework " + strings.Join(ss," -framework "))
+}
+
 func (w *Wrapper) Import(ss []string) {
 	for _,s := range ss {
-		w.cCode.WriteString(`
-#import "` + s + `"
-`)
+		w.cCode.WriteString("\n#import \"" + s + "\"\n")
 	}
 }
 
@@ -64,7 +78,7 @@ func (w *Wrapper) SysImport(ss []string) {
 
 func (w *Wrapper) Pragma(ss []string) {
 	for _,s := range ss {
-		w.cCode.WriteString("\n#pragma " + s + "\n")
+		w.cgoFlags.WriteString("\n#pragma " + s + "\n")
 	}
 }
 
@@ -79,10 +93,16 @@ type Parameter struct {
 }
 
 type Method struct {
-	Name, Class string
+	Name, Class, GoClass string
 	Type *types.Type
 	ClassMethod bool
 	Parameters []*Parameter
+}
+
+type Enum struct {
+	Name string
+	Type *types.Type
+	Constants []string
 }
 
 //isVoid() returns true if the method has no return value.
@@ -149,6 +169,7 @@ func (w Wrapper) objcparamlist(m *Method) string {
 //also a C/Objective-C reserved word.
 var goreserved map[string]bool = map[string]bool{
 	"range": true,
+	"type": true,
 }
 
 func (w *Wrapper) gpntp(m *Method) ([]string,[]*types.Type,string) {
@@ -187,7 +208,7 @@ func (w *Wrapper) gpntp(m *Method) ([]string,[]*types.Type,string) {
 
 
 type Interface struct {
-	Name string
+	Name, GoName string
 	Properties map[string]*Property
 	Methods map[string]*Method
 }
@@ -247,18 +268,69 @@ func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
 	w.Functions[n.Name] = m
 }
 
+//FIXME: copied from nswrap/main.go, should put this in a utils package
+func matches(x string, rs []string) bool {
+	for _,r := range rs {
+		if m,_ := regexp.MatchString("^" + r + "$",x); m {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *Wrapper) AddEnum(n *ast.EnumDecl,rs []string) {
+	if n.Name != "" && !matches(n.Name,rs) {
+		return
+	}
+	//fmt.Printf("Adding enum: (%s) %s\n",n.Type,n.Name)
+	var tp *types.Type
+	a := (*Avail)(&[]AvailAttr{})
+	if n.Type == "" {
+		tp = nil
+	} else {
+		tp = types.NewTypeFromString(n.Type,"")
+		//fmt.Printf("  type: %s\n",tp.CType())
+	}
+	e := &Enum{
+		Name: n.Name, // NOTE: may be empty string
+		Type: tp,
+		Constants: []string{},
+	}
+	for _,c := range n.Children() {
+		switch x := c.(type) {
+		case *ast.AvailabilityAttr, *ast.UnavailableAttr:
+			a.Add(x)
+		case *ast.EnumConstantDecl:
+			//fmt.Printf("*ast.EnumConstantDecl: (%s) '%s': %s\n",n.Type,n.Name,x.Name)
+			if n.Name == "" && !matches(x.Name,rs) {
+				continue
+			}
+			e.Constants = append(e.Constants,x.Name)
+		}
+	}
+	if a.Available() && len(e.Constants) > 0 {
+		if e.Name == "" {
+			w.AnonEnums = append(w.AnonEnums,e)
+		} else {
+			w.NamedEnums[e.Name] = e
+		}
+		//fmt.Printf("  added\n")
+	}
+}
+
 func (w *Wrapper) add(name string, ns []ast.Node) {
 	var i *Interface
 	var ok bool
+	goname := types.NewTypeFromString(name,name).GoType()
+	types.Wrap(goname)
 	if i,ok = w.Interfaces[name]; !ok {
 		i = &Interface{
 			Name: name,
+			GoName: goname,
 			Properties: map[string]*Property{},
 			Methods: map[string]*Method{},
 		}
 	}
-	tp := types.NewTypeFromString(name,name)
-	types.Wrap(tp.GoType())
 	var avail bool
 	for _,c := range ns {
 		switch x := c.(type) {
@@ -278,6 +350,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 				Name: x.Name,
 				Type: types.NewTypeFromString(x.Type,name),
 				Class: name,
+				GoClass: goname,
 				ClassMethod: x.ClassMethod,
 			}
 			//fmt.Println(m.Type.Node.String())
@@ -314,6 +387,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 				m2 := &Method{
 					Name: m.Name,
 					Class: i.Name,
+					GoClass: i.GoName,
 					Type: m.Type.CloneToClass(i.Name),
 					ClassMethod: true,
 					Parameters: []*Parameter{},
@@ -341,12 +415,40 @@ type AvailAttr struct {
 	Deprecated bool
 }
 
+type Avail []AvailAttr
+
+func (a *Avail) Add(n ast.Node) {
+	switch x := n.(type) {
+	case *ast.AvailabilityAttr:
+		*a = append(*a, AvailAttr{
+			OS: x.OS,
+			Version: x.Version,
+			Deprecated: (x.Unknown1 != "0") || x.IsUnavailable,
+		})
+	case *ast.UnavailableAttr:
+		*a = append(*a, AvailAttr{
+			OS: "macos", Deprecated: true })
+	}
+}
+
+func (a *Avail) Available() bool {
+	if len(*a) == 0 {
+		return true
+	}
+	for _,x := range *a {
+		if x.OS == "macos" && x.Deprecated == false {
+			return true
+		}
+	}
+	return false
+}
+
 //GetParms returns the parameters of a method declaration and a bool
 //indicating whether the given method is available on MacOS and not
 //deprecated.
 func (w *Wrapper) GetParms(n ast.Node,class string) ([]*Parameter,bool) {
 	ret := make([]*Parameter,0)
-	avail := make([]AvailAttr,0)
+	avail := (*Avail)(&[]AvailAttr{})
 	var parms []string
 	switch x := n.(type) {
 	case *ast.ObjCMethodDecl:
@@ -370,34 +472,14 @@ func (w *Wrapper) GetParms(n ast.Node,class string) ([]*Parameter,bool) {
 			j++
 		case *ast.Variadic:
 			ret[j-1].Type.Variadic = true
-		case *ast.AvailabilityAttr:
-			avail = append(avail,
-				AvailAttr{
-					OS: x.OS,
-					Version: x.Version,
-					Deprecated: x.Unknown1 != "0",
-				})
-			//fmt.Println("AvailAttr ",avail,x)
-		case *ast.UnavailableAttr:
-			avail = append(avail,
-				AvailAttr{ OS: "macos", Deprecated: true })
+		case *ast.AvailabilityAttr, *ast.UnavailableAttr:
+			avail.Add(x)
 		case *ast.Unknown:
 			if Debug { fmt.Printf("GetParms(): ast.Unknown: %s\n",x.Name) }
 		}
 	}
 	// check that the method is available for this OS and not deprecated
-	a := func() bool {
-		if len(avail) == 0 {
-			return true
-		}
-		for _,x := range avail {
-			if x.OS == "macos" && x.Deprecated == false {
-				return true
-			}
-		}
-		return false
-	}()
-	if !a {
+	if !avail.Available() {
 		return nil, false
 	}
 	// check that we found the right number of parameters
@@ -436,13 +518,17 @@ func (w *Wrapper) processType(tp *types.Type) {
 	if gt == "Char" {
 		w.CharHelpers()
 	}
+	if gt == "NSEnumerator" {
+		w.EnumeratorHelpers()
+	}
 	if bt.IsFunction() {
 		return
 	}
 	super := types.Super(gt)
 	if super != "" {
-		types.Wrap(super)
-		w.processType(types.NewTypeFromString(super,""))
+		tp := types.NewTypeFromString(super,"")
+		types.Wrap(tp.GoType())
+		w.processType(tp)
 	}
 	w.goTypes.WriteString(bt.GoTypeDecl())
 }
@@ -463,6 +549,15 @@ func (c *Char) String() string {
 `)
 }
 
+func (w *Wrapper) EnumeratorHelpers() {
+	w.goHelpers.WriteString(`
+func (e *NSEnumerator) ForIn(f func(*Id) bool) {
+	for o := e.NextObject(); o != nil; o = e.NextObject() {
+		if !f(o) { break }
+	}
+}`)
+}
+
 func (w *Wrapper) ProcessMethod(m *Method) {
 	w._processMethod(m,false)
 }
@@ -481,9 +576,9 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	gname := strings.Title(m.Name)
 	switch {
 	case !m.ClassMethod:
-		gname = "(o *" + m.Class + ") " + gname
-	case m.Type.GoType() != "*" + m.Class:
-		gname = m.Class + gname
+		gname = "(o *" + m.GoClass + ") " + gname
+	case m.Type.GoType() != "*" + m.GoClass:
+		gname = m.GoClass + gname
 	default:
 		lens1 := len(m.Class)
 		i := 0
@@ -492,9 +587,9 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 			if m.Class[i:] == gname[:lens1 - i] { break }
 		}
 		if lens1 - i >= len(gname) {
-			gname = m.Class + gname
+			gname = m.GoClass + gname
 		} else {
-			gname = m.Class + gname[lens1-i:]
+			gname = m.GoClass + gname[lens1-i:]
 		}
 	}
 	cname := m.Name
@@ -510,6 +605,9 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	}
 	if types.IsGoInterface(grtype) {
 		grtype = "*Id"
+	}
+	if gname == grtype { // avoid name conflicts between methods and types
+		gname = "Get" + gname
 	}
 	w.goCode.WriteString(fmt.Sprintf(`
 //%s
@@ -538,7 +636,7 @@ func %s(%s) %s {
 	if m.ClassMethod {
 		cobj = m.Class
 	} else {
-		cobj = "(id)o"
+		cobj = "(" + m.Class + "*)o"
 	}
 	cns,cntps := w.cparamlist(m)
 	_ = cns
@@ -563,6 +661,25 @@ func %s(%s) %s {
 	}
 }
 
+func (w *Wrapper) ProcessEnum(e *Enum) {
+	gtp := ""
+	if e.Type != nil {
+		gtp = e.Type.GoType()
+		if !w.Processed[gtp] {
+			w.goTypes.WriteString(fmt.Sprintf(`
+type %s C.%s
+`,gtp,e.Type.CType()))
+			w.Processed[gtp] = true
+		}
+	}
+	gtp = gtp + " "
+	for _,c := range e.Constants {
+		w.goConst.WriteString(fmt.Sprintf(`
+const %s %s= C.%s
+`,c,gtp,c))
+	}
+}
+
 func (w *Wrapper) Wrap(toproc []string) {
 	if w.Package == "" { w.Package = "ns" }
 	err := os.MkdirAll(w.Package,0755)
@@ -582,6 +699,9 @@ func (w *Wrapper) Wrap(toproc []string) {
 	}
 	//FIXME: sort pInterfaces
 	for _,i := range pInterfaces {
+		if i == nil {
+			continue
+		}
 		fmt.Printf("Interface %s: %d properties, %d methods\n",
 			i.Name, len(i.Properties), len(i.Methods))
 
@@ -589,7 +709,7 @@ func (w *Wrapper) Wrap(toproc []string) {
 func New%s() *%s {
 	return (*%s)(unsafe.Pointer(C.New%s()))
 }
-`,i.Name,i.Name,i.Name,i.Name))
+`,i.GoName,i.GoName,i.GoName,i.Name))
 
 		w.cCode.WriteString(fmt.Sprintf(`
 %s*
@@ -614,8 +734,16 @@ New%s() {
 		//fmt.Printf("Processing function %s %s\n",m.Type.CType(),m.Name)
 		w.ProcessFunction(m)
 	}
+	for _,e := range w.NamedEnums {
+		w.ProcessEnum(e)
+	}
+	for _,e := range w.AnonEnums {
+		w.ProcessEnum(e)
+	}
 	fmt.Printf("%d functions\n", len(w.Functions))
+	fmt.Printf("%d enums\n", len(w.NamedEnums) + len(w.AnonEnums))
 	of.WriteString("package " + w.Package + "\n\n")
+	of.WriteString(w.cgoFlags.String() + "\n")
 	of.WriteString(w.cCode.String())
 	of.WriteString(`
 */
@@ -626,6 +754,7 @@ import (
 )
 `)
 	of.WriteString(w.goTypes.String())
+	of.WriteString(w.goConst.String())
 	of.WriteString(w.goHelpers.String())
 	of.WriteString(w.goCode.String())
 	of.Close()

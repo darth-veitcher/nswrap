@@ -157,7 +157,6 @@ func (t *Type) PointsTo() *Type {
 }
 
 func Wrap(s string) {
-	// it is the pointers to this type that get wrapped
 	wrapped[s] = true
 }
 
@@ -270,11 +269,13 @@ type %s %s
 }
 
 func (t *Type) GoInterfaceDecl() string {
+	ct := t.CType()
 	gt := t.GoType()
 	if gt[0] == '*' {
 		gt = gt[1:] // dereference wrapped types
+		ct = ct[:len(ct)-1]
 	}
-	super := Super(gt)
+	super := Super(ct)
 	if super == "" {
 		goInterfaces[gt] = true
 		return fmt.Sprintf(`

@@ -10,20 +10,34 @@ type EnumDecl struct {
 	Pos        Position
 	Position2  string
 	Name       string
+	Type       string
+	Type2      string
 	ChildNodes []Node
 }
 
 func parseEnumDecl(line string) *EnumDecl {
 	groups := groupsFromRegex(
-		`(?:prev (?P<prev>0x[0-9a-f]+) )?<(?P<position>.*)>(?P<position2> .+:\d+)?(?P<name>.*)`,
+		`(?:prev (?P<prev>0x[0-9a-f]+) )?
+		<(?P<position>.*)>
+		(?P<position2> .+:\d+)?
+		(?P<name> \w+)?
+		(?P<type> '.*?')?
+		(?P<type2>:'.*')?`,
 		line,
 	)
+
+	type2 := groups["type2"]
+	if type2 != "" {
+		type2 = type2[2 : len(type2)-1]
+	}
 
 	return &EnumDecl{
 		Addr:       ParseAddress(groups["address"]),
 		Pos:        NewPositionFromString(groups["position"]),
 		Position2:  groups["position2"],
 		Name:       strings.TrimSpace(groups["name"]),
+		Type:       removeQuotes(groups["type"]),
+		Type2:      type2,
 		ChildNodes: []Node{},
 	}
 }

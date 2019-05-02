@@ -21,6 +21,8 @@ type conf struct {
 	InputFiles []string
 	Classes []string
 	Functions []string
+	Enums []string
+	Frameworks []string
 	Imports []string
 	SysImports []string
 	Pragma []string
@@ -177,9 +179,9 @@ func Start() (err error) {
 
 	// build tree
 	tree := buildTree(nodes, 0)
-	//unit := tree[0]
 	w := wrap.NewWrapper(Debug)
 	w.Package = Config.Package
+	w.Frameworks(Config.Frameworks)
 	w.Import(Config.Imports)
 	w.SysImport(Config.SysImports)
 	w.Pragma(Config.Pragma)
@@ -200,6 +202,8 @@ func Start() (err error) {
 				if matches(x.Name,Config.Functions) {
 					w.AddFunction(x)
 				}
+			case *ast.EnumDecl:
+				w.AddEnum(x,Config.Enums)
 			}
 		}
 	}
