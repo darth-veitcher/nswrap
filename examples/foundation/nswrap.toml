@@ -22,6 +22,6 @@ Functions = [
 Enums = [
 	"CF.*",
 ]
-SysImports = [ "Foundation/Foundation.h" ]
+Frameworks = [ "Foundation" ]
 Pragma = [ 'clang diagnostic ignored "-Wformat-security"' ]
 VaArgs = 32

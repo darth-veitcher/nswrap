@@ -81,21 +81,31 @@ digit:
 	[0-9]
 */
 
+import (
+	"regexp"
+)
+
 var TypeName func(s string, n *Node) (string, *Node)
 
 func init() {
+	instancename := regexp.MustCompile("instancename")
+	instancetype := regexp.MustCompile("instancetype")
+	cacheable := func(s string) bool {
+		return !instancetype.MatchString(s) && !instancename.MatchString(s)
+	}
+
 	cache := map[string]*Node{}
 	TypeName = func(s string, n *Node) (string, *Node) {
 		if n2,ok := cache[s]; ok {
 			return "",n2
 		}
 		s2,n2 := _TypeName(s,n)
-		if s2 == "" {
+		if s2 == "" && cacheable(s) {
 			cache[s] = n2
 		}
 		return s2,n2
 	}
-	TypeName = _TypeName
+	//TypeName = _TypeName
 }
 
 func _TypeName(s string, n *Node) (string, *Node) {
@@ -318,10 +328,10 @@ func BareTypedefName(s string, n *Node) (string, *Node) {
 }
 
 func TypedefName(s string, n *Node) (string, *Node) {
-	return OneOf(
-		Seq(BareTypedefName, AngBracketed(GenericList)),
-		Seq(BareTypedefName, NullableAnnotation),
+	return Seq(
 		BareTypedefName,
+		Opt(AngBracketed(GenericList)),
+		Opt(NullableAnnotation),
 	)(s,n)
 }
 

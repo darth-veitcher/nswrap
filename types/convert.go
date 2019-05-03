@@ -50,7 +50,7 @@ func init() {
 	TypeParameters = make(map[string]map[string]string)
 	typedefs = make(map[string]*Type)
 
-	r_id = regexp.MustCompile("\bid\b")
+	r_id = regexp.MustCompile(`\bid\b`)
 	r_instancename = regexp.MustCompile(`\binstancename\b`)
 	r_instancetype = regexp.MustCompile(`\binstancetype\b`)
 }
@@ -117,7 +117,6 @@ func NewType(n *Node, c string) *Type {
 	return &Type{
 		Node: n2,
 		Class: c,
-		//ctype: "",
 	}
 }
 
@@ -125,19 +124,16 @@ func NewTypeFromString(t,c string) *Type {
 	//fmt.Printf("t/c: %s/%s\n",t,c)
 	n,err := Parse(t)
 	//fmt.Printf("%p %s",n,n.String())
-	if n.IsId() {
-		n,err = Parse("NSObject*")
-	}
 	if err != nil {
 		return &Type{}
 	}
 	if n2,ok := clean(n, c); ok {
+		//found type parameters, re-parse
 		return NewTypeFromString(n2.Ctype(),c)
 	}
 	return &Type{
 		Node: n,
 		Class: c,
-		//ctype: "",
 	}
 }
 
@@ -219,9 +215,9 @@ func (t *Type) _CType(attrib bool) string {
 		//fmt.Println("nil sent to _CType()")
 		return ""
 	}
-	if !attrib && t.ctype != "" { // cache
-		return t.ctype
-	}
+	//if !attrib && t.ctype != "" { // cache
+	//	return t.ctype
+	//}
 	var ct string
 	if attrib {
 		ignore := map[string]bool { "GenericList": true }
@@ -294,6 +290,19 @@ type %s struct { %s }
 func (o *%s) Ptr() unsafe.Pointer { return unsafe.Pointer(o) }
 func (o *Id) %s() *%s { return (*%s)(unsafe.Pointer(o)) }
 `,t.Node.Ctype(),t.BaseType().GoType(),gt,super,gt,gt,gt,gt)
+}
+
+func (t *Type) IsFunctionPtr() bool {
+	if t == nil {
+		return false
+	}
+	if td := t.Typedef(); td != nil {
+		return td.IsFunctionPtr()
+	}
+	for pt := t.PointsTo(); pt != nil; pt = pt.PointsTo() {
+		return pt.IsFunction()
+	}
+	return false
 }
 
 func (t *Type) IsFunction() bool {

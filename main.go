@@ -149,7 +149,6 @@ func matches(x string, rs []string) bool {
 
 // Start begins transpiling an input file.
 func Start() (err error) {
-	// 1. Compile it first (checking for errors)
 	for _, in := range Config.InputFiles {
 		_, err := os.Stat(in)
 		if err != nil {
@@ -159,10 +158,11 @@ func Start() (err error) {
 
 	// 2. Preprocess NOT DONE
 
-	// 3. Generate JSON from AST
+	// 3. Generate AST
 	cargs := []string{"-xobjective-c", "-Xclang", "-ast-dump",
 			"-fsyntax-only","-fno-color-diagnostics"}
 	cargs = append(cargs,Config.InputFiles...)
+	fmt.Printf("Generating AST\n")
 	astPP, err := exec.Command("clang",cargs...).Output()
 	if err != nil {
 		// If clang fails it still prints out the AST, so we have to run it
@@ -175,9 +175,11 @@ func Start() (err error) {
 	lines := readAST(astPP)
 
 	// Converting to nodes
+	fmt.Printf("Building nodes\n")
 	nodes := convertLinesToNodesParallel(lines)
 
 	// build tree
+	fmt.Printf("Assembling tree\n")
 	tree := buildTree(nodes, 0)
 	w := wrap.NewWrapper(Debug)
 	w.Package = Config.Package
@@ -190,6 +192,7 @@ func Start() (err error) {
 	}
 	w.VaArgs = Config.VaArgs
 	for _, u := range tree {
+		fmt.Printf("--processing translation unit\n")
 		for _, n := range(u.Children()) {
 			switch x := n.(type) {
 			case *ast.ObjCInterfaceDecl:

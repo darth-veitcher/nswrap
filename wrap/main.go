@@ -113,7 +113,7 @@ func (m Method) isVoid() bool {
 //hasFunctionParam() returns true if a method has a function as a parameter.
 func (m Method) hasFunctionParam() bool {
 	for _,p := range m.Parameters {
-		if p.Type.IsFunction() {
+		if p.Type.IsFunction() || p.Type.IsFunctionPtr() {
 			return true
 		}
 	}
@@ -521,7 +521,7 @@ func (w *Wrapper) processType(tp *types.Type) {
 	if gt == "NSEnumerator" {
 		w.EnumeratorHelpers()
 	}
-	if bt.IsFunction() {
+	if bt.IsFunction() || bt.IsFunctionPtr() {
 		return
 	}
 	super := types.Super(gt)
@@ -535,7 +535,7 @@ func (w *Wrapper) processType(tp *types.Type) {
 
 func (w *Wrapper) CharHelpers() {
 	w.goHelpers.WriteString(`
-func CharFromString(s string) *Char {
+func CharWithGoString(s string) *Char {
 	return (*Char)(unsafe.Pointer(C.CString(s)))
 }
 
@@ -555,7 +555,8 @@ func (e *NSEnumerator) ForIn(f func(*Id) bool) {
 	for o := e.NextObject(); o != nil; o = e.NextObject() {
 		if !f(o) { break }
 	}
-}`)
+}
+`)
 }
 
 func (w *Wrapper) ProcessMethod(m *Method) {
@@ -570,13 +571,12 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	if Debug {
 		fmt.Printf("  method: %s (%s)\n", m.Name, m.Type)
 	}
-	if m.Type.IsFunction() || m.hasFunctionParam() {
+	if m.Type.IsFunction() || m.Type.IsFunctionPtr() || m.hasFunctionParam() {
 		return
 	}
 	gname := strings.Title(m.Name)
 	switch {
 	case !m.ClassMethod:
-		gname = "(o *" + m.GoClass + ") " + gname
 	case m.Type.GoType() != "*" + m.GoClass:
 		gname = m.GoClass + gname
 	default:
@@ -591,6 +591,10 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 		} else {
 			gname = m.GoClass + gname[lens1-i:]
 		}
+	}
+	receiver := ""
+	if !m.ClassMethod {
+		receiver = "(o *" + m.GoClass + ") "
 	}
 	cname := m.Name
 	if m.Class != "" {
@@ -611,8 +615,8 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	}
 	w.goCode.WriteString(fmt.Sprintf(`
 //%s
-func %s(%s) %s {
-`,m.Type.CType(),gname,gplist,grtype))
+func %s%s(%s) %s {
+`,m.Type.CType(),receiver,gname,gplist,grtype))
 	lparm := len(tps)-1
 	if len(tps) > 0 && tps[lparm].Variadic {
 		vn := ns[lparm]
@@ -659,7 +663,42 @@ func %s(%s) %s {
 		w.cCode.WriteString(fmt.Sprintf(`	%s[%s %s];
 }`, cret, cobj, w.objcparamlist(m)))
 	}
+
+	// create GoString helper method
+	if ok,_ := regexp.MatchString("WithString$",m.Name); ok {
+		//fmt.Printf("--%s\n",gname)
+		gname2 := gname[:len(gname)-6] + "GoString"
+		gps := []string{}
+		i := 0
+		if !m.ClassMethod { i = 1 }
+		for ; i < len(ns); i++ {
+			gt := tps[i].GoType()
+			//fmt.Printf("  %s\n",gt)
+			ns2 := ns[i]
+			if gt == "*NSString" {
+				gt = "string"
+				ns[i] = gStringToNsstring(ns[i])
+			}
+			gps = append(gps,ns2 + " " + gt)
+		}
+		gplist = strings.Join(gps,", ")
+		obj := ""
+		if !m.ClassMethod {
+			obj = "o."
+			ns = ns[1:]
+		}
+		w.goCode.WriteString(fmt.Sprintf(`
+func %s%s(%s) %s {
+	return %s%s(%s)
 }
+`,receiver,gname2,gplist,grtype,obj,gname,strings.Join(ns,", ")))
+	}
+}
+
+func gStringToNsstring(s string) string {
+	return fmt.Sprintf("NSStringWithUTF8String(CharWithGoString(%s))",s)
+}
+
 
 func (w *Wrapper) ProcessEnum(e *Enum) {
 	gtp := ""

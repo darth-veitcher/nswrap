@@ -8,12 +8,12 @@ import (
 )
 
 func main() {
-	n1 := ns.NSStringWithUTF8String(ns.CharFromString("hi there"))
+	n1 := ns.NSStringWithUTF8String(ns.CharWithGoString("hi there"))
 	c1 := n1.CapitalizedString()
 	gs := c1.UTF8String().String()
 	fmt.Println(gs)
-	n2 := ns.NSStringWithUTF8String(ns.CharFromString("hi world"))
-	n3 := ns.NSStringWithUTF8String(ns.CharFromString("ok bye"))
+	n2 := ns.NSStringWithGoString("hi world")
+	n3 := ns.NSStringWithGoString("ok bye")
 	a := ns.NSMutableArrayWithObjects(n1,n2,n3)
 	fmt.Println("Length(a) = ",a.Count())
 	fmt.Println("is n2 in a?",a.ContainsObject(n2))

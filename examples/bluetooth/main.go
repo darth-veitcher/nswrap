@@ -11,7 +11,8 @@ func main() {
 	fmt.Println("LE capable:",cd.IsLECapableHardware())
 	time.Sleep(time.Second * 1)
 	fmt.Println("LE capable:",cd.IsLECapableHardware())
-	uuid := ble.CBUUIDWithString(ble.NSStringWithUTF8String(ble.CharFromString("180d")))
+	uuid := ble.CBUUIDWithGoString("180d")
 	cd.ScanFor(uuid)
-	time.Sleep(time.Second * 15)
+
+	select { }
 }

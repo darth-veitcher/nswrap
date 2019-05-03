@@ -53,7 +53,7 @@ func (n *Node) stripAbstract(k string) *Node {
 		return nil
 	}
 	ret := NewNode(n.Kind)
-	cs := n.Children[:]
+	cs := append([]*Node{},n.Children...)
 
 	dbg("stripAbstract(): i = %d\n",i)
 	//Scan backwords skipping TypeQualifier and NullableAnnotation tags
@@ -97,7 +97,10 @@ func (n *Node) PointsTo() *Node {
 
 //IsPointer returns true if the node is a pointer
 func (n *Node) IsPointer() bool {
-	return n.IsId() || n.IsInstancetype() || n.PointsTo() != nil
+	if pt := n.PointsTo(); pt != nil {
+		return true
+	}
+	return n.IsInstancetype() || n.IsId()
 }
 
 //ArrayOf, when called on an array node returns a node describing the type
@@ -124,6 +127,9 @@ func (n *Node) IsFunction() bool {
 	if n == nil || len(n.Children) < 1 {
 		return false
 	}
+	if pt := n.PointsTo(); pt != nil {
+		return false
+	}
 	return n.Children[len(n.Children)-1].Kind == "Function"
 }
 
@@ -140,7 +146,8 @@ func (n *Node) IsId() bool {
 	if n == nil || len(n.Children) < 1 {
 		return false
 	}
-	return n.Children[0].Kind == "TypedefName" &&
+	return !n.IsFunction() &&
+		n.Children[0].Kind == "TypedefName" &&
 		n.Children[0].Content == "id"
 }
 
