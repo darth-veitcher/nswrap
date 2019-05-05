@@ -1,7 +1,6 @@
 clast
 ast.txt
 *.ast
-program
 examples/bluetooth/bluetooth
 examples/bluetooth/ble/main.go
 examples/foundation/foundation

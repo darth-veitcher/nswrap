@@ -745,14 +745,14 @@ func (w *Wrapper) Wrap(toproc []string) {
 			i.Name, len(i.Properties), len(i.Methods))
 
 		w.goCode.WriteString(fmt.Sprintf(`
-func New%s() *%s {
-	return (*%s)(unsafe.Pointer(C.New%s()))
+func %sAlloc() *%s {
+	return (*%s)(unsafe.Pointer(C.%sAlloc()))
 }
 `,i.GoName,i.GoName,i.GoName,i.Name))
 
 		w.cCode.WriteString(fmt.Sprintf(`
 %s*
-New%s() {
+%sAlloc() {
 	return [%s alloc];
 }
 `, i.Name, i.Name, i.Name))

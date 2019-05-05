@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	cd := ble.NewBle_delegate().Init()
+	cd := ble.Ble_delegateAlloc().Init()
 	fmt.Println("LE capable:",cd.IsLECapableHardware())
 	time.Sleep(time.Second * 1)
 	fmt.Println("LE capable:",cd.IsLECapableHardware())
