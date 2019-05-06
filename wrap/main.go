@@ -610,6 +610,9 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	if types.IsGoInterface(grtype) {
 		grtype = "*Id"
 	}
+	if grtype == "BOOL" { // convert objective-c bools to Go bools
+		grtype = "bool"
+	}
 	if gname == grtype { // avoid name conflicts between methods and types
 		gname = "Get" + gname
 	}

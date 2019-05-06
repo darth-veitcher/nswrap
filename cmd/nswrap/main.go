@@ -167,9 +167,16 @@ func Start() (err error) {
 	if err != nil {
 		// If clang fails it still prints out the AST, so we have to run it
 		// again to get the real error.
-//		errBody, _ := exec.Command("clang", cargs...).CombinedOutput()
-
-		panic("clang failed: " + err.Error() + ":\n\n")
+		//errBody, _ := exec.Command("clang", cargs...).CombinedOutput()
+		var txt string
+		switch x := err.(type) {
+		case *exec.ExitError:
+			txt = string(x.Stderr)
+		default:
+			txt = err.Error()
+		}
+		fmt.Printf("clang failed:\n%s\n", txt)
+		os.Exit(-1)
 	}
 
 	lines := readAST(astPP)

@@ -350,7 +350,12 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 		if IsGoInterface(rtgt) {
 			rtgt = "*Id"
 		}
-		ret.WriteString("return (" + rtgt + ")(")
+		if rtgt == "BOOL" {
+			ret.WriteString("return (")
+			rtgt = "bool"
+		} else {
+			ret.WriteString("return (" + rtgt + ")(")
+		}
 		if rtype.IsPointer() {
 			ret.WriteString("unsafe.Pointer(")
 		}
@@ -381,6 +386,9 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 		if rtype.IsPointer() {
 			ret.WriteString(")")
 		}
+	}
+	if rt == "BOOL" {
+		ret.WriteString(" != 0")
 	}
 	return ret.String()
 }
