@@ -88,6 +88,7 @@ func (n *Node) renameTypedefs(a,b string) (ret bool) {
 func (n *Node) CtypeSimplified() string {
 	ignore := map[string]bool{
 		"NullableAnnotation": true,
+		"KindQualifier": true,
 		"TypeQualifier": true,
 		"GenericList": true,
 	}

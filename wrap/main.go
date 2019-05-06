@@ -289,7 +289,7 @@ func (w *Wrapper) AddEnum(n *ast.EnumDecl,rs []string) {
 		tp = nil
 	} else {
 		tp = types.NewTypeFromString(n.Type,"")
-		//fmt.Printf("  type: %s\n",tp.CType())
+		//fmt.Printf("  type: %s -> %s\n",n.Type,tp.CType())
 	}
 	e := &Enum{
 		Name: n.Name, // NOTE: may be empty string
@@ -490,16 +490,8 @@ func (w *Wrapper) GetParms(n ast.Node,class string) ([]*Parameter,bool) {
 }
 
 func (w *Wrapper) processTypes(tps []*types.Type) {
-	switch len(tps) {
-	case 0:
-		return
-	case 1:
-		w.processType(tps[0])
-	default:
-		for _,tp := range tps {
-			w.processType(tp)
-		}
-		return
+	for _,tp := range tps {
+		w.processType(tp)
 	}
 }
 
@@ -704,17 +696,26 @@ func gStringToNsstring(s string) string {
 
 
 func (w *Wrapper) ProcessEnum(e *Enum) {
+	//fmt.Printf("Processing enum (%s)\n",e.Name)
 	gtp := ""
-	if e.Type != nil {
+	ctp := ""
+	if e.Name != "" {
+		gtp = e.Name
+		ctp = "C." + e.Name
+	} else {
 		gtp = e.Type.GoType()
+		ctp = e.Type.CGoType()
+	}
+	if e.Type != nil {
 		if !w.Processed[gtp] {
 			w.goTypes.WriteString(fmt.Sprintf(`
-type %s C.%s
-`,gtp,e.Type.CType()))
+type %s %s
+`,gtp,ctp))
 			w.Processed[gtp] = true
 		}
 	}
 	gtp = gtp + " "
+	//fmt.Printf("  gtp = %s; ctp = %s\n",gtp,ctp)
 	for _,c := range e.Constants {
 		w.goConst.WriteString(fmt.Sprintf(`
 const %s %s= C.%s

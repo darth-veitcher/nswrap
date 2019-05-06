@@ -103,8 +103,6 @@ func clean(n *Node,c string) (*Node,bool) {
 			recur = ret.renameTypedefs(k,v)
 		}
 	}
-//	recur = recur || ret.renameTypedefs("instancename",c)
-//	recur = recur || ret.renameTypedefs("instancetype",c + "*")
 	if recur {
 		clean(n, c)
 		return ret,true
@@ -198,6 +196,9 @@ func _goType(ct string) string {
 	}
 	if ct == "Id" {
 		ct = "*Id"
+	}
+	if len(ct) > 4 && ct[len(ct)-4:len(ct)] == "Void" {
+		ct = ct[:len(ct)-5] + "unsafe.Pointer"
 	}
 	return ct
 }

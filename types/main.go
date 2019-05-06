@@ -120,7 +120,10 @@ func (n *Node) IsStruct() bool {
 	if n == nil || len(n.Children) < 1 {
 		return false
 	}
-	return n.Children[0].Kind == "Struct"
+	i := 0
+	for ;	i<len(n.Children) &&
+		n.Children[i].Kind == "KindQualifier"; i++ {}
+	return n.Children[i].Kind == "Struct"
 }
 
 func (n *Node) IsFunction() bool {
@@ -146,17 +149,23 @@ func (n *Node) IsId() bool {
 	if n == nil || len(n.Children) < 1 {
 		return false
 	}
+	i := 0
+	for ;	i < len(n.Children) &&
+		n.Children[i].Kind == "KindQualifier"; i++ {}
 	return !n.IsFunction() &&
-		n.Children[0].Kind == "TypedefName" &&
-		n.Children[0].Content == "id"
+		n.Children[i].Kind == "TypedefName" &&
+		n.Children[i].Content == "id"
 }
 
 func (n *Node) IsInstancetype() bool {
 	if n == nil || len(n.Children) < 1 {
 		return false
 	}
-	return n.Children[0].Kind == "TypedefName" &&
-		n.Children[0].Content == "instancetype"
+	i := 0
+	for ;	i < len(n.Children) &&
+		n.Children[i].Kind == "KindQualifier"; i++ {}
+	return n.Children[i].Kind == "TypedefName" &&
+		n.Children[i].Content == "instancetype"
 }
 
 //BaseType strips off all layers of pointer indirection

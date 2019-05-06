@@ -1,6 +1,8 @@
 clast
 ast.txt
 *.ast
+examples/app/app
+examples/app/ns
 examples/bluetooth/bluetooth
 examples/bluetooth/ble/main.go
 examples/foundation/foundation

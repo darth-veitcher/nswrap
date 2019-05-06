@@ -329,6 +329,7 @@ func BareTypedefName(s string, n *Node) (string, *Node) {
 
 func TypedefName(s string, n *Node) (string, *Node) {
 	return Seq(
+		Opt(NodeNamed("KindQualifier",Lit("__kindof"))),
 		BareTypedefName,
 		Opt(AngBracketed(GenericList)),
 		Opt(NullableAnnotation),

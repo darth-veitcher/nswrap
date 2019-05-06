@@ -1,5 +1,6 @@
 InputFiles = [
     "/System/Library/Frameworks/Foundation.framework/Headers/Foundation.h",
+    "/System/Library/Frameworks/AppKit.framework/Headers/AppKit.h",
 ]
 Classes = [
 	"NSArray",
@@ -15,14 +16,24 @@ Classes = [
 	"NSString",
 	"NSScanner",
 	"NSFileManager",
+	"NSApplication",
+	"NSBundle",
+	"NSApp",
+	"NSWindow",
+	"NSScreen",
+	"NSEvent",
+	"NSResponder",
 ]
 Functions = [
-	"NSMakeRange",
+	"NSApplicationMain",
+	"NSMake.*",
 ]
 Enums = [
-	"P_ALL",
 	"CF.*",
+	"NSApplication.*",
+	"NSBackingStore.*",
+	"NSWindowStyleMask.*",
 ]
-Frameworks = [ "Foundation" ]
+Frameworks = [ "Foundation", "AppKit", "CoreGraphics" ]
 Pragma = [ 'clang diagnostic ignored "-Wformat-security"' ]
 VaArgs = 32
