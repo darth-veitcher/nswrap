@@ -41,6 +41,9 @@ func nsmgr() {
 	fileMenu.AddItemWithTitle(ns.NSStringWithGoString("New"), nil, s)
 
 	a.SetMainMenu(m1)
+
+	b1 := ns.NSButtonWithTitle(ns.NSStringWithGoString("push"),s,nil)
+	w.ContentView().AddSubview(&b1.NSView,ns.NSWindowAbove,nil)
 	a.Run()
 }
 
