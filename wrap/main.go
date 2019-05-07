@@ -513,6 +513,9 @@ func (w *Wrapper) processType(tp *types.Type) {
 	if gt == "NSEnumerator" {
 		w.EnumeratorHelpers()
 	}
+	if gt == "SEL" {
+		w.SelectorHelpers()
+	}
 	if bt.IsFunction() || bt.IsFunctionPtr() {
 		return
 	}
@@ -547,6 +550,20 @@ func (e *NSEnumerator) ForIn(f func(*Id) bool) {
 	for o := e.NextObject(); o != nil; o = e.NextObject() {
 		if !f(o) { break }
 	}
+}
+`)
+}
+
+func (w *Wrapper) SelectorHelpers() {
+	w.cCode.WriteString(`
+void*
+selectorFromString(char *s) {
+	return NSSelectorFromString([NSString stringWithUTF8String:s]);
+}
+`)
+	w.goHelpers.WriteString(`
+func Selector(s string) SEL {
+	return (SEL)(unsafe.Pointer(C.selectorFromString(C.CString(s))))
 }
 `)
 }

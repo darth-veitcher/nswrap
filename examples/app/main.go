@@ -35,6 +35,7 @@ func nsmgr() {
 	s := ns.NSStringWithGoString("")
 	appMenu.AddItemWithTitle(ns.NSStringWithGoString("About"), nil, s)
 	appMenu.AddItemWithTitle(ns.NSStringWithGoString("Preferences"), nil, s)
+	appMenu.AddItemWithTitle(ns.NSStringWithGoString("Quit"),ns.Selector("terminate:"), ns.NSStringWithGoString("q"))
 	a.SetMainMenu(m1)
 	fileMenu.AddItemWithTitle(ns.NSStringWithGoString("Open"), nil, s)
 	fileMenu.AddItemWithTitle(ns.NSStringWithGoString("New"), nil, s)
