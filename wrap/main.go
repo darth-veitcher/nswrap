@@ -556,6 +556,10 @@ func (w *Wrapper) ProcessMethod(m *Method) {
 }
 
 func (w *Wrapper) ProcessFunction(m *Method) {
+	if m.Type.Node.IsId() {
+	//do not wrap functions that return ID because of CGo struct size bug
+		return
+	}
 	w._processMethod(m,true)
 }
 
@@ -572,6 +576,7 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	case m.Type.GoType() != "*" + m.GoClass:
 		gname = m.GoClass + gname
 	default:
+		//Shorten class method names
 		lens1 := len(m.Class)
 		i := 0
 		if len(gname) < len(m.Class) { i = lens1 - len(gname) }
@@ -592,8 +597,19 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	if m.Class != "" {
 		cname = m.Class + "_" + cname
 	}
-
-	cmtype := m.Type.CTypeAttrib()
+	var cmtype string
+	if m.Type.IsPointer() {
+		// work around cgo bugs with struct size calculation
+		cmtype = "void*"
+		if x := m.Type.Node.Qualifiers(); x != "" {
+			cmtype = x + " " + cmtype
+		}
+		if x := m.Type.Node.Annotations(); x != "" {
+			cmtype = cmtype + " " + x
+		}
+	} else {
+		cmtype = m.Type.CTypeAttrib()
+	}
 	ns,tps,gplist := w.gpntp(m)
 	grtype := m.Type.GoType()
 	if grtype == "Void" {
@@ -755,11 +771,11 @@ func %sAlloc() *%s {
 `,i.GoName,i.GoName,i.GoName,i.Name))
 
 		w.cCode.WriteString(fmt.Sprintf(`
-%s*
+void*
 %sAlloc() {
 	return [%s alloc];
 }
-`, i.Name, i.Name, i.Name))
+`, i.Name, i.Name))
 
 		//FIXME: sort properties
 		for _,p := range i.Properties {

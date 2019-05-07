@@ -19,13 +19,16 @@ Classes = [
 	"NSApplication",
 	"NSBundle",
 	"NSApp",
+	"NSMenu",
+	"NSMenuItem",
 	"NSWindow",
+	"NSView",
 	"NSScreen",
 	"NSEvent",
 	"NSResponder",
+	"NSRunLoop",
 ]
 Functions = [
-	"NSApplicationMain",
 	"NSMake.*",
 ]
 Enums = [
@@ -33,6 +36,8 @@ Enums = [
 	"NSApplication.*",
 	"NSBackingStore.*",
 	"NSWindowStyleMask.*",
+	"NSWindowButton",
+	"NSWindowOrderingMode",
 ]
 Frameworks = [ "Foundation", "AppKit", "CoreGraphics" ]
 Pragma = [ 'clang diagnostic ignored "-Wformat-security"' ]

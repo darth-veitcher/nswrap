@@ -138,3 +138,31 @@ func (n *Node) _Ctype(ignore map[string]bool) string {
 	return s
 }
 
+
+func (n *Node) Qualifiers() string {
+	if n == nil {
+		return ""
+	}
+	ret := []string{}
+	for _,c := range n.Children {
+		switch c.Kind {
+		case "TypeQualifier":
+			ret = append(ret,c.Content)
+		}
+	}
+	return strings.Join(ret," ")
+}
+
+func (n *Node) Annotations() string {
+	if n == nil {
+		return ""
+	}
+	ret := []string{}
+	for _,c := range n.Children {
+		switch c.Kind {
+		case "NullableAnnotation":
+			ret = append(ret,c.Content)
+		}
+	}
+	return strings.Join(ret," ")
+}
