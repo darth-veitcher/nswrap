@@ -1,0 +1,21 @@
+inputfiles:
+    - /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
+classes:
+    - NSArray
+    - NSMutableArray
+    - NSDictionary
+    - NSEnumerator
+    - NSSet
+    - NSDate
+    - NSTimeZone
+    - NSCalendar
+    - NSLocale
+    - NSCharacterSet
+    - NSString
+    - NSScanner
+    - NSFileManager
+functions: [ NSMakeRange ]
+enums: [ P_ALL, CF.* ]
+frameworks: [ Foundation ]
+pragma: [ clang diagnostic ignored "-Wformat-security" ]
+vaargs: 32

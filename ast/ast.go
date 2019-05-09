@@ -210,6 +210,8 @@ func Parse(fullline string) Node {
 		return parseObjCObjectPointerType(line)
 	case "ObjCProtocol":
 		return parseObjCProtocol(line)
+	case "ObjCProtocolDecl":
+		return parseObjCProtocolDecl(line)
 	case "ObjCPropertyDecl":
 		return parseObjCPropertyDecl(line)
 	case "ObjCTypeParamDecl":

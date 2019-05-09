@@ -1,0 +1,35 @@
+package: ble
+inputfiles:
+    - /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
+    - /System/Library/Frameworks/CoreBluetooth.framework/Headers/CoreBluetooth.h
+    - ble/ble_delegate.h
+
+classes:
+    - ble_delegate
+    - CBCentralManager
+    - CBPeripheralManager
+    - CBPeripheral
+    - CBCentral
+    - CBService
+    - CBCharacteristic
+    - CBDescriptor
+    - CBError
+    - CBUUID
+    - CBAdvertisementData
+    - CBATTRequest
+    - NSArray
+    - NSMutableArray
+    - NSDictionary
+    - NSEnumerator
+    - NSSet
+    - NSDate
+    - NSTimeZone
+    - NSString
+
+functions: [ NSMakeRange ]
+enums: [ CB.* ]
+frameworks: [ Foundation, CoreBluetooth ]
+imports: [ ble_delegate.h ]
+
+pragma: [ clang diagnostic ignored "-Wformat-security" ]
+vaargs: 32

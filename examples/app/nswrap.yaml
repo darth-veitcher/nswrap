@@ -1,0 +1,49 @@
+inputfiles:
+    - /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
+    - /System/Library/Frameworks/AppKit.framework/Headers/AppKit.h
+
+classes:
+    - NSArray"
+    - NSMutableArray
+    - NSDictionary
+    - NSEnumerator
+    - NSSet
+    - NSDate
+    - NSTimeZone
+    - NSCalendar
+    - NSLocale
+    - NSCharacterSet
+    - NSString
+    - NSScanner
+    - NSFileManager
+    - NSApplication
+    - NSBundle
+    - NSApp
+    - NSMenu
+    - NSMenuItem
+    - NSWindow
+    - NSView
+    - NSScreen
+    - NSButton
+    - NSEvent
+    - NSResponder
+    - NSRunLoop
+
+functions: [NSMake.*]
+
+enums:
+    - CF.*
+    - NSApplication.*
+    - NSBackingStore.*
+    - NSWindowStyleMask.*
+    - NSWindowButton
+    - NSWindowOrderingMode
+
+delegates:
+    AppDelegate: [NSApplicationDelegate]
+
+frameworks: [ Foundation, AppKit, CoreGraphics ]
+pragma: [ clang diagnostic ignored "-Wformat-security" ]
+vaargs: 32
+
+

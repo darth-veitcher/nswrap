@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
 	"strings"
 
-	"github.com/BurntSushi/toml"
+	"gopkg.in/yaml.v2"
 	"gitlab.wow.st/gmp/nswrap/ast"
 	"gitlab.wow.st/gmp/nswrap/types"
 	"gitlab.wow.st/gmp/nswrap/wrap"
@@ -18,15 +19,16 @@ var Debug = false
 
 type conf struct {
 	Package string
-	InputFiles []string
+	Inputfiles []string
 	Classes []string
 	Functions []string
 	Enums []string
+	Delegates map[string][]string
 	Frameworks []string
 	Imports []string
-	SysImports []string
+	Sysimports []string
 	Pragma []string
-	VaArgs int
+	Vaargs int
 }
 
 var Config conf
@@ -149,7 +151,7 @@ func matches(x string, rs []string) bool {
 
 // Start begins transpiling an input file.
 func Start() (err error) {
-	for _, in := range Config.InputFiles {
+	for _, in := range Config.Inputfiles {
 		_, err := os.Stat(in)
 		if err != nil {
 			return fmt.Errorf("Input file %s is not found", in)
@@ -161,7 +163,7 @@ func Start() (err error) {
 	// 3. Generate AST
 	cargs := []string{"-xobjective-c", "-Xclang", "-ast-dump",
 			"-fsyntax-only","-fno-color-diagnostics"}
-	cargs = append(cargs,Config.InputFiles...)
+	cargs = append(cargs,Config.Inputfiles...)
 	fmt.Printf("Generating AST\n")
 	astPP, err := exec.Command("clang",cargs...).Output()
 	if err != nil {
@@ -192,12 +194,12 @@ func Start() (err error) {
 	w.Package = Config.Package
 	w.Frameworks(Config.Frameworks)
 	w.Import(Config.Imports)
-	w.SysImport(Config.SysImports)
+	w.SysImport(Config.Sysimports)
 	w.Pragma(Config.Pragma)
-	if Config.VaArgs == 0 {
-		Config.VaArgs = 16
+	if Config.Vaargs == 0 {
+		Config.Vaargs = 16
 	}
-	w.VaArgs = Config.VaArgs
+	w.Vaargs = Config.Vaargs
 	for _, u := range tree {
 		fmt.Printf("--processing translation unit\n")
 		for _, n := range(u.Children()) {
@@ -212,6 +214,15 @@ func Start() (err error) {
 				if matches(x.Name,Config.Functions) {
 					w.AddFunction(x)
 				}
+			case *ast.ObjCProtocolDecl:
+				DELEGATES:
+				for _,ps := range Config.Delegates {
+					_ = ps
+					//if matches(x.Name,ps) {
+					//	w.AddProtocol(x)
+						break DELEGATES
+					//}
+				}
 			case *ast.EnumDecl:
 				w.AddEnum(x,Config.Enums)
 			}
@@ -222,8 +233,13 @@ func Start() (err error) {
 }
 
 func main() {
-	if _, err := toml.DecodeFile("nswrap.toml",&Config); err != nil {
-		fmt.Printf("Cannot open config file nswrap.toml.\n")
+	confbytes, err := ioutil.ReadFile("nswrap.yaml")
+	if err != nil {
+		fmt.Printf("Cannot open config file nswrap.yaml. %s\n",err)
+		os.Exit(-1)
+	}
+	if err = yaml.Unmarshal(confbytes,&Config); err != nil {
+		fmt.Printf("Cannot decode config file nswrap.yaml. %s\n",err)
 		os.Exit(-1)
 	}
 	if err := Start(); err != nil {

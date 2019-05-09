@@ -1,0 +1,7 @@
+package: ClassOne
+inputfiles: [ ClassOne/simple.h ]
+classes:
+    - ClassOne
+    - ClassTwo
+imports: [ simple.h ]
+frameworks: [ Foundation ]

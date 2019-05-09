@@ -22,15 +22,17 @@ type Wrapper struct {
 	Functions map[string]*Method
 	NamedEnums map[string]*Enum
 	AnonEnums []*Enum
+	Protocols []*Protocol
 
 	cgoFlags strings.Builder  // put cGo directives here
 	cCode strings.Builder	  // put cGo code here
 	goTypes strings.Builder   // put Go type declarations here
 	goConst strings.Builder   // put Go constants (from C enums) here
 	goCode strings.Builder    // put Go code here
+	goExports strings.Builder // put exported Go functions here
 	goHelpers strings.Builder // put Go helper functions here
 	Processed map[string]bool
-	VaArgs int
+	Vaargs int
 }
 
 func NewWrapper(debug bool) *Wrapper {
@@ -41,8 +43,9 @@ func NewWrapper(debug bool) *Wrapper {
 		Functions: map[string]*Method{},
 		NamedEnums: map[string]*Enum{},
 		AnonEnums: []*Enum{},
+		Protocols: []*Protocol{},
 		Processed: map[string]bool{},
-		VaArgs: 16,
+		Vaargs: 16,
 	}
 	ret.cgoFlags.WriteString(fmt.Sprintf(`/*
 #cgo CFLAGS: -x objective-c
@@ -105,6 +108,12 @@ type Enum struct {
 	Constants []string
 }
 
+type Protocol struct {
+	Name, GoName string
+	Methods []*Method
+	Polymorphic map[string]bool
+}
+
 //isVoid() returns true if the method has no return value.
 func (m Method) isVoid() bool {
 	return m.Type.CType() == "void"
@@ -152,7 +161,7 @@ func (w Wrapper) objcparamlist(m *Method) string {
 		} else {
 			if p.Type.Variadic {
 				str := []string{m.Name + ":arr[0]"}
-				for i := 1; i < w.VaArgs; i++ {
+				for i := 1; i < w.Vaargs; i++ {
 					str = append(str,"arr["+strconv.Itoa(i)+"]")
 				}
 				str = append(str,"nil")
@@ -266,6 +275,40 @@ func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
 		}
 	}
 	w.Functions[n.Name] = m
+}
+
+func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
+	p := &Protocol{
+		Name: n.Name,
+		GoName: types.NewTypeFromString(n.Name,n.Name).GoType(),
+		Methods: []*Method{},
+		Polymorphic: map[string]bool{},
+	}
+	seen := make(map[string]bool)
+	fmt.Printf("Adding protocol %s\n",n.Name)
+	for _,c := range n.Children() {
+		switch x := c.(type) {
+		case *ast.ObjCMethodDecl:
+			m := &Method{
+				Name: x.Name,
+				Type: types.NewTypeFromString(x.Type,p.Name),
+				Class: p.Name,
+				GoClass: p.GoName,
+				ClassMethod: x.ClassMethod,
+			}
+			var avail bool
+			m.Parameters, avail = w.GetParms(x,p.Name)
+			if avail {
+				fmt.Printf("  method %s\n",m.Name)
+				p.Methods = append(p.Methods,m)
+				if seen[m.Name] {
+					p.Polymorphic[m.Name] = true
+				}
+				seen[m.Name] = true
+			}
+		}
+	}
+	w.Protocols = append(w.Protocols,p)
 }
 
 //FIXME: copied from nswrap/main.go, should put this in a utils package
@@ -680,7 +723,7 @@ func %s%s(%s) %s {
 	for i,o := range %ss {
 		%s[i] = o.Ptr()
 	}
-`,vn,w.VaArgs,vn,vn))
+`,vn,w.Vaargs,vn,vn))
 	}
 	w.goCode.WriteString(`	` +
 		types.GoToC(cname,ns,m.Type,tps) + "\n}\n")
@@ -781,6 +824,57 @@ const %s %s= C.%s
 	}
 }
 
+//FIXME: need to disambiguate polymorphic method names. Something like:
+//func Disambiguate([]*Method) []*Method {} ...
+//Can allow user to decide on a disambiguation strategy
+func (w *Wrapper) ProcessProtocol(p *Protocol) {
+	fmt.Printf("Processing protocol (%s)\n",p.Name)
+	//To create (per protocol):
+	//1. ObjC protocol interface
+	//2. ObjC protocol implementation
+	//3. Go type
+	//4. Go constructor
+	//5. Go dispatch database for callbacks
+	//To create (per method):
+	//1. ObjC function prototypes for go exports
+	//2. ObjC constructor function
+	//3. Go exported callback function wrappers
+
+	var ccode, gocode, goexports strings.Builder
+	//1. ObjC protocol interface
+	ccode.WriteString(fmt.Sprintf(`
+@interface %s : %s
+`,p.Name,p.Name))
+	//2. ObjC protocol implementation
+	ccode.WriteString(fmt.Sprintf(`
+`))
+	//3. Go type
+	gocode.WriteString(fmt.Sprintf(`
+`))
+	//4. Go constructor
+	gocode.WriteString(fmt.Sprintf(`
+`))
+	//5. Go dispatch database for callbacks
+	gocode.WriteString(fmt.Sprintf(`
+`))
+	//6. Go callback registration function
+	gocode.WriteString(fmt.Sprintf(`
+`))
+	//To create (per method):
+	for _,m := range p.Methods {
+		_ = m
+		//1. ObjC function prototypes for go exports
+		ccode.WriteString(fmt.Sprintf(`
+`))
+		//2. ObjC constructor function
+		ccode.WriteString(fmt.Sprintf(`
+`))
+		//3. Go exported callback function wrappers
+		goexports.WriteString(fmt.Sprintf(`
+`))
+	}
+}
+
 func (w *Wrapper) Wrap(toproc []string) {
 	if w.Package == "" { w.Package = "ns" }
 	err := os.MkdirAll(w.Package,0755)
@@ -850,6 +944,9 @@ void*
 	}
 	for _,e := range w.AnonEnums {
 		w.ProcessEnum(e)
+	}
+	for _,p := range w.Protocols {
+		w.ProcessProtocol(p)
 	}
 	fmt.Printf("%d functions\n", len(w.Functions))
 	fmt.Printf("%d enums\n", len(w.NamedEnums) + len(w.AnonEnums))

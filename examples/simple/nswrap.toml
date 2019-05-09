@@ -1,5 +1,0 @@
-Package = "ClassOne"
-InputFiles = [ "ClassOne/simple.h" ]
-Classes = [ "ClassOne","ClassTwo" ]
-Imports = [ "simple.h" ]
-Frameworks = [ "Foundation" ]
