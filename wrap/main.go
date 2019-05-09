@@ -507,6 +507,9 @@ func (w *Wrapper) processType(tp *types.Type) {
 	}
 	if w.Processed[gt] { return }
 	w.Processed[gt] = true
+	if gt == "NSObject" {
+		w.ObjectHelpers()
+	}
 	if gt == "Char" {
 		w.CharHelpers()
 	}
@@ -526,6 +529,27 @@ func (w *Wrapper) processType(tp *types.Type) {
 		w.processType(tp)
 	}
 	w.goTypes.WriteString(bt.GoTypeDecl())
+}
+
+func (w *Wrapper) ObjectHelpers() {
+	w.goHelpers.WriteString(`
+func (o *Id) Release() {
+	C.release(unsafe.Pointer(o))
+}
+func (o *Id) Autorelease() {
+	C.autorelease(unsafe.Pointer(o))
+}
+`)
+	w.cCode.WriteString(`
+void
+release(void* obj) {
+	[(NSObject*)obj release];
+}
+void
+autorelease(void* obj) {
+	[(NSObject*)obj autorelease];
+}
+`)
 }
 
 func (w *Wrapper) CharHelpers() {
@@ -588,8 +612,14 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 		return
 	}
 	gname := strings.Title(m.Name)
+	receiver := ""
 	switch {
 	case !m.ClassMethod:
+		if types.IsGoInterface(m.GoClass) {
+			receiver = "(o *Id) "
+		} else {
+			receiver = "(o *" + m.GoClass + ") "
+		}
 	case m.Type.GoType() != "*" + m.GoClass:
 		gname = m.GoClass + gname
 	default:
@@ -605,10 +635,6 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 		} else {
 			gname = m.GoClass + gname[lens1-i:]
 		}
-	}
-	receiver := ""
-	if !m.ClassMethod {
-		receiver = "(o *" + m.GoClass + ") "
 	}
 	cname := m.Name
 	if m.Class != "" {
@@ -642,9 +668,8 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 		gname = "Get" + gname
 	}
 	w.goCode.WriteString(fmt.Sprintf(`
-//%s
 func %s%s(%s) %s {
-`,m.Type.CType(),receiver,gname,gplist,grtype))
+`,receiver,gname,gplist,grtype))
 	lparm := len(tps)-1
 	if len(tps) > 0 && tps[lparm].Variadic {
 		vn := ns[lparm]
@@ -658,7 +683,7 @@ func %s%s(%s) %s {
 `,vn,w.VaArgs,vn,vn))
 	}
 	w.goCode.WriteString(`	` +
-		types.GoToC(cname,ns,m.Type,tps) + "\n}\n\n")
+		types.GoToC(cname,ns,m.Type,tps) + "\n}\n")
 
 	cret := ""
 	if !m.isVoid() {
@@ -787,12 +812,22 @@ func %sAlloc() *%s {
 }
 `,i.GoName,i.GoName,i.GoName,i.Name))
 
-		w.cCode.WriteString(fmt.Sprintf(`
+		if i.Name != "NSAutoreleasePool" {
+			w.cCode.WriteString(fmt.Sprintf(`
+void*
+%sAlloc() {
+	return [[%s alloc] autorelease];
+}
+`, i.Name, i.Name))
+		} else {
+		//who autoreleases the autorelease pools?
+			w.cCode.WriteString(fmt.Sprintf(`
 void*
 %sAlloc() {
 	return [%s alloc];
 }
 `, i.Name, i.Name))
+		}
 
 		//FIXME: sort properties
 		for _,p := range i.Properties {

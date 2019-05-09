@@ -250,18 +250,15 @@ func (t *Type) GoTypeDecl() string {
 	case "", "Void":
 		return ""
 	default:
-		extra := t.Node.CtypeSimplified()
 		var cgt string
 		if td := tp.Typedef(); td != nil {
 			cgt = td.CGoType()
-			extra = "typedef " + td.Node.Ctype()
 		} else {
 			cgt = tp.CGoType()
 		}
 		return fmt.Sprintf(`
-//%s (%s)
 type %s %s
-`,t.Node.Ctype(),extra,gt,cgt)
+`,gt,cgt)
 	}
 }
 
@@ -276,21 +273,19 @@ func (t *Type) GoInterfaceDecl() string {
 	if super == "" {
 		goInterfaces[gt] = true
 		return fmt.Sprintf(`
-//%s (%s)
 type %s interface {
 	Ptr() unsafe.Pointer
 }
-`,t.Node.Ctype(),t.BaseType().GoType(),gt)
+`,gt)
 	}
 	if IsGoInterface(super) {
 		super = "Id"
 	}
 	return fmt.Sprintf(`
-//%s (%s)
 type %s struct { %s }
 func (o *%s) Ptr() unsafe.Pointer { return unsafe.Pointer(o) }
 func (o *Id) %s() *%s { return (*%s)(unsafe.Pointer(o)) }
-`,t.Node.Ctype(),t.BaseType().GoType(),gt,super,gt,gt,gt,gt)
+`,gt,super,gt,gt,gt,gt)
 }
 
 func (t *Type) IsFunctionPtr() bool {

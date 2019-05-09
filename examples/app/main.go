@@ -18,31 +18,33 @@ func nsmgr() {
 		0,
 		nil,
 	)
-	w.SetTitle(ns.NSStringWithGoString("Hi World"))
+	nst := ns.NSStringWithGoString
+	w.SetTitle(nst("Hi World"))
 	w.MakeKeyAndOrderFront(w)
 	w.SetAlphaValue(0.85)
-	m1 := ns.NSMenuAlloc().InitWithTitle(ns.NSStringWithGoString("Main"))
+	m1 := ns.NSMenuAlloc().InitWithTitle(nst("Main"))
 	appItem := ns.NSMenuItemAlloc()
 	fileItem := ns.NSMenuItemAlloc()
 	m1.AddItem(appItem)
 	m1.AddItem(fileItem)
 
-	appMenu := ns.NSMenuAlloc().InitWithTitle(ns.NSStringWithGoString("App"))
-	fileMenu := ns.NSMenuAlloc().InitWithTitle(ns.NSStringWithGoString("File"))
+	appMenu := ns.NSMenuAlloc().InitWithTitle(nst("App"))
+	fileMenu := ns.NSMenuAlloc().InitWithTitle(nst("File"))
 	m1.SetSubmenu(appMenu, appItem)
 	m1.SetSubmenu(fileMenu, fileItem)
 
 	s := ns.NSStringWithGoString("")
-	appMenu.AddItemWithTitle(ns.NSStringWithGoString("About"), nil, s)
-	appMenu.AddItemWithTitle(ns.NSStringWithGoString("Preferences"), nil, s)
-	appMenu.AddItemWithTitle(ns.NSStringWithGoString("Quit"),ns.Selector("terminate:"), ns.NSStringWithGoString("q"))
+	appMenu.AddItemWithTitle(nst("About"), nil, s)
+	appMenu.AddItemWithTitle(nst("Preferences"), nil, s)
+	appMenu.AddItemWithTitle(nst("Quit"),ns.Selector("terminate:"), nst("q"))
 	a.SetMainMenu(m1)
-	fileMenu.AddItemWithTitle(ns.NSStringWithGoString("Open"), nil, s)
-	fileMenu.AddItemWithTitle(ns.NSStringWithGoString("New"), nil, s)
+	fileMenu.AddItemWithTitle(nst("Open"), nil, s)
+	fileMenu.AddItemWithTitle(nst("New"), nil, s)
 
 	a.SetMainMenu(m1)
 
-	b1 := ns.NSButtonWithTitle(ns.NSStringWithGoString("push"),s,nil)
+	b1 := ns.NSButtonWithTitle(nst("push"),s,nil)
+	b1.SetFrame(ns.NSMakeRect(0,550,100,50))
 	w.ContentView().AddSubview(&b1.NSView,ns.NSWindowAbove,nil)
 	a.Run()
 }
