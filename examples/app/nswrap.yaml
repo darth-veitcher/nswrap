@@ -3,7 +3,8 @@ inputfiles:
     - /System/Library/Frameworks/AppKit.framework/Headers/AppKit.h
 
 classes:
-    - NSArray"
+    - NSAutoreleasePool
+    - NSArray
     - NSMutableArray
     - NSDictionary
     - NSEnumerator

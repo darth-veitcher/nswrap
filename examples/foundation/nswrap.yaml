@@ -1,6 +1,7 @@
 inputfiles:
     - /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
 classes:
+    - NSAutoreleasePool
     - NSArray
     - NSMutableArray
     - NSDictionary

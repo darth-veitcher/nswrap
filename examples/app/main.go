@@ -6,7 +6,7 @@ import (
 	"gitlab.wow.st/gmp/nswrap/examples/app/ns"
 )
 
-func nsmgr() {
+func app() {
 	//Lock OS thread because Cocoa uses thread-local storage
 	runtime.LockOSThread()
 	a := ns.NSApplicationSharedApplication()
@@ -50,7 +50,7 @@ func nsmgr() {
 }
 
 func main() {
-	go nsmgr()
+	go ns.Autorelease(app)
 	select { }
 }
 

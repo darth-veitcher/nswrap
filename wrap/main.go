@@ -562,6 +562,9 @@ func (w *Wrapper) processType(tp *types.Type) {
 	if gt == "SEL" {
 		w.SelectorHelpers()
 	}
+	if gt == "NSAutoreleasePool" {
+		w.AutoreleaseHelpers()
+	}
 	if bt.IsFunction() || bt.IsFunctionPtr() {
 		return
 	}
@@ -576,6 +579,9 @@ func (w *Wrapper) processType(tp *types.Type) {
 
 func (w *Wrapper) ObjectHelpers() {
 	w.goHelpers.WriteString(`
+func (o *Id) Retain() {
+	C.retain(unsafe.Pointer(o))
+}
 func (o *Id) Release() {
 	C.release(unsafe.Pointer(o))
 }
@@ -584,6 +590,10 @@ func (o *Id) Autorelease() {
 }
 `)
 	w.cCode.WriteString(`
+void
+retain(void* obj) {
+	[(NSObject*)obj retain];
+}
 void
 release(void* obj) {
 	[(NSObject*)obj release];
@@ -617,6 +627,27 @@ func (e *NSEnumerator) ForIn(f func(*Id) bool) {
 	for o := e.NextObject(); o != nil; o = e.NextObject() {
 		if !f(o) { break }
 	}
+}
+`)
+}
+
+func (w *Wrapper) AutoreleaseHelpers() {
+	//not sure why this is not coming up automatically...
+	w.cCode.WriteString(`
+void* _Nonnull
+NSAutoreleasePool_init(void* o) {
+	return [(NSAutoreleasePool*)o init];
+}
+`)
+	w.goHelpers.WriteString(`
+func (o *NSAutoreleasePool) Init() *NSAutoreleasePool {
+	return (*NSAutoreleasePool)(unsafe.Pointer(C.NSAutoreleasePool_init(o.Ptr())))
+}
+
+func Autorelease(f func()) {
+	pool := NSAutoreleasePoolAlloc().Init()
+	f()
+	pool.Drain()
 }
 `)
 }
