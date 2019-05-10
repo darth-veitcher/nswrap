@@ -689,7 +689,10 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	}
 	w.processType(m.Type)
 	//w.processType(m.GoClass) //??
-	gname := strings.Title(m.Name)
+	gname := m.Name
+	gname = strings.ReplaceAll(gname,"_"," ")
+	gname = strings.Title(gname)
+	gname = strings.ReplaceAll(gname," ","")
 	receiver := ""
 	switch {
 	case !m.ClassMethod:
