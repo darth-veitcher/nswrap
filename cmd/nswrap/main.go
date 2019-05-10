@@ -196,6 +196,7 @@ func Start() (err error) {
 	w.Import(Config.Imports)
 	w.SysImport(Config.Sysimports)
 	w.Pragma(Config.Pragma)
+	w.Delegate(Config.Delegates)
 	if Config.Vaargs == 0 {
 		Config.Vaargs = 16
 	}
@@ -215,13 +216,10 @@ func Start() (err error) {
 					w.AddFunction(x)
 				}
 			case *ast.ObjCProtocolDecl:
-				DELEGATES:
 				for _,ps := range Config.Delegates {
-					_ = ps
-					//if matches(x.Name,ps) {
-					//	w.AddProtocol(x)
-						break DELEGATES
-					//}
+					if matches(x.Name,ps) {
+						w.AddProtocol(x)
+					}
 				}
 			case *ast.EnumDecl:
 				w.AddEnum(x,Config.Enums)

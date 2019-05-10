@@ -22,7 +22,8 @@ type Wrapper struct {
 	Functions map[string]*Method
 	NamedEnums map[string]*Enum
 	AnonEnums []*Enum
-	Protocols []*Protocol
+	Delegates map[string][]string
+	Protocols map[string]*Protocol
 
 	cgoFlags strings.Builder  // put cGo directives here
 	cCode strings.Builder	  // put cGo code here
@@ -43,7 +44,7 @@ func NewWrapper(debug bool) *Wrapper {
 		Functions: map[string]*Method{},
 		NamedEnums: map[string]*Enum{},
 		AnonEnums: []*Enum{},
-		Protocols: []*Protocol{},
+		Protocols: map[string]*Protocol{},
 		Processed: map[string]bool{},
 		Vaargs: 16,
 	}
@@ -62,20 +63,20 @@ func (w *Wrapper) Frameworks(ss []string) {
 		return
 	}
 	for _,s := range ss {
-		w.cCode.WriteString(fmt.Sprintf("#import <%s/%s.h>\n",s,s))
+		w.cgoFlags.WriteString(fmt.Sprintf("#import <%s/%s.h>\n",s,s))
 	}
 	w.cgoFlags.WriteString("#cgo LDFLAGS: -framework " + strings.Join(ss," -framework "))
 }
 
 func (w *Wrapper) Import(ss []string) {
 	for _,s := range ss {
-		w.cCode.WriteString("\n#import \"" + s + "\"\n")
+		w.cgoFlags.WriteString("\n#import \"" + s + "\"\n")
 	}
 }
 
 func (w *Wrapper) SysImport(ss []string) {
 	for _,s := range ss {
-		w.cCode.WriteString("\n#import <" + s + ">\n")
+		w.cgoFlags.WriteString("\n#import <" + s + ">\n")
 	}
 }
 
@@ -83,6 +84,10 @@ func (w *Wrapper) Pragma(ss []string) {
 	for _,s := range ss {
 		w.cgoFlags.WriteString("\n#pragma " + s + "\n")
 	}
+}
+
+func (w *Wrapper) Delegate(ds map[string][]string) {
+	w.Delegates = ds
 }
 
 type Property struct {
@@ -110,7 +115,7 @@ type Enum struct {
 
 type Protocol struct {
 	Name, GoName string
-	Methods []*Method
+	Methods map[string]*Method
 	Polymorphic map[string]bool
 }
 
@@ -129,9 +134,10 @@ func (m Method) hasFunctionParam() bool {
 	return false
 }
 
-func (w Wrapper) cparamlist(m *Method) (string,string) {
+func (w Wrapper) cparamlist(m *Method) (string,string,string) {
 	ns := make([]string,0)
 	ret := make([]string,0)
+	tps := []string{"void*"}
 	if !m.ClassMethod {
 		ret = append(ret,"void* o")
 	}
@@ -144,8 +150,9 @@ func (w Wrapper) cparamlist(m *Method) (string,string) {
 		}
 		ns = append(ns,p.Vname)
 		ret = append(ret,fmt.Sprintf("%s %s",tp,p.Vname))
+		tps = append(tps,tp)
 	}
-	return strings.Join(ns,", "),strings.Join(ret,", ")
+	return strings.Join(ns,", "),strings.Join(ret,", "),strings.Join(tps,", ")
 }
 
 func (w Wrapper) objcparamlist(m *Method) string {
@@ -182,7 +189,6 @@ var goreserved map[string]bool = map[string]bool{
 }
 
 func (w *Wrapper) gpntp(m *Method) ([]string,[]*types.Type,string) {
-	w.processType(m.Type)
 	ns := []string{}
 	tps := []*types.Type{}
 	if !m.ClassMethod {
@@ -278,14 +284,16 @@ func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
 }
 
 func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
-	p := &Protocol{
-		Name: n.Name,
-		GoName: types.NewTypeFromString(n.Name,n.Name).GoType(),
-		Methods: []*Method{},
-		Polymorphic: map[string]bool{},
+	p := w.Protocols[n.Name]
+	if p == nil {
+		fmt.Printf("Adding protocol %s\n",n.Name)
+		p = &Protocol{
+			Name: n.Name,
+			GoName: types.NewTypeFromString(n.Name,n.Name).GoType(),
+			Methods: map[string]*Method{},
+			Polymorphic: map[string]bool{},
+		}
 	}
-	seen := make(map[string]bool)
-	fmt.Printf("Adding protocol %s\n",n.Name)
 	for _,c := range n.Children() {
 		switch x := c.(type) {
 		case *ast.ObjCMethodDecl:
@@ -299,16 +307,14 @@ func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
 			var avail bool
 			m.Parameters, avail = w.GetParms(x,p.Name)
 			if avail {
-				fmt.Printf("  method %s\n",m.Name)
-				p.Methods = append(p.Methods,m)
-				if seen[m.Name] {
+				if p.Methods[m.Name] != nil {
 					p.Polymorphic[m.Name] = true
 				}
-				seen[m.Name] = true
+				p.Methods[m.Name] = m
 			}
 		}
 	}
-	w.Protocols = append(w.Protocols,p)
+	w.Protocols[n.Name] = p
 }
 
 //FIXME: copied from nswrap/main.go, should put this in a utils package
@@ -436,12 +442,12 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 					Parameters: []*Parameter{},
 				}
 				for _,p := range m.Parameters {
-					m2.Parameters = append(m2.Parameters,
-					&Parameter{
+					p2 := &Parameter{
 						Pname: p.Pname,
 						Vname: p.Vname,
 						Type: p.Type.CloneToClass(i.Name),
-					})
+					}
+					m2.Parameters = append(m2.Parameters,p2)
 				}
 				i.Methods[m.Name] = m2
 			}
@@ -525,10 +531,6 @@ func (w *Wrapper) GetParms(n ast.Node,class string) ([]*Parameter,bool) {
 	if !avail.Available() {
 		return nil, false
 	}
-	// check that we found the right number of parameters
-	//if len(ret) != len(n.Parameters) {
-	//	fmt.Printf("Error in method declaration %s: Wrong number of ParmVarDecl children: %d parameters but %d ParmVarDecl children\n",n.Name,len(n.Parameters),len(ret))
-	//}
 	return ret, true
 }
 
@@ -685,6 +687,8 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	if m.Type.IsFunction() || m.Type.IsFunctionPtr() || m.hasFunctionParam() {
 		return
 	}
+	w.processType(m.Type)
+	//w.processType(m.GoClass) //??
 	gname := strings.Title(m.Name)
 	receiver := ""
 	switch {
@@ -769,8 +773,7 @@ func %s%s(%s) %s {
 	} else {
 		cobj = "(" + m.Class + "*)o"
 	}
-	cns,cntps := w.cparamlist(m)
-	_ = cns
+	cns,cntps,_ := w.cparamlist(m)
 	if fun {
 		return
 	}
@@ -829,6 +832,7 @@ func gStringToNsstring(s string) string {
 
 func (w *Wrapper) ProcessEnum(e *Enum) {
 	//fmt.Printf("Processing enum (%s)\n",e.Name)
+	w.processType(e.Type)
 	gtp := ""
 	ctp := ""
 	if e.Name != "" {
@@ -858,52 +862,237 @@ const %s %s= C.%s
 //FIXME: need to disambiguate polymorphic method names. Something like:
 //func Disambiguate([]*Method) []*Method {} ...
 //Can allow user to decide on a disambiguation strategy
-func (w *Wrapper) ProcessProtocol(p *Protocol) {
-	fmt.Printf("Processing protocol (%s)\n",p.Name)
-	//To create (per protocol):
-	//1. ObjC protocol interface
-	//2. ObjC protocol implementation
-	//3. Go type
-	//4. Go constructor
-	//5. Go dispatch database for callbacks
+//NOTE: The delegate wrapper does not support variadic callback functions.
+func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
+	//To create (per delegate):
+	//1. ObjC interface
+	//2. ObjC implementation
+	//3. ObjC constructor function
+	//4. Go type
+	//5. Go constructor
+	//6. Go dispatch database for callbacks
 	//To create (per method):
 	//1. ObjC function prototypes for go exports
-	//2. ObjC constructor function
+	//2. Go callback registration functions
 	//3. Go exported callback function wrappers
 
-	var ccode, gocode, goexports strings.Builder
-	//1. ObjC protocol interface
-	ccode.WriteString(fmt.Sprintf(`
-@interface %s : %s
-`,p.Name,p.Name))
-	//2. ObjC protocol implementation
-	ccode.WriteString(fmt.Sprintf(`
-`))
-	//3. Go type
-	gocode.WriteString(fmt.Sprintf(`
-`))
-	//4. Go constructor
-	gocode.WriteString(fmt.Sprintf(`
-`))
-	//5. Go dispatch database for callbacks
-	gocode.WriteString(fmt.Sprintf(`
-`))
-	//6. Go callback registration function
-	gocode.WriteString(fmt.Sprintf(`
-`))
-	//To create (per method):
-	for _,m := range p.Methods {
-		_ = m
-		//1. ObjC function prototypes for go exports
-		ccode.WriteString(fmt.Sprintf(`
-`))
-		//2. ObjC constructor function
-		ccode.WriteString(fmt.Sprintf(`
-`))
-		//3. Go exported callback function wrappers
-		goexports.WriteString(fmt.Sprintf(`
-`))
+	//organize output into string builders
+	var cprotos, ccode, gotypes, gocode, goexports strings.Builder
+
+	//set up array of methods for this delegate
+	methods := []*Method{}
+	for _,pname := range ps {
+		proto := w.Protocols[pname]
+		if proto == nil {
+			fmt.Printf("Failed to find protocol %s for delegate %s\n",pname,dname)
+			os.Exit(-1)
+		}
+		fmt.Printf("  proto %s\n",pname)
+		for _,m := range proto.Methods {
+			if proto.Polymorphic[m.Name] {
+				//FIXME: skip polymorphic methods for now
+				fmt.Printf("  Skipping polymorphic method '%s'\n",m.Name)
+				continue
+			}
+			methods = append(methods,m)
+		}
 	}
+
+	methprotos := make([]string,len(methods)) // objc method prototypes
+	gnames := make([]string,len(methods)) // go names for methods
+	gname := strings.Title(dname) // go name for this Delegate
+	vnames := make([][]string,len(methods)) // objc variable names
+	gtypes := make([][]string,len(methods)) // go parameter types for each method
+	getypes := make([][]string,len(methods)) // parameter types for go export
+	grtypes := make([]string,len(methods)) // go retrun types for each method
+	cgtypes := make([]string,len(methods)) // cgo return types
+	crtypes := make([]string,len(methods)) // c return types for each method
+
+	//1. ObjC interface
+	fmt.Printf("Delegate %s <%s>: %d methods\n",dname,strings.Join(ps,", "),len(methods))
+	for i,m := range methods {
+		w.processType(m.Type)
+		vnames[i] = make([]string,len(m.Parameters)+1)
+		getypes[i] = make([]string,len(m.Parameters)+1)
+		vnames[i][0] = "self"
+		getypes[i][0] = "unsafe.Pointer"
+		gtypes[i] = make([]string,len(m.Parameters))
+		//fmt.Printf("%s: %s\n",dname,m.Name)
+		var parms string
+		if len(m.Parameters) == 0 {
+			parms = ""
+		} else {
+			pm := m.Parameters[0]
+			w.processType(pm.Type)
+			parms = fmt.Sprintf(":(%s)%s",pm.Type.Node.Ctype(),pm.Vname)
+			vnames[i][1] = pm.Vname
+			gtypes[i][0] = pm.Type.GoType()
+			if pm.Type.IsPointer() {
+				getypes[i][1] = "unsafe.Pointer"
+			} else {
+				getypes[i][1] = gtypes[i][0]
+			}
+		}
+		for j := 1; j < len(m.Parameters); j++ {
+			pm := m.Parameters[j]
+			w.processType(pm.Type)
+			parms = parms + fmt.Sprintf(" %s:(%s)%s",pm.Pname,pm.Type.Node.Ctype(),pm.Vname)
+			vnames[i][j+1] = pm.Vname
+			gtypes[i][j] = pm.Type.GoType()
+			var getp string
+			if pm.Type.IsPointer() {
+				getp = "unsafe.Pointer"
+			} else {
+				getp = gtypes[i][j]
+			}
+			getypes[i][j+1] = getp
+		}
+		methprotos[i] = fmt.Sprintf(
+`- (%s)%s%s;`,m.Type.Node.Ctype(),m.Name,parms)
+		gnames[i] = strings.Title(m.Name)
+		if x := m.Type.GoType(); x == "Void" {
+			grtypes[i] = ""
+		} else {
+			grtypes[i] = " " + x
+		}
+		crtypes[i] = m.Type.CTypeAttrib()
+		if m.Type.IsPointer() {
+		// work around cgo bugs with struct size calculation
+	/*FIXME: DON'T NEED TO DO THIS?
+			crtypes[i] = "void*"
+			if x := m.Type.Node.Qualifiers(); x != "" {
+				crtypes[i] = x + " " + crtypes[i]
+			}
+			if x := m.Type.Node.Annotations(); x != "" {
+				crtypes[i] = crtypes[i] + " " + x
+			}
+	*/
+			cgtypes[i] = "unsafe.Pointer"
+		} else {
+			crtypes[i] = m.Type.CTypeAttrib()
+			cgtypes[i] = m.Type.CGoType()
+		}
+}
+	ccode.WriteString(fmt.Sprintf(`
+@interface %s : NSObject <%s>
+{ }
+%s
+@end
+`,dname,strings.Join(ps,", "),strings.Join(methprotos,"\n")))
+
+	//2. ObjC implementation
+	methdecls := make([]string,len(methods))
+	for i,mp := range methprotos {
+		var ret string
+		if crtypes[i] != "void" {
+			ret = "return "
+		}
+		methdecls[i] = fmt.Sprintf(`
+%s
+{
+	%s%s(%s);
+}`,mp[:len(mp)-1],ret,gname + gnames[i],strings.Join(vnames[i],", "))
+	}
+	ccode.WriteString(fmt.Sprintf(`
+@implementation %s
+%s
+@end
+`,dname,strings.Join(methdecls,"\n")))
+
+	//3. ObjC constructor function
+	ccode.WriteString(fmt.Sprintf(`
+void*
+%sAlloc() {
+	return [[%s alloc] autorelease];
+}
+`,dname,dname))
+
+	//4. Go type
+	gotypes.WriteString(fmt.Sprintf(`
+type %s struct { Id }
+func (o *%s) Ptr() unsafe.Pointer { return unsafe.Pointer(o) }
+func (o *Id) %s() *%s { return (*%s)(unsafe.Pointer(o)) }
+`,gname,gname,gname,gname,gname))
+
+	//5. Go constructor
+	gocode.WriteString(fmt.Sprintf(`
+func %sAlloc() *%s {
+	return (*%s)(unsafe.Pointer(C.%sAlloc()))
+}
+`,gname,gname,gname,dname))
+
+	//6. Go dispatch database for callbacks
+	dispitems := make([]string,len(gnames))
+	for i,n := range gnames {
+		dispitems[i] = fmt.Sprintf(
+`	%s func(%s)%s`,n,strings.Join(gtypes[i],", "),grtypes[i])
+	}
+	gocode.WriteString(fmt.Sprintf(`
+type %sDispatch struct {
+%s
+}
+var %sLookup map[unsafe.Pointer]*%sDispatch =
+	map[unsafe.Pointer]*%sDispatch{}
+`,gname,strings.Join(dispitems,"\n"),gname,gname,gname))
+	//To create (per method):
+	cprotos.WriteString("\n\n")
+	for i,m := range methods {
+		//1. ObjC function prototypes for go exports
+		_,_,ctps := w.cparamlist(m)
+		cprotos.WriteString(fmt.Sprintf(
+`%s %s%s(%s);
+`,crtypes[i],gname,gnames[i],ctps))
+		//2. Go callback registration functions
+		gocode.WriteString(fmt.Sprintf(`
+func (d *%s) %sCallback(f func(%s)%s) {
+	dispatch := %sLookup[d.Ptr()]
+	if dispatch == nil {
+		dispatch = &%sDispatch{}
+		%sLookup[d.Ptr()] = dispatch
+	}
+	dispatch.%s = f
+}
+`,gname,gnames[i],strings.Join(gtypes[i],", "),grtypes[i],gname,gname,gname,gnames[i]))
+		//3. Go exported callback function wrappers
+		earglist := []string{"self unsafe.Pointer"}
+		garglist := []string{}
+		for j := 1; j < len(vnames[i]); j++ {
+			earglist = append(earglist,vnames[i][j] + " " + getypes[i][j])
+			garglist = append(garglist,fmt.Sprintf(
+`(%s)(%s)`,gtypes[i][j-1],vnames[i][j]))
+		}
+		retdecl := ""
+		retname := ""
+		retn := ""
+		retnparen := ""
+		crtype := ""
+		if cgtypes[i] != "C.void" {
+			retdecl = "var ret " + cgtypes[i] + "\n\t"
+			retname = " ret"
+			if cgtypes[i] == "unsafe.Pointer" {
+				retn = "return unsafe.Pointer("
+				crtype = " unsafe.Pointer"
+			} else {
+				retn = "return (" + cgtypes[i] + ")("
+				crtype = " " + cgtypes[i]
+			}
+			retnparen = ")"
+		}
+		goexports.WriteString(fmt.Sprintf(`
+//export %s%s
+func %s%s(%s)%s {
+	%scb := %sLookup[self].%s
+	if cb == nil { return%s }
+	%scb(%s)%s
+}
+`,gname,gnames[i],gname,gnames[i],strings.Join(earglist,", "),crtype,retdecl,gname,gnames[i],retname,retn,strings.Join(garglist,", "),retnparen))
+	}
+	//DEBUG
+	w.cCode.WriteString(cprotos.String())
+	w.cCode.WriteString(ccode.String())
+	w.goTypes.WriteString(gotypes.String())
+	w.goCode.WriteString(gocode.String())
+	w.goExports.WriteString(goexports.String())
 }
 
 func (w *Wrapper) Wrap(toproc []string) {
@@ -916,6 +1105,11 @@ func (w *Wrapper) Wrap(toproc []string) {
 	of,err := os.Create(path.Join(w.Package,"main.go"))
 	if err != nil {
 		fmt.Printf("Error opening file %s\n%s\n",path.Join(w.Package,"main.go"),err)
+		os.Exit(-1)
+	}
+	ef,err := os.Create(path.Join(w.Package,"exports.go"))
+	if err != nil {
+		fmt.Printf("Error opening file %s\n%s\n",path.Join(w.Package,"exports.go"),err)
 		os.Exit(-1)
 	}
 	fmt.Printf("Writing output to %s\n",path.Join(w.Package,"main.go"))
@@ -976,13 +1170,17 @@ void*
 	for _,e := range w.AnonEnums {
 		w.ProcessEnum(e)
 	}
-	for _,p := range w.Protocols {
-		w.ProcessProtocol(p)
+	for n,p := range w.Delegates {
+		w.ProcessDelegate(n,p)
 	}
 	fmt.Printf("%d functions\n", len(w.Functions))
 	fmt.Printf("%d enums\n", len(w.NamedEnums) + len(w.AnonEnums))
 	of.WriteString("package " + w.Package + "\n\n")
+	ef.WriteString("package " + w.Package + "\n\n")
+
 	of.WriteString(w.cgoFlags.String() + "\n")
+	ef.WriteString(w.cgoFlags.String() + "\n")
+
 	of.WriteString(w.cCode.String())
 	of.WriteString(`
 */
@@ -997,4 +1195,15 @@ import (
 	of.WriteString(w.goHelpers.String())
 	of.WriteString(w.goCode.String())
 	of.Close()
+
+	ef.WriteString(`
+*/
+import "C"
+
+import (
+	"unsafe"
+)
+`)
+	ef.WriteString(w.goExports.String())
+	ef.Close()
 }
