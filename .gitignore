@@ -4,7 +4,8 @@ ast.txt
 examples/app/app
 examples/app/ns
 examples/bluetooth/bluetooth
-examples/bluetooth/ble/main.go
+examples/bluetooth/ns
+examples/bluetooth/old
 examples/foundation/foundation
 examples/foundation/ns
 examples/simple/simple
