@@ -3,7 +3,9 @@ package main
 import "C"
 
 import (
+	"encoding/binary"
 	"fmt"
+	"unsafe"
 	"gitlab.wow.st/gmp/nswrap/examples/bluetooth/ns"
 )
 
@@ -22,23 +24,109 @@ func updateState(c *ns.CBCentralManager) {
 		fmt.Printf("  powered off\n")
 	case ns.CBManagerStatePoweredOn:
 		fmt.Printf("  powered on\n")
+		cm.ScanForPeripheralsWithServices(ns.NSArrayWithObjects(hrm_uuid),nil)
+	}
+}
+
+func discoverPeripheral(c *ns.CBCentralManager, p *ns.CBPeripheral, d *ns.NSDictionary, rssi *ns.NSNumber) {
+	fmt.Printf("Did discover peripheral\n")
+	c.StopScan()
+	peripheral = p
+	peripheral.Retain()
+	c.ConnectPeripheral(p,nil)
+}
+
+func connectPeripheral(c *ns.CBCentralManager, p *ns.CBPeripheral) {
+	fmt.Printf("Did connect peripheral\n")
+	p.SetDelegate(cd)
+	p.DiscoverServices(nil)
+}
+
+func discoverServices(p *ns.CBPeripheral, e *ns.NSError) {
+	fmt.Printf("Did discover services\n")
+	p.Services().ObjectEnumerator().ForIn(func(o *ns.Id) bool {
+		serv := o.CBService()
+		switch {
+		case serv.UUID().IsEqualTo(hrm_uuid):
+			fmt.Printf("--heart rate monitor service\n")
+			p.DiscoverCharacteristics(nil,serv)
+		case serv.UUID().IsEqualTo(ns.CBUUIDWithGoString("180A")):
+			fmt.Printf("--device information service\n")
+			p.DiscoverCharacteristics(nil,serv)
+		}
+		return true
+	})
+}
+
+func hr(d *ns.NSData) int {
+	var x []byte
+	if l := int(d.Length()); l < 4 {
+		return 0
+	} else {
+		bs := d.Bytes()
+		x = make([]byte,l)
+		for i := 0; i < l; i++ {
+			x[i] = *(*byte)(unsafe.Pointer(uintptr(bs) + uintptr(i)))
+		}
+	}
+	var hr int
+	flags := x[0]
+	if flags & 0x80 != 0 { // uint16 format
+		hr = int(binary.BigEndian.Uint16(x[1:2]))
+	} else {
+		hr = int(x[1])
+	}
+	return hr
+}
+
+func discoverCharacteristics(p *ns.CBPeripheral, s *ns.CBService, e *ns.NSError) {
+	fmt.Printf("Did discover characteristics\n")
+	fmt.Printf("----%s\n",s.UUID().UUIDString().UTF8String())
+	if s.UUID().IsEqualTo(hrm_uuid) {
+		s.Characteristics().ObjectEnumerator().ForIn(func(o *ns.Id) bool {
+			chr := o.CBCharacteristic()
+			fmt.Printf("------%s\n",chr.UUID().UUIDString().UTF8String())
+			if chr.UUID().IsEqualTo(hrv_uuid) {
+				p.SetNotifyValue(1,chr)
+				v := chr.Value()
+				fmt.Println(hr(v))
+			}
+			return true
+		})
+	}
+}
+
+func updateValue(p *ns.CBPeripheral, chr *ns.CBCharacteristic, e *ns.NSError) {
+	if chr.UUID().IsEqualTo(hrv_uuid) {
+		v := chr.Value()
+		fmt.Printf("Heart rate: %d\n",hr(v))
 	}
 }
 
 var (
+	hrm_uuid *ns.CBUUID
+	hrv_uuid *ns.CBUUID
+	cd *ns.BleDelegate
 	cm *ns.CBCentralManager
+	peripheral *ns.CBPeripheral
 )
 
 func main() {
 	queue := ns.DispatchQueueCreate(ns.CharWithGoString("st.wow.gitlab.ble"),nil)
 
-	cd := ns.BleDelegateAlloc()
+	cd = ns.BleDelegateAlloc()
 	cd.CentralManagerDidUpdateStateCallback(updateState)
+	cd.CentralManagerDidDiscoverPeripheralCallback(discoverPeripheral)
+	cd.CentralManagerDidConnectPeripheralCallback(connectPeripheral)
+	cd.PeripheralDidDiscoverServicesCallback(discoverServices)
+	cd.PeripheralDidDiscoverCharacteristicsForServiceCallback(discoverCharacteristics)
+	cd.PeripheralDidUpdateValueForCharacteristicCallback(updateValue)
+
+	hrm_uuid = ns.CBUUIDWithGoString("180D")
+	hrv_uuid = ns.CBUUIDWithGoString("2A37")
 
 	cm = ns.CBCentralManagerAlloc()
 	cm.InitWithDelegate(cd,queue,nil)
 
-	uuid := ns.CBUUIDWithGoString("180d")
-	_ = uuid
 	select { }
 }

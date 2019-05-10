@@ -3,26 +3,24 @@ inputfiles:
     - /System/Library/Frameworks/CoreBluetooth.framework/Headers/CoreBluetooth.h
 
 classes:
-    - ble_delegate
+    - NSObject
+    - NSData
     - CBManager
     - CBCentralManager
     - CBPeripheralManager
     - CBPeripheral
     - CBCentral
     - CBService
+    - CBAttribute
     - CBCharacteristic
     - CBDescriptor
     - CBError
     - CBUUID
     - CBAdvertisementData
-    - CBATTRequest
     - NSArray
     - NSMutableArray
     - NSDictionary
     - NSEnumerator
-    - NSSet
-    - NSDate
-    - NSTimeZone
     - NSString
 
 functions: [ NSMakeRange, dispatch_queue_create ]

@@ -16,6 +16,10 @@ func shouldTerminate(s *ns.NSApplication) ns.NSApplicationTerminateReply {
 	return ns.NSTerminateNow
 }
 
+func shouldTerminateAfterLastWindowClosed(s *ns.NSApplication) ns.BOOL {
+	return 1
+}
+
 func willTerminate(n *ns.NSNotification) {
 	fmt.Println("Go: will terminate")
 }
@@ -34,6 +38,7 @@ func app() {
 	del := ns.AppDelegateAlloc()
 	del.ApplicationDidFinishLaunchingCallback(didFinishLaunching)
 	del.ApplicationShouldTerminateCallback(shouldTerminate)
+	del.ApplicationShouldTerminateAfterLastWindowClosedCallback(shouldTerminateAfterLastWindowClosed)
 	del.ApplicationWillTerminateCallback(willTerminate)
 	del.ApplicationDidBecomeActiveCallback(didBecomeActive)
 	a.SetDelegate(del)
@@ -41,7 +46,7 @@ func app() {
 	//Set up an NSWindow
 	w := ns.NSWindowAlloc().InitWithContentRect(
 		ns.NSMakeRect(200,200,600,600),
-		ns.NSWindowStyleMaskTitled,
+		ns.NSWindowStyleMaskTitled | ns.NSWindowStyleMaskClosable,
 		ns.NSBackingStoreBuffered,
 		0,
 		nil,

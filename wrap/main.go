@@ -26,6 +26,7 @@ type Wrapper struct {
 	Protocols map[string]*Protocol
 
 	cgoFlags strings.Builder  // put cGo directives here
+	cImports strings.Builder  // put c imports and sysimports here
 	cCode strings.Builder	  // put cGo code here
 	goTypes strings.Builder   // put Go type declarations here
 	goConst strings.Builder   // put Go constants (from C enums) here
@@ -63,20 +64,20 @@ func (w *Wrapper) Frameworks(ss []string) {
 		return
 	}
 	for _,s := range ss {
-		w.cgoFlags.WriteString(fmt.Sprintf("#import <%s/%s.h>\n",s,s))
+		w.cImports.WriteString(fmt.Sprintf("#import <%s/%s.h>\n",s,s))
 	}
 	w.cgoFlags.WriteString("#cgo LDFLAGS: -framework " + strings.Join(ss," -framework "))
 }
 
 func (w *Wrapper) Import(ss []string) {
 	for _,s := range ss {
-		w.cgoFlags.WriteString("\n#import \"" + s + "\"\n")
+		w.cImports.WriteString("\n#import \"" + s + "\"\n")
 	}
 }
 
 func (w *Wrapper) SysImport(ss []string) {
 	for _,s := range ss {
-		w.cgoFlags.WriteString("\n#import <" + s + ">\n")
+		w.cImports.WriteString("\n#import <" + s + ">\n")
 	}
 }
 
@@ -116,7 +117,7 @@ type Enum struct {
 type Protocol struct {
 	Name, GoName string
 	Methods map[string]*Method
-	Polymorphic map[string]bool
+	Polymorphic map[string]int
 }
 
 //isVoid() returns true if the method has no return value.
@@ -291,7 +292,7 @@ func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
 			Name: n.Name,
 			GoName: types.NewTypeFromString(n.Name,n.Name).GoType(),
 			Methods: map[string]*Method{},
-			Polymorphic: map[string]bool{},
+			Polymorphic: map[string]int{},
 		}
 	}
 	for _,c := range n.Children() {
@@ -307,10 +308,19 @@ func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
 			var avail bool
 			m.Parameters, avail = w.GetParms(x,p.Name)
 			if avail {
-				if p.Methods[m.Name] != nil {
-					p.Polymorphic[m.Name] = true
+				pname := strings.Title(m.Name)
+				if x := p.Polymorphic[m.Name]; x != 0 {
+					p.Polymorphic[m.Name] = x + 1
+					pname = pname + strings.Title(m.Parameters[1].Pname)
+					if m2 := p.Methods[m.Name]; m2 != nil {
+						pname2 := strings.Title(m.Name) + strings.Title(m2.Parameters[1].Pname)
+						p.Methods[pname2] = m2
+						delete(p.Methods,m.Name)
+					}
+				} else {
+					p.Polymorphic[m.Name] = 1
 				}
-				p.Methods[m.Name] = m
+				p.Methods[pname] = m
 			}
 		}
 	}
@@ -862,9 +872,6 @@ const %s %s= C.%s
 	}
 }
 
-//FIXME: need to disambiguate polymorphic method names. Something like:
-//func Disambiguate([]*Method) []*Method {} ...
-//Can allow user to decide on a disambiguation strategy
 //NOTE: The delegate wrapper does not support variadic callback functions.
 func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 	//To create (per delegate):
@@ -884,6 +891,7 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 
 	//set up array of methods for this delegate
 	methods := []*Method{}
+	gnames := []string{} // go names for methods
 	for _,pname := range ps {
 		proto := w.Protocols[pname]
 		if proto == nil {
@@ -891,18 +899,16 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 			os.Exit(-1)
 		}
 		fmt.Printf("  proto %s\n",pname)
-		for _,m := range proto.Methods {
-			if proto.Polymorphic[m.Name] {
-				//FIXME: skip polymorphic methods for now
-				fmt.Printf("  Skipping polymorphic method '%s'\n",m.Name)
+		for gname,m := range proto.Methods {
+			if m.Type.IsFunction() || m.Type.IsFunctionPtr() || m.hasFunctionParam() {
 				continue
 			}
 			methods = append(methods,m)
+			gnames = append(gnames,gname)
 		}
 	}
 
 	methprotos := make([]string,len(methods)) // objc method prototypes
-	gnames := make([]string,len(methods)) // go names for methods
 	gname := strings.Title(dname) // go name for this Delegate
 	vnames := make([][]string,len(methods)) // objc variable names
 	gtypes := make([][]string,len(methods)) // go parameter types for each method
@@ -952,7 +958,6 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 		}
 		methprotos[i] = fmt.Sprintf(
 `- (%s)%s%s;`,m.Type.Node.Ctype(),m.Name,parms)
-		gnames[i] = strings.Title(m.Name)
 		if x := m.Type.GoType(); x == "Void" {
 			grtypes[i] = ""
 		} else {
@@ -1061,8 +1066,12 @@ func (d *%s) %sCallback(f func(%s)%s) {
 		garglist := []string{}
 		for j := 1; j < len(vnames[i]); j++ {
 			earglist = append(earglist,vnames[i][j] + " " + getypes[i][j])
+			gt2 := gtypes[i][j-1]
+			if types.IsGoInterface(gt2) {
+				gt2 = "*Id"
+			}
 			garglist = append(garglist,fmt.Sprintf(
-`(%s)(%s)`,gtypes[i][j-1],vnames[i][j]))
+`(%s)(%s)`,gt2,vnames[i][j]))
 		}
 		retdecl := ""
 		retname := ""
@@ -1090,13 +1099,13 @@ func %s%s(%s)%s {
 }
 `,gname,gnames[i],gname,gnames[i],strings.Join(earglist,", "),crtype,retdecl,gname,gnames[i],retname,retn,strings.Join(garglist,", "),retnparen))
 	}
-	//DEBUG
 	w.cCode.WriteString(cprotos.String())
 	w.cCode.WriteString(ccode.String())
 	w.goTypes.WriteString(gotypes.String())
 	w.goCode.WriteString(gocode.String())
 	w.goExports.WriteString(goexports.String())
 }
+
 
 func (w *Wrapper) Wrap(toproc []string) {
 	if w.Package == "" { w.Package = "ns" }
@@ -1125,6 +1134,11 @@ func (w *Wrapper) Wrap(toproc []string) {
 		if i == nil {
 			continue
 		}
+		w.processType(types.NewTypeFromString(i.GoName,""))
+		gname := i.GoName
+		if types.IsGoInterface(i.GoName) {
+			gname = "Id"
+		}
 		fmt.Printf("Interface %s: %d properties, %d methods\n",
 			i.Name, len(i.Properties), len(i.Methods))
 
@@ -1132,7 +1146,7 @@ func (w *Wrapper) Wrap(toproc []string) {
 func %sAlloc() *%s {
 	return (*%s)(unsafe.Pointer(C.%sAlloc()))
 }
-`,i.GoName,i.GoName,i.GoName,i.Name))
+`,i.GoName,gname,gname,i.Name))
 
 		if i.Name != "NSAutoreleasePool" {
 			w.cCode.WriteString(fmt.Sprintf(`
@@ -1183,6 +1197,8 @@ void*
 
 	of.WriteString(w.cgoFlags.String() + "\n")
 	ef.WriteString(w.cgoFlags.String() + "\n")
+	of.WriteString(w.cImports.String() + "\n")
+	ef.WriteString(w.cImports.String() + "\n")
 
 	of.WriteString(w.cCode.String())
 	of.WriteString(`
