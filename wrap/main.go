@@ -357,7 +357,7 @@ func (w *Wrapper) AddEnum(n *ast.EnumDecl,rs []string) {
 	}
 	for _,c := range n.Children() {
 		switch x := c.(type) {
-		case *ast.AvailabilityAttr, *ast.UnavailableAttr:
+		case *ast.AvailabilityAttr, *ast.UnavailableAttr, *ast.DeprecatedAttr:
 			a.Add(x)
 		case *ast.EnumConstantDecl:
 			//fmt.Printf("*ast.EnumConstantDecl: (%s) '%s': %s\n",n.Type,n.Name,x.Name)
@@ -405,6 +405,9 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			//}
 		case *ast.ObjCMethodDecl:
 			//fmt.Printf("ObjCMethodDecl: %s (%s) %s\n",x.Type,name,x.Name)
+			if name == "NSObject" && x.Name == "initialize" {
+				continue
+			}
 			m := &Method{
 				Name: x.Name,
 				Type: types.NewTypeFromString(x.Type,name),
@@ -484,7 +487,7 @@ func (a *Avail) Add(n ast.Node) {
 			Version: x.Version,
 			Deprecated: (x.Unknown1 != "0") || x.IsUnavailable,
 		})
-	case *ast.UnavailableAttr:
+	case *ast.UnavailableAttr, *ast.DeprecatedAttr:
 		*a = append(*a, AvailAttr{
 			OS: "macos", Deprecated: true })
 	}
@@ -531,7 +534,7 @@ func (w *Wrapper) GetParms(n ast.Node,class string) ([]*Parameter,bool) {
 			j++
 		case *ast.Variadic:
 			ret[j-1].Type.Variadic = true
-		case *ast.AvailabilityAttr, *ast.UnavailableAttr:
+		case *ast.AvailabilityAttr, *ast.UnavailableAttr, *ast.DeprecatedAttr:
 			avail.Add(x)
 		case *ast.Unknown:
 			if Debug { fmt.Printf("GetParms(): ast.Unknown: %s\n",x.Name) }
@@ -1193,12 +1196,9 @@ void*
 	fmt.Printf("%d functions\n", len(w.Functions))
 	fmt.Printf("%d enums\n", len(w.NamedEnums) + len(w.AnonEnums))
 	of.WriteString("package " + w.Package + "\n\n")
-	ef.WriteString("package " + w.Package + "\n\n")
 
 	of.WriteString(w.cgoFlags.String() + "\n")
-	ef.WriteString(w.cgoFlags.String() + "\n")
 	of.WriteString(w.cImports.String() + "\n")
-	ef.WriteString(w.cImports.String() + "\n")
 
 	of.WriteString(w.cCode.String())
 	of.WriteString(`
@@ -1215,7 +1215,11 @@ import (
 	of.WriteString(w.goCode.String())
 	of.Close()
 
-	ef.WriteString(`
+	if len(w.Delegates) > 0 {
+		ef.WriteString("package " + w.Package + "\n\n")
+		ef.WriteString(w.cgoFlags.String() + "\n")
+		ef.WriteString(w.cImports.String() + "\n")
+		ef.WriteString(`
 */
 import "C"
 
@@ -1223,6 +1227,14 @@ import (
 	"unsafe"
 )
 `)
-	ef.WriteString(w.goExports.String())
-	ef.Close()
+		ef.WriteString(w.goExports.String())
+		ef.Close()
+	} else {
+		ef.Close()
+		err := os.Remove(path.Join(w.Package,"exports.go"))
+		if err != nil {
+			fmt.Printf("Error removing 'exports.go'. %s\n",err)
+			os.Exit(-1)
+		}
+	}
 }
