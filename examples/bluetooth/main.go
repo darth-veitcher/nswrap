@@ -5,7 +5,6 @@ import "C"
 import (
 	"encoding/binary"
 	"fmt"
-	"unsafe"
 	"gitlab.wow.st/gmp/nswrap/examples/bluetooth/ns"
 )
 
@@ -59,24 +58,16 @@ func discoverServices(p *ns.CBPeripheral, e *ns.NSError) {
 }
 
 func hr(d *ns.NSData) int {
-	var x []byte
 	if l := int(d.Length()); l < 4 {
 		return 0
-	} else {
-		bs := d.Bytes()
-		x = make([]byte,l)
-		for i := 0; i < l; i++ {
-			x[i] = *(*byte)(unsafe.Pointer(uintptr(bs) + uintptr(i)))
-		}
 	}
-	var hr int
+	x := C.GoBytes(d.Bytes(),4)
 	flags := x[0]
 	if flags & 0x80 != 0 { // uint16 format
-		hr = int(binary.BigEndian.Uint16(x[1:2]))
+		return int(binary.BigEndian.Uint16(x[1:2]))
 	} else {
-		hr = int(x[1])
+		return int(x[1])
 	}
-	return hr
 }
 
 func discoverCharacteristics(p *ns.CBPeripheral, s *ns.CBService, e *ns.NSError) {
