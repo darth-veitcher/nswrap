@@ -13,6 +13,8 @@ type Node struct {
 	Children []*Node
 }
 
+//NewNode returns a new node of kind k with an optional content string as its
+//second parameter.
 func NewNode(k string,cs ...string) *Node {
 	c := ""
 	if len(cs) > 0 {
@@ -56,7 +58,6 @@ func (n *Node) AddChild(c *Node) *Node {
 	// Skip literals
 	if c.Kind == "Lit" { return n }
 
-	// Do we already have this child? (FIXME: Not needed?)
 	for _,d := range n.Children {
 		if c == d {
 			return n
@@ -85,21 +86,21 @@ func (n *Node) renameTypedefs(a,b string) (ret bool) {
 	return
 }
 
-func (n *Node) CtypeSimplified() string {
+func (n *Node) CTypeSimplified() string {
 	ignore := map[string]bool{
 		"NullableAnnotation": true,
 		"KindQualifier": true,
 		"TypeQualifier": true,
 		"GenericList": true,
 	}
-	return n._Ctype(ignore)
+	return n._CType(ignore)
 }
 
-func (n *Node) Ctype() string {
-	return n._Ctype(map[string]bool{})
+func (n *Node) CType() string {
+	return n._CType(map[string]bool{})
 }
 
-func (n *Node) _Ctype(ignore map[string]bool) string {
+func (n *Node) _CType(ignore map[string]bool) string {
 	if n == nil || ignore[n.Kind] {
 		return ""
 	}
@@ -108,7 +109,7 @@ func (n *Node) _Ctype(ignore map[string]bool) string {
 		ret := []string{}
 		if n == nil { return ret }
 		for _,c := range n.Children {
-			if x := c._Ctype(ignore); x != "" {
+			if x := c._CType(ignore); x != "" {
 				ret = append(ret, x)
 			}
 		}

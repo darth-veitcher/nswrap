@@ -26,7 +26,7 @@ func parseObjCCategoryDecl(line string) *ObjCCategoryDecl {
 	return &ObjCCategoryDecl{
 		Addr:         ParseAddress(groups["address"]),
 		Pos:          NewPositionFromString(groups["position"]),
-		Position2:    strings.TrimSpace(groups["position2"]),
+		//Position2:    strings.TrimSpace(groups["position2"]),
 		Name:         strings.TrimSpace(groups["name"]),
 		ChildNodes:   []Node{},
 	}

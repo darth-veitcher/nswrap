@@ -36,15 +36,15 @@ func Parse(s string) (*Node, error) {
 }
 
 //Evaluate a node to determine if it is a pointer or array
-func (n *Node) isAbstract(k string) bool {
-	if n.stripAbstract(k) == nil {
+func (n *Node) isIndirect(k string) bool {
+	if n.stripIndirect(k) == nil {
 		return false
 	}
 	return true
 }
 
 //Strip one level of pointer or array indirection from a node
-func (n *Node) stripAbstract(k string) *Node {
+func (n *Node) stripIndirect(k string) *Node {
 	if n == nil {
 		return nil
 	}
@@ -55,14 +55,14 @@ func (n *Node) stripAbstract(k string) *Node {
 	ret := NewNode(n.Kind)
 	cs := append([]*Node{},n.Children...)
 
-	dbg("stripAbstract(): i = %d\n",i)
+	dbg("stripIndirect(): i = %d\n",i)
 	//Scan backwords skipping TypeQualifier and NullableAnnotation tags
 	for ;i > 0 &&
 		(cs[i].Kind == "TypeQualifier" ||
 		 cs[i].Kind == "NullableAnnotation") ; i-- { }
 
 	if cs[i].Kind == k {
-		dbg("stripAbstract(): last node is %s\n",k)
+		dbg("stripIndirect(): last node is %s\n",k)
 		ret.Children = cs[:i]
 		return ret
 	}
@@ -92,7 +92,7 @@ func (n *Node) stripAbstract(k string) *Node {
 //pointed to. Otherwise returns nil when called on non-pointer types.
 func (n *Node) PointsTo() *Node {
 	dbg("PointsTo()\n")
-	return n.stripAbstract("Pointer")
+	return n.stripIndirect("Pointer")
 }
 
 //IsPointer returns true if the node is a pointer
@@ -108,7 +108,7 @@ func (n *Node) IsPointer() bool {
 //non-array types.
 func (n *Node) ArrayOf() *Node {
 	dbg("ArrayOf()\n")
-	return n.stripAbstract("Array")
+	return n.stripIndirect("Array")
 }
 
 //IsArray returns true if the node is an array

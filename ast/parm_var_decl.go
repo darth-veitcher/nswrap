@@ -32,23 +32,23 @@ func parseParmVarDecl(line string) *ParmVarDecl {
 		line,
 	)
 
-	type2 := groups["type2"]
+	/*type2 := groups["type2"]
 	if type2 != "" {
 		type2 = type2[2 : len(type2)-1]
-	}
+	}*/
 
-	if strings.Index(groups["position"], "<invalid sloc>") > -1 {
+	/*if strings.Index(groups["position"], "<invalid sloc>") > -1 {
 		groups["position"] = "<invalid sloc>"
 		groups["position2"] = "<invalid sloc>"
-	}
+	}*/
 
 	return &ParmVarDecl{
 		Addr:         ParseAddress(groups["address"]),
 	        Pos:          NewPositionFromString(groups["position"]),
-		Position2:    strings.TrimSpace(groups["position2"]),
+		//Position2:    strings.TrimSpace(groups["position2"]),
 		Name:         strings.TrimSpace(groups["name"]),
 		Type:         groups["type"],
-		Type2:        type2,
+		//Type2:        type2,
 		IsUsed:       len(groups["used"]) > 0,
 		IsReferenced: len(groups["referenced"]) > 0,
 		IsRegister:   len(groups["register"]) > 0,

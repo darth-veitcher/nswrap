@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"strings"
+	//"strings"
 )
 
 // Unknown is node represents an unknown node.
@@ -30,7 +30,7 @@ func parseUnknown(name, line string) *Unknown {
 		Name:         name,
 		Addr:         ParseAddress(groups["address"]),
 		Pos:          NewPositionFromString(groups["position"]),
-		Position2:    strings.TrimSpace(groups["position2"]),
+		//Position2:    strings.TrimSpace(groups["position2"]),
 		Content:      groups["content"],
 		ChildNodes:   []Node{},
 	}

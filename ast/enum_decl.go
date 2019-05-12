@@ -26,18 +26,18 @@ func parseEnumDecl(line string) *EnumDecl {
 		line,
 	)
 
-	type2 := groups["type2"]
+	/*type2 := groups["type2"]
 	if type2 != "" {
 		type2 = type2[2 : len(type2)-1]
-	}
+	}*/
 
 	return &EnumDecl{
 		Addr:       ParseAddress(groups["address"]),
 		Pos:        NewPositionFromString(groups["position"]),
-		Position2:  groups["position2"],
+		//Position2:  groups["position2"],
 		Name:       strings.TrimSpace(groups["name"]),
 		Type:       removeQuotes(groups["type"]),
-		Type2:      type2,
+		//Type2:      type2,
 		ChildNodes: []Node{},
 	}
 }

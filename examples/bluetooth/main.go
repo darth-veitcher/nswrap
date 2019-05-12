@@ -30,9 +30,12 @@ func updateState(c *ns.CBCentralManager) {
 func discoverPeripheral(c *ns.CBCentralManager, p *ns.CBPeripheral, d *ns.NSDictionary, rssi *ns.NSNumber) {
 	fmt.Printf("Did discover peripheral\n")
 	c.StopScan()
+	if peripheral != nil {
+		peripheral.Release()
+	}
 	peripheral = p
 	peripheral.Retain()
-	c.ConnectPeripheral(p,nil)
+	c.ConnectPeripheral(peripheral,nil)
 }
 
 func connectPeripheral(c *ns.CBCentralManager, p *ns.CBPeripheral) {
@@ -106,6 +109,7 @@ func main() {
 	queue := ns.DispatchQueueCreate(ns.CharWithGoString("st.wow.gitlab.ble"),nil)
 
 	cd = ns.BleDelegateAlloc()
+
 	cd.CentralManagerDidUpdateStateCallback(updateState)
 	cd.CentralManagerDidDiscoverPeripheralCallback(discoverPeripheral)
 	cd.CentralManagerDidConnectPeripheralCallback(connectPeripheral)

@@ -1,7 +1,6 @@
 package types
 
 import (
-	//"fmt"
 	"regexp"
 )
 
@@ -17,26 +16,12 @@ func init() {
 	reservedwords = regexp.MustCompile("^(void|char|short|int|long|float|double|signed|unsigned|_Bool|_Complex|const|restrict|volatile|struct|union|enum)$")
 }
 
+//Parser is a function that takes the string to be parsed plus an input Node
+//and returns a new Node and the unparsed remainder string. If the parser fails
+//to parse anything in the input, it should return a nil Node.
 type Parser func(string, *Node) (string, *Node)
 
-// Adders
-
-//Child takes a parser and adds its output node (if non-nil) to the tree.
-//FIXME -- broken?
-func Child(p Parser) Parser {
-	return func(s string, n *Node) (string, *Node) {
-		dbg("Child(%s %p)\n",n.Kind,n)
-		s2,n2 := p(s,n)
-		if n2 == nil {
-			return s,nil
-		}
-		if n2 != n {
-			dbg("Child(%p): AddChild()\n",p)
-			n.AddChild(n2)
-		}
-		return s2,n
-	}
-}
+// Adders -- add elements to the Node tree
 
 //ChildOf takes a node and adds results of a parser to it as a child
 func ChildOf(ret *Node, p Parser) Parser {
@@ -100,9 +85,10 @@ func NodeNamed(k string, p Parser) Parser {
 	}
 }
 
-// Combinators
+// Combinators -- combine one or more Parsers into a new Parser.
 
-//Opt optionally runs a Parser, returning the input node if it fails
+//Opt optionally runs a Parser, returning the input Node (instead of nil)
+//if it fails
 func Opt(p Parser) Parser {
 	return func(s string, n *Node) (string, *Node) {
 		s2,n2 := p(s,n)
@@ -122,29 +108,6 @@ func OneOf(ps ...Parser) Parser {
 			if n2 != nil {
 				return s2,n2
 			}
-		}
-		return s,nil
-	}
-}
-
-//Doesn't work? May have side effects that do not get unwound.
-func Longest(ps ...Parser) Parser {
-	dbg("Longest(%p)\n",ps)
-	return func(s string, n *Node) (string, *Node) {
-		ss := make([]string,len(ps))
-		ns := make([]*Node,len(ps))
-		//An arbitrarily large number so I don't have to import "math"
-		minrem := 10000
-		mini := 0
-		for i,p := range ps {
-			ss[i],ns[i] = p(s,n)
-			if ns[i] != nil && len(ss[i]) < minrem {
-				minrem = len(ss[i])
-				mini = i
-			}
-		}
-		if minrem < 10000 {
-			return ss[mini],ns[mini]
 		}
 		return s,nil
 	}
@@ -172,7 +135,8 @@ func Seq(ps ...Parser) Parser {
 	return Children(p)
 }
 
-//Like Seq but subsequent children are nested inside their earlier siblings.
+//Nest is like Seq but subsequent children are nested inside their earlier
+//siblings.
 func Nest(ps ...Parser) Parser {
 	dbg("Nest(%p)\n",ps)
 	p := func(s string, n *Node) (string, *Node) {
@@ -212,32 +176,41 @@ func ZeroOrMore(p Parser) Parser {
 	return Children(ret)
 }
 
+//OneOrMore is ZeroOrMore, but fails (returns nil) if the input parser does
+//not match any elements.
 func OneOrMore(p Parser) Parser {
 	return Seq(p,ZeroOrMore(p))
 }
 
+//Parenthesized matches the input parser surrounded by literal parenthesis.
 func Parenthesized(p Parser) Parser {
 	return Children(Seq(Lit("("),p,Lit(")")))
 }
 
+//Bracketed matches the input parser surrounded by literal square brackets.
 func Bracketed(p Parser) Parser {
 	return Seq(Lit("["),p,Lit("]"))
 }
 
+//AngBracketed matches the input parser surrounded by literal angled brackets.
 func AngBracketed(p Parser) Parser {
         return Children(Seq(Lit("<"),p,Lit(">")))
 }
 
+//CurlyBracketed matches the input parser surrounded by literal curly brackets.
 func CurlyBracketed(p Parser) Parser {
         return Children(Seq(Lit("{"),p,Lit("}")))
 }
 
-// Recognizers
+// Recognizers -- these functions return parsers that match tokens in the input
+// stream. There is no separate tokenizer.
 
+//Word matches an element with a word boundary after its end
 func Word(f string) Parser {
 	return Lit(f,true)
 }
 
+//Lit matches a literal string
 func Lit(f string, ws ...bool) Parser {
 	word := false
 	if len(ws) > 0 {
@@ -261,6 +234,7 @@ func Lit(f string, ws ...bool) Parser {
 	}
 }
 
+//Regexp matches a regular expression at the beginning of the input string
 func Regexp(f string) Parser {
 	f = "^" + f
 	r := regexp.MustCompile(f)

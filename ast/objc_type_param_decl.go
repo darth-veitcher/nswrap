@@ -32,10 +32,10 @@ func parseObjCTypeParamDecl(line string) *ObjCTypeParamDecl {
 		line,
 	)
 
-	type2 := groups["type2"]
+	/*type2 := groups["type2"]
 	if type2 != "" {
 		type2 = type2[2 : len(type2)-1]
-	}
+	}*/
 
 	if strings.Index(groups["position"], "<invalid sloc>") > -1 {
 		groups["position"] = "<invalid sloc>"
@@ -45,10 +45,10 @@ func parseObjCTypeParamDecl(line string) *ObjCTypeParamDecl {
 	return &ObjCTypeParamDecl{
 		Addr:         ParseAddress(groups["address"]),
 	        Pos:          NewPositionFromString(groups["position"]),
-		Position2:    strings.TrimSpace(groups["position2"]),
+		//Position2:    strings.TrimSpace(groups["position2"]),
 		Name:         strings.TrimSpace(groups["name"]),
 		Type:         groups["type"],
-		Type2:        type2,
+		//Type2:        type2,
 		IsReferenced: len(groups["referenced"]) > 0,
 		IsCovariant:  len(groups["covariant"]) > 0,
 		IsBounded  :  len(groups["bounded"]) > 0,

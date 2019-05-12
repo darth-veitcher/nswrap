@@ -25,7 +25,7 @@ func parseUnavailableAttr(line string) *UnavailableAttr {
 	return &UnavailableAttr{
 		Addr:         ParseAddress(groups["address"]),
 		Pos:          NewPositionFromString(groups["position"]),
-		Position2:    strings.TrimSpace(groups["position2"]),
+		//Position2:    strings.TrimSpace(groups["position2"]),
 		Content:      strings.TrimSpace(groups["content"]),
 		ChildNodes:   []Node{},
 	}

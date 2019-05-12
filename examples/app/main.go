@@ -89,7 +89,7 @@ func app() {
 
 func main() {
 	//Run our app in an autorelease pool just for fun
-	go ns.Autorelease(app)
+	go ns.Autoreleasepool(app)
 	select { }
 }
 

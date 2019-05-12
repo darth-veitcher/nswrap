@@ -42,13 +42,13 @@ func parseObjCMethodDecl(line string) *ObjCMethodDecl {
 	return &ObjCMethodDecl{
 		Addr:         ParseAddress(groups["address"]),
 		Pos:          NewPositionFromString(groups["position"]),
-		Position2:    strings.TrimSpace(groups["position2"]),
-		Implicit:     len(groups["implicit"])>0,
+		//Position2:    strings.TrimSpace(groups["position2"]),
+		Implicit:     len(groups["implicit"]) > 0,
 		ClassMethod:  groups["methodtype"] == " +",
 		Name:         parts[0],
 		Parameters:   params,
 		Type:         strings.TrimSpace(groups["type"]),
-		Type2:        strings.TrimSpace(groups["type2"]),
+		//Type2:        strings.TrimSpace(groups["type2"]),
 		Attr:         strings.TrimSpace(groups["attr"]),
 		ChildNodes:   []Node{},
 	}

@@ -33,6 +33,9 @@ func (p Position) GetSimpleLocation() (loc string) {
 }
 
 func NewPositionFromString(s string) Position {
+	if !TrackPositions {
+		return Position{}
+	}
 	re := util.GetRegex(`<invalid sloc>|<scratch space>|<built-in>`)
 	if re.MatchString(s) || s == "" {
 		return Position{}

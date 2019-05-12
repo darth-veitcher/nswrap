@@ -659,7 +659,7 @@ func (o *NSAutoreleasePool) Init() *NSAutoreleasePool {
 	return (*NSAutoreleasePool)(unsafe.Pointer(C.NSAutoreleasePool_init(o.Ptr())))
 }
 
-func Autorelease(f func()) {
+func Autoreleasepool(f func()) {
 	pool := NSAutoreleasePoolAlloc().Init()
 	f()
 	pool.Drain()
@@ -777,7 +777,7 @@ func %s%s(%s) %s {
 `,vn,w.Vaargs,vn,vn))
 	}
 	w.goCode.WriteString(`	` +
-		types.GoToC(cname,ns,m.Type,tps) + "\n}\n")
+		types.GoToC(cname,ns,m.Type,tps,fun) + "\n}\n")
 
 	cret := ""
 	if !m.isVoid() {
@@ -936,7 +936,7 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 		} else {
 			pm := m.Parameters[0]
 			w.processType(pm.Type)
-			parms = fmt.Sprintf(":(%s)%s",pm.Type.Node.Ctype(),pm.Vname)
+			parms = fmt.Sprintf(":(%s)%s",pm.Type.Node.CType(),pm.Vname)
 			vnames[i][1] = pm.Vname
 			gtypes[i][0] = pm.Type.GoType()
 			if pm.Type.IsPointer() {
@@ -948,7 +948,7 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 		for j := 1; j < len(m.Parameters); j++ {
 			pm := m.Parameters[j]
 			w.processType(pm.Type)
-			parms = parms + fmt.Sprintf(" %s:(%s)%s",pm.Pname,pm.Type.Node.Ctype(),pm.Vname)
+			parms = parms + fmt.Sprintf(" %s:(%s)%s",pm.Pname,pm.Type.Node.CType(),pm.Vname)
 			vnames[i][j+1] = pm.Vname
 			gtypes[i][j] = pm.Type.GoType()
 			var getp string
@@ -960,7 +960,7 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 			getypes[i][j+1] = getp
 		}
 		methprotos[i] = fmt.Sprintf(
-`- (%s)%s%s;`,m.Type.Node.Ctype(),m.Name,parms)
+`- (%s)%s%s;`,m.Type.Node.CType(),m.Name,parms)
 		if x := m.Type.GoType(); x == "Void" {
 			grtypes[i] = ""
 		} else {

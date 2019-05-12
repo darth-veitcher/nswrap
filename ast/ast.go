@@ -8,6 +8,8 @@ import (
 	"github.com/elliotchance/c2go/util"
 )
 
+var TrackPositions bool = false
+
 // Node represents any node in the AST.
 type Node interface {
 	Address() Address
@@ -27,6 +29,9 @@ type Address uint64
 // ParseAddress returns the integer representation of the hexadecimal address
 // (like 0x7f8a1d8ccfd0). If the address cannot be parsed, 0 is returned.
 func ParseAddress(address string) Address {
+	if !TrackPositions {
+		return 0
+	}
 	addr, _ := strconv.ParseUint(address, 0, 64)
 
 	return Address(addr)
@@ -318,7 +323,6 @@ func groupsFromRegex(rx, line string) map[string]string {
 	rx = fullRegexp + "[\\s]*$"
 
 	re := util.GetRegex(rx)
-
 	match := re.FindStringSubmatch(line)
 	if len(match) == 0 {
 		panic("could not match regexp with string\n" + rx + "\n" + line + "\n")

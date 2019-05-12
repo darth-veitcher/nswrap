@@ -33,7 +33,6 @@ var TypeParameters map[string]map[string]string
 var typedefs map[string]*Type
 
 func (t *Type) Typedef() *Type {
-	//return typedefs[t.BaseType().CType()]
 	return typedefs[t.CType()]
 }
 
@@ -78,7 +77,6 @@ func AddTypedef(n,t string) {
 type Type struct {
 	Node *Node
 	Class string
-	ctype string
 	Variadic bool
 }
 
@@ -96,7 +94,7 @@ func clean(n *Node,c string) (*Node,bool) {
 	}
 	ret := NewNode(n.Kind,n.Content)
 	ret.Children = n.Children
-	//fmt.Printf("clean(%s,%s)\n",n.Ctype(),c)
+	//fmt.Printf("clean(%s,%s)\n",n.CType(),c)
 	recur := false
 	if TypeParameters[c] != nil {
 		for k,v := range TypeParameters[c] {
@@ -127,7 +125,7 @@ func NewTypeFromString(t,c string) *Type {
 	}
 	if n2,ok := clean(n, c); ok {
 		//found type parameters, re-parse
-		return NewTypeFromString(n2.Ctype(),c)
+		return NewTypeFromString(n2.CType(),c)
 	}
 	return &Type{
 		Node: n,
@@ -216,24 +214,16 @@ func (t *Type) _CType(attrib bool) string {
 		//fmt.Println("nil sent to _CType()")
 		return ""
 	}
-	//if !attrib && t.ctype != "" { // cache
-	//	return t.ctype
-	//}
 	var ct string
 	if attrib {
 		ignore := map[string]bool { "GenericList": true }
-		ct = t.Node._Ctype(ignore)
+		ct = t.Node._CType(ignore)
 	} else {
-		ct = t.Node.CtypeSimplified()
+		ct = t.Node.CTypeSimplified()
 	}
 	ct = r_id.ReplaceAllString(ct,"NSObject*")
 	ct = r_instancename.ReplaceAllString(ct,t.Class)
 	ct = r_instancetype.ReplaceAllString(ct,t.Class + "*")
-	if attrib {
-		t._CType(false)
-	} else {
-		t.ctype = ct
-	}
 	return ct
 }
 
@@ -295,7 +285,7 @@ func (t *Type) IsFunctionPtr() bool {
 	if td := t.Typedef(); td != nil {
 		return td.IsFunctionPtr()
 	}
-	for pt := t.PointsTo(); pt != nil; pt = pt.PointsTo() {
+	if pt := t.PointsTo(); pt != nil {
 		return pt.IsFunction()
 	}
 	return false
@@ -326,7 +316,8 @@ func (t *Type) IsPointer() bool {
 	return t.Node.IsPointer()
 }
 
-func (t *Type) CToGo(cval string) string { // cast C value to CGo
+// cast C value to CGo
+func (t *Type) CToGo(cval string) string {
 	if t.IsPointer() {
 		cval = "unsafe.Pointer(" + cval + ")"
 	}
@@ -334,7 +325,7 @@ func (t *Type) CToGo(cval string) string { // cast C value to CGo
 }
 
 // Call a C function from Go with a given return type and parameter types
-func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
+func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type, fun bool) string {
 	if rtype == nil {
 		fmt.Println("nil sent to GoToC")
 		return ""
@@ -367,7 +358,7 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type) string {
 			switch {
 			case pt.Variadic:
 				p = "unsafe.Pointer(&" + p + ")"
-			case pt.IsPointer():
+			case pt.IsPointer() && !fun:
 				p = "unsafe.Pointer(" + pn + ")"
 			default:
 				p = "(" + pt.CGoType() + ")(" + pn + ")"

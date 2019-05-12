@@ -25,17 +25,10 @@ func parseObjCInterfaceDecl(line string) *ObjCInterfaceDecl {
 		line,
 	)
 
-	/*fmt.Println(line)
-	fmt.Println("prev = ",groups["prev"])
-	fmt.Println("position = ",groups["position"])
-	fmt.Println("position2 = ",groups["position2"])
-	fmt.Println("implicit = ",len(groups["implicit"])>0)
-	fmt.Println("name = ",groups["name"])*/
-
 	return &ObjCInterfaceDecl{
 		Addr:         ParseAddress(groups["address"]),
 		Pos:          NewPositionFromString(groups["position"]),
-		Position2:    strings.TrimSpace(groups["position2"]),
+		//Position2:    strings.TrimSpace(groups["position2"]),
 		Name:         strings.TrimSpace(groups["name"]),
 		Implicit:     len(groups["implicit"])>0,
 		ChildNodes:   []Node{},

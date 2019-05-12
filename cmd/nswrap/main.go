@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -16,8 +18,10 @@ import (
 )
 
 var Debug = false
+var Profile = false
 
 type conf struct {
+	Positions bool
 	Package string
 	Inputfiles []string
 	Classes []string
@@ -158,9 +162,7 @@ func Start() (err error) {
 		}
 	}
 
-	// 2. Preprocess NOT DONE
-
-	// 3. Generate AST
+	// Generate AST
 	cargs := []string{"-xobjective-c", "-Xclang", "-ast-dump",
 			"-fsyntax-only","-fno-color-diagnostics"}
 	cargs = append(cargs,Config.Inputfiles...)
@@ -185,7 +187,12 @@ func Start() (err error) {
 
 	// Converting to nodes
 	fmt.Printf("Building nodes\n")
-	nodes := convertLinesToNodesParallel(lines)
+	if Config.Positions {
+		ast.TrackPositions = true
+	}
+	//NOTE: converting in parallel is slower on my system
+	//nodes := convertLinesToNodesParallel(lines)
+	nodes := convertLinesToNodes(lines)
 
 	// build tree
 	fmt.Printf("Assembling tree\n")
@@ -231,6 +238,18 @@ func Start() (err error) {
 }
 
 func main() {
+	if Profile {
+		f1, err := os.Create("cpuprofile.pprof")
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		defer f1.Close()
+		if err := pprof.StartCPUProfile(f1); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	confbytes, err := ioutil.ReadFile("nswrap.yaml")
 	if err != nil {
 		fmt.Printf("Cannot open config file nswrap.yaml. %s\n",err)
@@ -243,5 +262,16 @@ func main() {
 	if err := Start(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(-1)
+	}
+	if Profile {
+		f2, err := os.Create("memprofile.pprof")
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		defer f2.Close()
+		runtime.GC() // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f2); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
 	}
 }

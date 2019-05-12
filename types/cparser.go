@@ -1,85 +1,6 @@
 package types
 
-/* Parsers for recognizing type names in C/Objective-C
-
-type-name:
-	specifier-qualifier-list abstract-declarator<opt>
-abstract-declarator:
-	pointer
-	pointer<opt> direct-abstract-declarator
-direct-abstract-declarator:
-	( abstract-declarator )
-	direct-abstract-declarator<opt> [ type-qualifier-list<opt> assignment-expression<opt> ]
-	direct-abstract-declarator<opt> [ static type-qualifier-list<opt> assignment-expression ]
-	direct-abstract-declarator<opt> [ type-qualifier-list static assignment-expression ]
-	direct-abstract-declarator<opt> [ * ]
-	direct-abstract-declarator<opt> ( parameter-type-list<opt> )
-pointer:
-	* type-qualifier-list<opt>
-	* type-qualifier-list<opt> pointer
-parameter-type-list:
-	parameter-list
-	parameter-list , ...
-parameter-list:
-	parameter-declaration
-	parameter-list , parameter-declaration
-parameter-declaration:
-	declaration-specifiers declarator
-	declaration-specifiers abstract-declarator<opt>
-type-qualifier-list:
-	type-qualifier
-	type-qualifier-list type-qualifier
-specifier-qualifier-list:
-	type-specifier specifier-qualifier-list<opt>
-	type-qualifier specifier-qualifier-list<opt>
-type-specifier:
-	void
-	char
-	short
-	int
-	long
-	float
-	double
-	signed
-	unsigned
-	_Bool
-	_Complex
-	struct-or-union-specifier
-	enum-specifier
-	typedef-name
-type-qualifier:
-	const
-	restrict
-	volatile
-struct-or-union-specifier:
-	// DON'T DO struct-or-union identifier<opt> { struct-declaration-list }
-	struct-or-union identifier
-struct-or-union:
-	struct
-	union
-struct-declaration-list:
-	struct-declaration
-	struct-declaration-list struct-declaration
-struct-declaration:
-	specifier-qualifier-list struct-declarator-list ;
-struct-declarator-list:
-	struct-declarator
-	struct-declarator-list , struct-declarator
-struct-declarator:
-	declarator
-	declarator<opt>: constant-expression
-identifier:
-	identifier-non-digit
-	identifier identifier-nondigit
-	identifier digit
-identifier-nondigit:
-	nondigit
-	universal-character-name
-nondigit:
-	_ [a-zA-Z]
-digit:
-	[0-9]
-*/
+// A parser to recognize type names in C/Objective-C
 
 import (
 	"regexp"
@@ -94,6 +15,7 @@ func init() {
 		return !instancetype.MatchString(s) && !instancename.MatchString(s)
 	}
 
+	//memoize the TypeName function for performance
 	cache := map[string]*Node{}
 	TypeName = func(s string, n *Node) (string, *Node) {
 		if n2,ok := cache[s]; ok {
@@ -105,6 +27,8 @@ func init() {
 		}
 		return s2,n2
 	}
+	//for debug purposes, the following line can be uncommented, which will
+	//memoization memoization
 	//TypeName = _TypeName
 }
 
@@ -120,7 +44,6 @@ func AbstractDeclarator(s string, n *Node) (string, *Node) {
 			Opt(Pointer),
 			OneOrMore(DirectAbstractDeclarator)),
 		Pointer,
-		//Id,
 		Block,
 	)(s,n)
 }
@@ -227,14 +150,6 @@ func NullableAnnotation(s string, n *Node) (string, *Node) {
 	))(s,n)
 }
 
-func Id(s string, n *Node) (string, *Node) {
-	return Seq(
-		NodeNamed("Id",Lit("id")),
-		Opt(TypeQualifierList),
-		Opt(NullableAnnotation),
-	)(s,n)
-}
-
 func Pointer(s string, n *Node) (string, *Node) {
 	return Seq(
 		NodeNamed("Pointer",Lit("*")),
@@ -280,9 +195,7 @@ func TypeSpecifier(s string, n *Node) (string, *Node) {
 		Word("unsigned"),
 		Word("_Bool"),
 		Word("_Complex"),
-		//StructOrUnionSpecifier,
 		EnumSpecifier,
-		//TypedefName,
 	))(s,n)
 }
 

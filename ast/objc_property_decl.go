@@ -33,8 +33,8 @@ func parseObjCPropertyDecl(line string) *ObjCPropertyDecl {
 		Pos:          NewPositionFromString(groups["position"]),
 		Position2:    strings.TrimSpace(groups["position2"]),
 		Name:         strings.TrimSpace(groups["name"]),
-		Type:         strings.TrimSpace(groups["type"]),
-		Type2:        strings.TrimSpace(groups["type2"]),
+		Type:         groups["type"],
+		//Type2:        strings.TrimSpace(groups["type2"]),
 		Attr:         strings.TrimSpace(groups["attr"]),
 		ChildNodes:   []Node{},
 	}
