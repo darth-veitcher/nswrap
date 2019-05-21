@@ -22,11 +22,12 @@ type Wrapper struct {
 	Functions map[string]*Method
 	NamedEnums map[string]*Enum
 	AnonEnums []*Enum
-	Delegates map[string][]string
+	Delegates map[string]map[string][]string
+	Subclasses map[string]map[string][]string
 	Protocols map[string]*Protocol
 
 	cgoFlags strings.Builder  // put cGo directives here
-	cImports strings.Builder  // put c imports and sysimports here
+	cImports strings.Builder  // put C imports and sysimports here
 	cCode strings.Builder	  // put cGo code here
 	goTypes strings.Builder   // put Go type declarations here
 	goConst strings.Builder   // put Go constants (from C enums) here
@@ -87,8 +88,12 @@ func (w *Wrapper) Pragma(ss []string) {
 	}
 }
 
-func (w *Wrapper) Delegate(ds map[string][]string) {
+func (w *Wrapper) Delegate(ds map[string]map[string][]string) {
 	w.Delegates = ds
+}
+
+func (w *Wrapper) Subclass(ds map[string]map[string][]string) {
+	w.Subclasses = ds
 }
 
 type Property struct {
@@ -312,8 +317,8 @@ func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
 				if x := p.Polymorphic[m.Name]; x != 0 {
 					p.Polymorphic[m.Name] = x + 1
 					pname = pname + strings.Title(m.Parameters[1].Pname)
-					if m2 := p.Methods[m.Name]; m2 != nil {
-						pname2 := strings.Title(m.Name) + strings.Title(m2.Parameters[1].Pname)
+					if m2 := p.Methods[pname]; m2 != nil {
+						pname2 := pname + strings.Title(m2.Parameters[1].Pname)
 						p.Methods[pname2] = m2
 						delete(p.Methods,m.Name)
 					}
@@ -380,7 +385,7 @@ func (w *Wrapper) AddEnum(n *ast.EnumDecl,rs []string) {
 func (w *Wrapper) add(name string, ns []ast.Node) {
 	var i *Interface
 	var ok bool
-	goname := types.NewTypeFromString(name,name).GoType()
+	goname := strings.Title(types.NewTypeFromString(name,name).GoType())
 	types.Wrap(goname)
 	if i,ok = w.Interfaces[name]; !ok {
 		i = &Interface{
@@ -418,7 +423,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			//fmt.Println(m.Type.Node.String())
 			m.Parameters, avail = w.GetParms(x,name)
 			if avail {
-				i.Methods[m.Name] = m
+				i.Methods[strings.Title(m.Name)] = m
 			}
 		case *ast.ObjCProtocol:
 			//fmt.Printf("ast.ObjCProtocol: %s\n",x.Name)
@@ -462,7 +467,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 					}
 					m2.Parameters = append(m2.Parameters,p2)
 				}
-				i.Methods[m.Name] = m2
+				i.Methods[strings.Title(m.Name)] = m2
 			}
 		}
 		supmethods(i,types.Super(s))
@@ -875,8 +880,16 @@ const %s %s= C.%s
 	}
 }
 
+func (w *Wrapper) ProcessSubclass(sname string, ps map[string][]string) {
+	w._ProcessDelSub(sname,ps,true)
+}
+
+func (w *Wrapper) ProcessDelegate(dname string, ps map[string][]string) {
+	w._ProcessDelSub(dname,ps,false)
+}
+
 //NOTE: The delegate wrapper does not support variadic callback functions.
-func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
+func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) {
 	//To create (per delegate):
 	//1. ObjC interface
 	//2. ObjC implementation
@@ -884,10 +897,12 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 	//4. Go type
 	//5. Go constructor
 	//6. Go dispatch database for callbacks
+	//7. Go superclass dispatch function
 	//To create (per method):
 	//1. ObjC function prototypes for go exports
 	//2. Go callback registration functions
 	//3. Go exported callback function wrappers
+	//4. Go wrapper functions for superclass methods
 
 	//organize output into string builders
 	var cprotos, ccode, gotypes, gocode, goexports strings.Builder
@@ -895,14 +910,38 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 	//set up array of methods for this delegate
 	methods := []*Method{}
 	gnames := []string{} // go names for methods
-	for _,pname := range ps {
-		proto := w.Protocols[pname]
-		if proto == nil {
-			fmt.Printf("Failed to find protocol %s for delegate %s\n",pname,dname)
-			os.Exit(-1)
+	pnames := make([]string,len(ps))
+	var supr string
+	i := 0
+	for pname,pats := range ps {
+		pnames[i] = pname
+		i++
+		var ms map[string]*Method
+		if sub {
+			interf := w.Interfaces[pname]
+			if interf == nil {
+				fmt.Printf("Failed to find interface %s for subclass %s\n",pname,dname)
+				os.Exit(-1)
+			}
+			//fmt.Printf("  subclass for %s\n",pname)
+			ms = interf.Methods
+			supr = interf.GoName
+		} else {
+			proto := w.Protocols[pname]
+			if proto == nil {
+				fmt.Printf("Failed to find protocol %s for delegate %s\n",pname,dname)
+				os.Exit(-1)
+			}
+			//fmt.Printf("  proto %s\n",pname)
+			ms = proto.Methods
+			supr = "Id"
 		}
-		fmt.Printf("  proto %s\n",pname)
-		for gname,m := range proto.Methods {
+		for gname,m := range ms {
+	//note:we may have capitalized the first character to make a goname,
+	//but m.Name is not disambiguated for polymorphics...
+			if !matches(string(m.Name[0])+gname[1:],pats) {
+				continue
+			}
 			if m.Type.IsFunction() || m.Type.IsFunctionPtr() || m.hasFunctionParam() {
 				continue
 			}
@@ -912,8 +951,11 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 	}
 
 	methprotos := make([]string,len(methods)) // objc method prototypes
+	smethprotos := make([]string,len(methods)) // super method prototypes
+	sfunprotos := make([]string,len(methods)) // super method prototypes
 	gname := strings.Title(dname) // go name for this Delegate
 	vnames := make([][]string,len(methods)) // objc variable names
+	vpnames := make([][]string,len(methods)) // objc parameter:variable names
 	gtypes := make([][]string,len(methods)) // go parameter types for each method
 	getypes := make([][]string,len(methods)) // parameter types for go export
 	grtypes := make([]string,len(methods)) // go retrun types for each method
@@ -921,46 +963,68 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 	crtypes := make([]string,len(methods)) // c return types for each method
 
 	//1. ObjC interface
-	fmt.Printf("Delegate %s <%s>: %d methods\n",dname,strings.Join(ps,", "),len(methods))
+	if sub {
+		fmt.Printf("Subclass ")
+	} else {
+		fmt.Printf("Delegate ")
+	}
+	fmt.Printf("%s <%s>: %d methods\n",dname,strings.Join(pnames,", "),len(methods))
 	for i,m := range methods {
 		w.processType(m.Type)
 		vnames[i] = make([]string,len(m.Parameters)+1)
+		vpnames[i] = make([]string,len(m.Parameters))
 		getypes[i] = make([]string,len(m.Parameters)+1)
 		vnames[i][0] = "self"
 		getypes[i][0] = "unsafe.Pointer"
-		gtypes[i] = make([]string,len(m.Parameters))
+		gtypes[i] = make([]string,len(m.Parameters)+1)
+		gtypes[i][0] = gname + "Supermethods"
 		//fmt.Printf("%s: %s\n",dname,m.Name)
 		var parms string
+		var cparms string
 		if len(m.Parameters) == 0 {
 			parms = ""
+			cparms = "void* self"
+			vpnames[i] = []string{m.Name}
 		} else {
 			pm := m.Parameters[0]
 			w.processType(pm.Type)
 			parms = fmt.Sprintf(":(%s)%s",pm.Type.Node.CType(),pm.Vname)
+			cparms = fmt.Sprintf("void* self, %s %s",pm.Type.Node.CType(),pm.Vname)
 			vnames[i][1] = pm.Vname
-			gtypes[i][0] = pm.Type.GoType()
+			vpnames[i][0] = pm.Pname + ":" + pm.Vname
+			gtypes[i][1] = pm.Type.GoType()
 			if pm.Type.IsPointer() {
 				getypes[i][1] = "unsafe.Pointer"
 			} else {
-				getypes[i][1] = gtypes[i][0]
+				getypes[i][1] = gtypes[i][1]
 			}
 		}
 		for j := 1; j < len(m.Parameters); j++ {
 			pm := m.Parameters[j]
 			w.processType(pm.Type)
 			parms = parms + fmt.Sprintf(" %s:(%s)%s",pm.Pname,pm.Type.Node.CType(),pm.Vname)
+			cparms = cparms + fmt.Sprintf(", %s %s",pm.Type.Node.CType(),pm.Vname)
 			vnames[i][j+1] = pm.Vname
-			gtypes[i][j] = pm.Type.GoType()
+			vpnames[i][j] = pm.Pname + ":" + pm.Vname
+			gtypes[i][j+1] = pm.Type.GoType()
 			var getp string
 			if pm.Type.IsPointer() {
 				getp = "unsafe.Pointer"
 			} else {
-				getp = gtypes[i][j]
+				getp = gtypes[i][j+1]
 			}
 			getypes[i][j+1] = getp
 		}
 		methprotos[i] = fmt.Sprintf(
 `- (%s)%s%s;`,m.Type.Node.CType(),m.Name,parms)
+		ct := m.Type.Node.CType()
+		smethprotos[i] = fmt.Sprintf(
+`- (%s)super_%s%s;`,ct,m.Name,parms)
+		if ct == "instancetype" {
+			ct = gname + "*"
+		}
+		sfunprotos[i] = fmt.Sprintf(
+`%s %s_super_%s(%s);`,ct,dname,m.Name,cparms)
 		if x := m.Type.GoType(); x == "Void" {
 			grtypes[i] = ""
 		} else {
@@ -984,16 +1048,38 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 			cgtypes[i] = m.Type.CGoType()
 		}
 }
+	var supcls string
+	var protos string
+	if sub {
+		supcls = pnames[0]
+		protos = ""
+	} else {
+		supcls = "NSObject"
+		protos = "<" + strings.Join(pnames,", ") + ">"
+	}
 	ccode.WriteString(fmt.Sprintf(`
-@interface %s : NSObject <%s>
+@interface %s : %s %s
 { }
 %s
+`,dname,supcls,protos,strings.Join(methprotos,"\n")))
+	if sub {
+		ccode.WriteString(strings.Join(smethprotos,"\n"))
+	}
+	ccode.WriteString(`
 @end
-`,dname,strings.Join(ps,", "),strings.Join(methprotos,"\n")))
+`)
+	if sub {
+		ccode.WriteString(strings.Join(sfunprotos,"\n"))
+	}
 
 	//2. ObjC implementation
 	methdecls := make([]string,len(methods))
+	smethdecls := make([]string,len(methods))
+	sfundecls := make([]string,len(methods))
 	for i,mp := range methprotos {
+		mp := mp[:len(mp)-1]
+		smp := smethprotos[i][:len(smethprotos[i])-1]
+		sfp := sfunprotos[i][:len(sfunprotos[i])-1]
 		var ret string
 		if crtypes[i] != "void" {
 			ret = "return "
@@ -1002,13 +1088,42 @@ func (w *Wrapper) ProcessDelegate(dname string, ps []string) {
 %s
 {
 	%s%s(%s);
-}`,mp[:len(mp)-1],ret,gname + gnames[i],strings.Join(vnames[i],", "))
+}
+`,mp,ret,gname + gnames[i],strings.Join(vnames[i],", "))
+		methdecls[i] = fmt.Sprintf(`
+%s
+{
+	%s%s(%s);
+}
+`,mp,ret,gname + gnames[i],strings.Join(vnames[i],", "))
+		if sub {
+			smethdecls[i] = fmt.Sprintf(`
+%s
+{
+	%s[super %s];
+}
+`,smp,ret,strings.Join(vpnames[i]," "))
+			sfundecls[i] = fmt.Sprintf(`
+%s
+{
+	%s[%s super_%s];
+}
+`,sfp,ret,gname,strings.Join(vpnames[i]," "))
+		}
 	}
 	ccode.WriteString(fmt.Sprintf(`
 @implementation %s
 %s
-@end
 `,dname,strings.Join(methdecls,"\n")))
+	if sub {
+		ccode.WriteString(strings.Join(smethdecls,"\n"))
+	}
+	ccode.WriteString(`
+@end
+`)
+	if sub {
+		ccode.WriteString(strings.Join(sfundecls,"\n"))
+	}
 
 	//3. ObjC constructor function
 	ccode.WriteString(fmt.Sprintf(`
@@ -1019,11 +1134,12 @@ void*
 `,dname,dname))
 
 	//4. Go type
+	
 	gotypes.WriteString(fmt.Sprintf(`
-type %s struct { Id }
+type %s struct { %s }
 func (o *%s) Ptr() unsafe.Pointer { return unsafe.Pointer(o) }
 func (o *Id) %s() *%s { return (*%s)(unsafe.Pointer(o)) }
-`,gname,gname,gname,gname,gname))
+`,gname,supr,gname,gname,gname,gname))
 
 	//5. Go constructor
 	gocode.WriteString(fmt.Sprintf(`
@@ -1034,17 +1150,32 @@ func %sAlloc() *%s {
 
 	//6. Go dispatch database for callbacks
 	dispitems := make([]string,len(gnames))
+	sdispitems := make([]string,len(gnames))
 	for i,n := range gnames {
+		if !sub {
+			gtypes[i] = gtypes[i][1:]
+		}
 		dispitems[i] = fmt.Sprintf(
 `	%s func(%s)%s`,n,strings.Join(gtypes[i],", "),grtypes[i])
+		if sub {
+			sdispitems[i] = fmt.Sprintf(
+`	%s func(%s)%s`,n,strings.Join(gtypes[i][1:],", "),grtypes[i])
+		}
 	}
 	gocode.WriteString(fmt.Sprintf(`
 type %sDispatch struct {
 %s
 }
-var %sLookup map[unsafe.Pointer]*%sDispatch =
-	map[unsafe.Pointer]*%sDispatch{}
+var %sLookup map[unsafe.Pointer]%sDispatch =
+	map[unsafe.Pointer]%sDispatch{}
 `,gname,strings.Join(dispitems,"\n"),gname,gname,gname))
+	if sub {
+		gocode.WriteString(fmt.Sprintf(`
+type %sSupermethods struct {
+%s
+}
+`,gname,strings.Join(sdispitems,"\n")))
+	}
 	//To create (per method):
 	cprotos.WriteString("\n\n")
 	for i,m := range methods {
@@ -1057,19 +1188,24 @@ var %sLookup map[unsafe.Pointer]*%sDispatch =
 		gocode.WriteString(fmt.Sprintf(`
 func (d *%s) %sCallback(f func(%s)%s) {
 	dispatch := %sLookup[d.Ptr()]
-	if dispatch == nil {
-		dispatch = &%sDispatch{}
-		%sLookup[d.Ptr()] = dispatch
-	}
 	dispatch.%s = f
+	%sLookup[d.Ptr()] = dispatch
 }
-`,gname,gnames[i],strings.Join(gtypes[i],", "),grtypes[i],gname,gname,gname,gnames[i]))
+`,gname,gnames[i],strings.Join(gtypes[i],", "),grtypes[i],gname,gnames[i],gname))
 		//3. Go exported callback function wrappers
-		earglist := []string{"self unsafe.Pointer"}
+		earglist := []string{"o unsafe.Pointer"}
 		garglist := []string{}
+		if sub {
+			garglist = []string{"super"}
+		}
 		for j := 1; j < len(vnames[i]); j++ {
 			earglist = append(earglist,vnames[i][j] + " " + getypes[i][j])
-			gt2 := gtypes[i][j-1]
+			var gt2 string
+			if sub {
+				gt2 = gtypes[i][j]
+			} else {
+				gt2 = gtypes[i][j-1]
+			}
 			if types.IsGoInterface(gt2) {
 				gt2 = "*Id"
 			}
@@ -1093,14 +1229,59 @@ func (d *%s) %sCallback(f func(%s)%s) {
 			}
 			retnparen = ")"
 		}
+		sdispentries := []string{}
+		for _,n := range gnames {
+			sdispentries = append(sdispentries,fmt.Sprintf(
+`		self.Super%s`,n))
+		}
+		sper := ""
+		if sub && len(gnames) > 0 {
+			sper = fmt.Sprintf(
+`self := (*%s)(o)
+	super := %sSupermethods{
+%s,
+	}
+	`,gname,gname,strings.Join(sdispentries,",\n"))
+		}
 		goexports.WriteString(fmt.Sprintf(`
 //export %s%s
 func %s%s(%s)%s {
-	%scb := %sLookup[self].%s
+	%scb := %sLookup[o].%s
 	if cb == nil { return%s }
-	%scb(%s)%s
+	%s%scb(%s)%s
 }
-`,gname,gnames[i],gname,gnames[i],strings.Join(earglist,", "),crtype,retdecl,gname,gnames[i],retname,retn,strings.Join(garglist,", "),retnparen))
+`,gname,gnames[i],gname,gnames[i],strings.Join(earglist,", "),crtype,retdecl,gname,gnames[i],retname,sper,retn,strings.Join(garglist,", "),retnparen))
+		//4. Go wrapper functions for superclass methods
+		if !sub { continue } // for subclasses only
+		grtype := m.Type.GoType()
+		if grtype == "Void" {
+			grtype = ""
+		}
+		if types.IsGoInterface(grtype) {
+			grtype = "*Id"
+		}
+		if grtype == "BOOL" {
+			grtype = "bool"
+		}
+		if sub {
+			gocode.WriteString(fmt.Sprintf(`
+func (o *%s) Super%s(%s) %s {
+`,gname,gnames[i],strings.Join(earglist[1:],", "), grtype))
+			ns,tps,_ := w.gpntp(m)
+			lparm := len(tps)-1
+			if len(tps) > 0 && tps[lparm].Variadic {
+				vn := ns[lparm]
+				vn = vn[:len(vn)-1]
+				ns[lparm] = vn
+				gocode.WriteString(fmt.Sprintf(
+`       var %s [%d]unsafe.Pointer
+	for i,o := range %ss {
+		%s[i] = o.Ptr()
+	}
+`,vn,w.Vaargs,vn,vn))
+			}
+			gocode.WriteString(`  ` + types.GoToC(dname + "_super_"+m.Name,ns,m.Type,tps,false) + "\n}\n")
+		}
 	}
 	w.cCode.WriteString(cprotos.String())
 	w.cCode.WriteString(ccode.String())
@@ -1129,6 +1310,8 @@ func (w *Wrapper) Wrap(toproc []string) {
 	}
 	fmt.Printf("Writing output to %s\n",path.Join(w.Package,"main.go"))
 	pInterfaces := map[string]*Interface{}
+	//Note: the following code eliminates duplicates, so it is acceptable
+	//to have duplicate interfaces in 'toproc'
 	for _,iface := range toproc {
 		pInterfaces[iface] = w.Interfaces[iface]
 	}
@@ -1192,6 +1375,9 @@ void*
 	}
 	for n,p := range w.Delegates {
 		w.ProcessDelegate(n,p)
+	}
+	for n,s := range w.Subclasses {
+		w.ProcessSubclass(n,s)
 	}
 	fmt.Printf("%d functions\n", len(w.Functions))
 	fmt.Printf("%d enums\n", len(w.NamedEnums) + len(w.AnonEnums))

@@ -27,6 +27,14 @@ functions: [ NSMakeRange, dispatch_queue_create ]
 enums: [ CB.* ]
 frameworks: [ Foundation, CoreBluetooth ]
 delegates:
-    BleDelegate: [ CBCentralManagerDelegate, CBPeripheralDelegate ]
+    BleDelegate:
+        CBCentralManagerDelegate:
+            - centralManagerDidUpdateState
+            - centralManagerDidDiscoverPeripheral
+            - centralManagerDidConnectPeripheral
+        CBPeripheralDelegate:
+            - peripheralDidDiscoverServices
+            - peripheralDidDiscoverCharacteristicsForService
+            - peripheralDidUpdateValueForCharacteristic
 
 pragma: [ clang diagnostic ignored "-Wformat-security" ]

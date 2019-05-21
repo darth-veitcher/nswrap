@@ -4,31 +4,20 @@ inputfiles:
 
 classes:
     - NSAutoreleasePool
-    - NSArray
-    - NSMutableArray
-    - NSDictionary
     - NSEnumerator
-    - NSSet
-    - NSDate
-    - NSTimeZone
-    - NSCalendar
-    - NSLocale
-    - NSCharacterSet
     - NSString
-    - NSScanner
-    - NSFileManager
     - NSApplication
-    - NSBundle
-    - NSApp
-    - NSMenu
-    - NSMenuItem
     - NSWindow
     - NSView
-    - NSScreen
+    - NSMenu
+    - NSMenuItem
     - NSButton
-    - NSEvent
-    - NSResponder
-    - NSRunLoop
+    - NSNotification
+    - NSStackView
+    - NSLayoutConstraint
+    - NSDictionary
+    - NSArray
+    - NSColor
 
 functions: [NSMake.*]
 
@@ -41,7 +30,18 @@ enums:
     - NSWindowOrderingMode
 
 delegates:
-    AppDelegate: [NSApplicationDelegate]
+    AppDelegate:
+      NSApplicationDelegate:
+        - applicationWillTerminate
+        - applicationDidFinishLaunching
+        - applicationShouldTerminateAfterLastWindowClosed
+        - applicationDidBecomeActive
+subclasses:
+    ViewController:
+        NSViewController:
+            - viewDidLoad
+            - viewDidDisappear
+            - loadView
 
 frameworks: [ Foundation, AppKit, CoreGraphics ]
 pragma: [ clang diagnostic ignored "-Wformat-security" ]

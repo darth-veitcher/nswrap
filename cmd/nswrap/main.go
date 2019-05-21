@@ -27,7 +27,8 @@ type conf struct {
 	Classes []string
 	Functions []string
 	Enums []string
-	Delegates map[string][]string
+	Delegates map[string]map[string][]string
+	Subclasses map[string]map[string][]string
 	Frameworks []string
 	Imports []string
 	Sysimports []string
@@ -204,6 +205,7 @@ func Start() (err error) {
 	w.SysImport(Config.Sysimports)
 	w.Pragma(Config.Pragma)
 	w.Delegate(Config.Delegates)
+	w.Subclass(Config.Subclasses)
 	if Config.Vaargs == 0 {
 		Config.Vaargs = 16
 	}
@@ -214,6 +216,13 @@ func Start() (err error) {
 			switch x := n.(type) {
 			case *ast.ObjCInterfaceDecl:
 				w.AddInterface(x)
+				for _,ss := range Config.Subclasses {
+					for ps,_ := range ss {
+						if matches(x.Name,[]string{ps}) {
+							Config.Classes = append(Config.Classes,x.Name)
+						}
+					}
+				}
 			case *ast.ObjCCategoryDecl:
 				w.AddCategory(x)
 			case *ast.TypedefDecl:
@@ -223,9 +232,11 @@ func Start() (err error) {
 					w.AddFunction(x)
 				}
 			case *ast.ObjCProtocolDecl:
-				for _,ps := range Config.Delegates {
-					if matches(x.Name,ps) {
-						w.AddProtocol(x)
+				for _,ds := range Config.Delegates {
+					for ps,_ := range ds {
+						if matches(x.Name,[]string{ps}) {
+							w.AddProtocol(x)
+						}
 					}
 				}
 			case *ast.EnumDecl:

@@ -20,5 +20,7 @@ func main() {
 	fmt.Println(o.Hi2(np))
 	o2 := ns.ClassTwoAlloc().Init()
 	fmt.Println(o2.Hi1(ns1))
+	o3 := ns.ClassThreeAlloc().Init()
+	fmt.Println(o3.Hi2(np))
 }
 

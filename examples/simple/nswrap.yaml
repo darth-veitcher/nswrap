@@ -3,5 +3,9 @@ inputfiles: [ ClassOne/simple.h ]
 classes:
     - ClassOne
     - ClassTwo
+subclasses:
+    ClassThree:
+        ClassTwo:
+            - hi.*
 imports: [ simple.h ]
 frameworks: [ Foundation ]
