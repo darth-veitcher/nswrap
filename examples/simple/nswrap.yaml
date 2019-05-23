@@ -6,6 +6,6 @@ classes:
 subclasses:
     ClassThree:
         ClassTwo:
-            - hi.*
+            - .*
 imports: [ simple.h ]
 frameworks: [ Foundation ]

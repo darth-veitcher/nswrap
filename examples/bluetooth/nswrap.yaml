@@ -27,7 +27,7 @@ functions: [ NSMakeRange, dispatch_queue_create ]
 enums: [ CB.* ]
 frameworks: [ Foundation, CoreBluetooth ]
 delegates:
-    BleDelegate:
+    CBDelegate:
         CBCentralManagerDelegate:
             - centralManagerDidUpdateState
             - centralManagerDidDiscoverPeripheral

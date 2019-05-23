@@ -27,9 +27,35 @@ func main() {
 	a2 := a.SubarrayWithRange(ns.NSMakeRange(1,3))
 	fmt.Println("Length(a2) = ",a2.Count())
 	i1 := a.ObjectAtIndex(1).NSString()
-	fmt.Println(i1.UTF8String())
-	a.ObjectEnumerator().ForIn(func(o *ns.Id) bool {
+	fmt.Printf("i1 = %@\n",i1)
+	fmt.Printf("i1.Ptr() = %p\n",i1.Ptr())
+	a.ObjectEnumerator().ForIn(func(o ns.Id) bool {
 		fmt.Println(o.NSString().UTF8String())
 		return true
+	})
+	s1 := ns.NSSetWithObjects(n1,n2)
+	a = ns.NSMutableArrayWithObjects(n1,s1)
+	a.ObjectEnumerator().ForIn(func(o ns.Id) bool {
+		fmt.Printf("%s -- ",o.ClassName().UTF8String())
+		switch {
+		case o.IsKindOfClass(ns.NSStringClass()):
+			fmt.Printf("It's a string\n")
+		case o.IsKindOfClass(ns.NSSetClass()):
+			fmt.Printf("It's a set\n")
+		default:
+			fmt.Printf("I don't know what it is!\n")
+		}
+		return true
+	})
+	a2 = ns.NSArrayWithObjects(n1,n2,n3,s1)
+	a2.ObjectEnumerator().ForIn(func (o ns.Id) bool {
+		switch {
+		case o.IsKindOfClass(ns.NSStringClass()):
+			fmt.Println(o.NSString().UTF8String())
+			return true  // continue enumeration
+		default:
+			fmt.Println("Unknown class")
+			return false  // terminate enumeration
+		}
 	})
 }

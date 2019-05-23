@@ -1,3 +1,4 @@
+# nswrap.yaml
 inputfiles:
     - /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
     - /System/Library/Frameworks/AppKit.framework/Headers/AppKit.h
@@ -17,17 +18,17 @@ classes:
     - NSLayoutConstraint
     - NSDictionary
     - NSArray
-    - NSColor
+    - NSObject
 
 functions: [NSMake.*]
 
 enums:
-    - CF.*
     - NSApplication.*
     - NSBackingStore.*
     - NSWindowStyleMask.*
     - NSWindowButton
     - NSWindowOrderingMode
+    - NSLayout.*
 
 delegates:
     AppDelegate:
@@ -36,15 +37,7 @@ delegates:
         - applicationDidFinishLaunching
         - applicationShouldTerminateAfterLastWindowClosed
         - applicationDidBecomeActive
-subclasses:
-    ViewController:
-        NSViewController:
-            - viewDidLoad
-            - viewDidDisappear
-            - loadView
 
-frameworks: [ Foundation, AppKit, CoreGraphics ]
+frameworks: [ Foundation, AppKit ]
 pragma: [ clang diagnostic ignored "-Wformat-security" ]
-vaargs: 32
-
 

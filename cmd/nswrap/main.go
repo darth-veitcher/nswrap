@@ -13,7 +13,6 @@ import (
 
 	"gopkg.in/yaml.v2"
 	"gitlab.wow.st/gmp/nswrap/ast"
-	"gitlab.wow.st/gmp/nswrap/types"
 	"gitlab.wow.st/gmp/nswrap/wrap"
 )
 
@@ -226,19 +225,13 @@ func Start() (err error) {
 			case *ast.ObjCCategoryDecl:
 				w.AddCategory(x)
 			case *ast.TypedefDecl:
-				types.AddTypedef(x.Name,x.Type)
+				w.AddTypedef(x.Name,x.Type)
 			case *ast.FunctionDecl:
 				if matches(x.Name,Config.Functions) {
 					w.AddFunction(x)
 				}
 			case *ast.ObjCProtocolDecl:
-				for _,ds := range Config.Delegates {
-					for ps,_ := range ds {
-						if matches(x.Name,[]string{ps}) {
-							w.AddProtocol(x)
-						}
-					}
-				}
+				w.AddProtocol(x)
 			case *ast.EnumDecl:
 				w.AddEnum(x,Config.Enums)
 			}

@@ -15,6 +15,7 @@ classes:
     - NSString
     - NSScanner
     - NSFileManager
+    - NSObject
 functions: [ NSMakeRange ]
 enums: [ P_ALL, CF.* ]
 frameworks: [ Foundation ]
