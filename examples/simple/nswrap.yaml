@@ -4,7 +4,7 @@ classes:
     - ClassOne
     - ClassTwo
 subclasses:
-    ClassThree:
+    classThree:
         ClassTwo:
             - geti1
             - -(void)myMethod1:(int)a

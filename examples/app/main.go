@@ -10,6 +10,15 @@ import (
 //Shortcut for literal NSStrings
 var nst = ns.NSStringWithGoString
 
+func pb1() {
+	fmt.Println("Pushed button 1")
+}
+
+func pb2() {
+	fmt.Println("Pushed button 2")
+	a.Terminate(a)
+}
+
 func didFinishLaunching(n ns.NSNotification) {
 	fmt.Println("Go: did finish launching")
 	fmt.Printf("Notification: %s\n",n.Name().UTF8String())
@@ -50,13 +59,25 @@ func didFinishLaunching(n ns.NSNotification) {
 
 	a.SetMainMenu(m1)
 
-	//add some buttons and do some layout
+	//add some custom buttons
 
-	//don't do this:
-	//b := ns.NSButtonAlloc().InitWithFrame(ns.NSMakeRect(100,100,100,50))
+	b1 := ns.GButtonAlloc()
+	b2 := ns.GButtonAlloc()
 
-	b1 := ns.NSButtonWithTitle(nst("PUSH"),ns.Id{},ns.Selector(""))
-	b2 := ns.NSButtonWithTitle(nst("QUIT"),ns.Id{},ns.Selector("terminate:"))
+	b1.Init()
+	b1.PressedCallback(pb1)
+	b1.SetAction(ns.Selector("pressed"))
+	b1.SetTarget(b1)
+	b1.SetTitle(nst("PUSH"))
+
+	b2.Init()
+	b2.PressedCallback(pb2)
+	b2.SetTarget(b2)
+	b2.SetAction(ns.Selector("pressed"))
+	b2.SetTitle(nst("QUIT"))
+
+	//add some layout constraints
+
 	b1.SetTranslatesAutoresizingMaskIntoConstraints(0)
 	b2.SetTranslatesAutoresizingMaskIntoConstraints(0)
 

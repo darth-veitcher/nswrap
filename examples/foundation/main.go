@@ -15,6 +15,7 @@ func main() {
 	n2 := ns.NSStringAlloc()
 	n2 = n2.InitWithGoString("hi world")
 	n3 := ns.NSStringWithGoString("ok bye")
+	fmt.Printf("%s\n",n3)
 	a := ns.NSMutableArrayWithObjects(n1,n2,n3)
 	fmt.Println("Length(a) = ",a.Count())
 	fmt.Println("is n2 in a?",a.ContainsObject(n2))
@@ -30,7 +31,7 @@ func main() {
 	fmt.Printf("i1 = %@\n",i1)
 	fmt.Printf("i1.Ptr() = %p\n",i1.Ptr())
 	a.ObjectEnumerator().ForIn(func(o ns.Id) bool {
-		fmt.Println(o.NSString().UTF8String())
+		fmt.Println(o.NSString())
 		return true
 	})
 	s1 := ns.NSSetWithObjects(n1,n2)

@@ -5,7 +5,6 @@ inputfiles:
 
 classes:
     - NSAutoreleasePool
-    - NSEnumerator
     - NSString
     - NSApplication
     - NSWindow
@@ -13,14 +12,14 @@ classes:
     - NSMenu
     - NSMenuItem
     - NSButton
+    - NSControl
     - NSNotification
-    - NSStackView
     - NSLayoutConstraint
     - NSDictionary
     - NSArray
     - NSObject
 
-functions: [NSMake.*]
+functions: [ NSMakeRect ]
 
 enums:
     - NSApplication.*
@@ -37,6 +36,11 @@ delegates:
         - applicationDidFinishLaunching
         - applicationShouldTerminateAfterLastWindowClosed
         - applicationDidBecomeActive
+
+subclasses:
+    GButton:
+        NSButton:
+            - -(void)pressed
 
 frameworks: [ Foundation, AppKit ]
 pragma: [ clang diagnostic ignored "-Wformat-security" ]

@@ -664,8 +664,8 @@ func (w *Wrapper) _processType(bt *types.Type, gt string) {
 	if gt == "Char" {
 		w.CharHelpers()
 	}
-	if gt == "NSEnumerator" {
-		w.EnumeratorHelpers()
+	if gt == "NSString" {
+		w.StringHelpers()
 	}
 	if gt == "SEL" {
 		w.SelectorHelpers()
@@ -697,6 +697,14 @@ func CharWithBytes(b []byte) *Char {
 
 func (c *Char) String() string {
 	return C.GoString((*C.char)(c))
+}
+`)
+}
+
+func (w *Wrapper) StringHelpers() {
+	w.goHelpers.WriteString(`
+func (o NSString) String() string {
+	return o.UTF8String().String()
 }
 `)
 }
@@ -791,7 +799,7 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	gname = strings.ReplaceAll(gname," ","")
 	receiver := ""
 	cname := m.Name
-	fmt.Printf("Method %s (GoClass %s)\n",cname,m.GoClass)
+	//fmt.Printf("Method %s (GoClass %s)\n",cname,m.GoClass)
 	switch {
 	case !m.ClassMethod:
 		if types.IsGoInterface(m.GoClass) {
@@ -1016,8 +1024,9 @@ func (w *Wrapper) MethodFromSig(sig,class string) *Method {
 
 func (w *Wrapper) ProcessSubclass(sname string, sc *Subclass) {
 	fmt.Printf("Wrapping %s\n",sname)
-	types.Wrap(sname)
-	types.SetSuper(sname,sc.Super)
+	gname := strings.Title(sname)
+	types.Wrap(gname)
+	types.SetSuper(gname,sc.Super)
 	ps := map[string][]string{}
 	ps[sc.Super] = sc.Overrides
 	nms := make([]*Method,len(sc.NewMethods))
@@ -1062,16 +1071,16 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 		i++
 		var ms map[string]*Method
 		if sub {
+			interf := w.Interfaces[pname]
+			supr = interf.GoName
 			if i > 1 {
 				fmt.Printf("Multiple inheritance is not permitted:\n    subclass %s already inherits from %s\n",dname,supr)
 				os.Exit(-1)
 			}
-			interf := w.Interfaces[pname]
 			if interf == nil {
 				fmt.Printf("Failed to find interface %s for subclass %s\n",pname,dname)
 				os.Exit(-1)
 			}
-			supr = interf.GoName
 			//fmt.Printf("  subclass for %s\n",pname)
 			ms = map[string]*Method{}
 			var addmeths func(s string)
@@ -1094,6 +1103,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 			}
 			//fmt.Printf("  proto %s\n",pname)
 			ms = proto.InstanceMethods
+			types.SetSuper(dname,"Id")
 			supr = "Id"
 		}
 		for gname,m := range ms {
@@ -1272,7 +1282,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 {
 	%s[(%s*)self super_%s];
 }
-`,sfp,ret,gname,strings.Join(vpnames[i]," "))
+`,sfp,ret,dname,strings.Join(vpnames[i]," "))
 		}
 	}
 	ccode.WriteString(fmt.Sprintf(`
@@ -1315,7 +1325,7 @@ func %sAlloc() %s {
 	dispitems := make([]string,len(gnames))
 	sdispitems := make([]string,sms)
 	for i,n := range gnames {
-		if !sub {
+		if !sub || sms == 0 {
 			gtypes[i] = gtypes[i][1:]
 		}
 		dispitems[i] = fmt.Sprintf(
@@ -1332,7 +1342,7 @@ type %sDispatch struct {
 var %sLookup map[unsafe.Pointer]%sDispatch =
 	map[unsafe.Pointer]%sDispatch{}
 `,gname,strings.Join(dispitems,"\n"),gname,gname,gname))
-	if sub {
+	if sub && sms > 0 {
 		gocode.WriteString(fmt.Sprintf(`
 type %sSupermethods struct {
 %s
@@ -1359,7 +1369,7 @@ func (d %s) %sCallback(f func(%s)%s) {
 		earglist := []string{"o unsafe.Pointer"}
 		garglist := []string{}
 		gargconv := []string{}
-		if sub {
+		if sub && sms > 0 {
 			garglist = []string{"super"}
 		}
 		for j := 1; j < len(vnames[i]); j++ {
@@ -1409,7 +1419,7 @@ func (d %s) %sCallback(f func(%s)%s) {
 `		self.Super%s`,gnames[i])
 		}
 		sper := ""
-		if sub && len(gnames) > 0 {
+		if sub && sms > 0 {
 			sper = fmt.Sprintf(
 `	self := (*%s)(o)
 	super := %sSupermethods{
@@ -1500,6 +1510,9 @@ func (w *Wrapper) Wrap(toproc []string) {
 			continue
 		}
 		w.processType(types.NewTypeFromString(i.GoName,""))
+		if i.Name == "NSEnumerator" {
+			w.EnumeratorHelpers()
+		}
 		gname := i.GoName
 		if types.IsGoInterface(i.GoName) {
 			gname = "Id"
