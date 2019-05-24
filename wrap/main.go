@@ -23,7 +23,7 @@ type Wrapper struct {
 	NamedEnums map[string]*Enum
 	AnonEnums []*Enum
 	Delegates map[string]map[string][]string
-	Subclasses map[string]map[string][]string
+	Subclasses map[string]*Subclass
 	Protocols map[string]*Protocol
 
 	cgoFlags strings.Builder  // put cGo directives here
@@ -49,6 +49,7 @@ func NewWrapper(debug bool) *Wrapper {
 		NamedEnums: map[string]*Enum{},
 		AnonEnums: []*Enum{},
 		Protocols: map[string]*Protocol{},
+		Subclasses: map[string]*Subclass{},
 		ProcessedTypes: map[string]bool{},
 		ProcessedClassMethods: map[string]bool{},
 		Vaargs: 16,
@@ -98,7 +99,39 @@ func (w *Wrapper) Delegate(ds map[string]map[string][]string) {
 }
 
 func (w *Wrapper) Subclass(ds map[string]map[string][]string) {
-	w.Subclasses = ds
+	for k,v := range ds {
+		sc := &Subclass{
+			Overrides: []string{},
+			NewMethods: []string{},
+		}
+		if len(ds) == 0 {
+			fmt.Printf("No superclass specified for subclass %s\n",k)
+			os.Exit(-1)
+		}
+		if len(ds) > 1 {
+			fmt.Printf("Multiple inheritance not permitted for subclass %s\n",k)
+			os.Exit(-1)
+		}
+		sc.Name = k
+		for x,y := range(v) {
+			sc.Super = x
+			for _,m := range y {
+				switch m[0] {
+				case '-','+':
+					sc.NewMethods = append(sc.NewMethods,m)
+				default:
+					sc.Overrides = append(sc.Overrides,m)
+				}
+			}
+		}
+		w.Subclasses[sc.Name] = sc
+	}
+}
+
+type Subclass struct {
+	Name,Super string
+	Overrides []string
+	NewMethods []string
 }
 
 type Property struct {
@@ -752,13 +785,13 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 		return
 	}
 	w.processType(m.Type)
-	//w.processType(m.GoClass) //??
 	gname := m.Name
 	gname = strings.ReplaceAll(gname,"_"," ")
 	gname = strings.Title(gname)
 	gname = strings.ReplaceAll(gname," ","")
 	receiver := ""
 	cname := m.Name
+	fmt.Printf("Method %s (GoClass %s)\n",cname,m.GoClass)
 	switch {
 	case !m.ClassMethod:
 		if types.IsGoInterface(m.GoClass) {
@@ -943,16 +976,63 @@ type %s %s
 	w.goConst.WriteString("\n")
 }
 
-func (w *Wrapper) ProcessSubclass(sname string, ps map[string][]string) {
-	w._ProcessDelSub(sname,ps,true)
+func (w *Wrapper) MethodFromSig(sig,class string) *Method {
+	ret := &Method{ Parameters: []*Parameter{} }
+	if len(sig) == 0 {
+		return ret
+	}
+	if sig[0] == '+' {
+		ret.ClassMethod = true
+	}
+	sig = sig[1:]
+	rem,n := types.MethodSignature(sig,types.NewNode("AST"))
+	if len(rem) > 0 {
+		fmt.Printf("Failed to parse method signature %s (%s)\n",sig,rem)
+		os.Exit(-1)
+	}
+	for _,c := range n.Children {
+		switch c.Kind {
+		case "TypeName":
+			tp := types.NewType(c,class)
+			ret.Type = tp
+		case "Identifier":
+			ret.Name = c.Content
+		case "MethodParameter":
+			p := &Parameter{}
+			for _,d := range c.Children {
+				switch d.Kind {
+				case "TypeName":
+					tp := types.NewType(d,class)
+					p.Type = tp
+				case "Identifier":
+					p.Vname = d.Content
+				}
+			}
+			ret.Parameters = append(ret.Parameters,p)
+		}
+	}
+	return ret
+}
+
+func (w *Wrapper) ProcessSubclass(sname string, sc *Subclass) {
+	fmt.Printf("Wrapping %s\n",sname)
+	types.Wrap(sname)
+	types.SetSuper(sname,sc.Super)
+	ps := map[string][]string{}
+	ps[sc.Super] = sc.Overrides
+	nms := make([]*Method,len(sc.NewMethods))
+	for i,sig := range sc.NewMethods {
+		nms[i] = w.MethodFromSig(sig,sname)
+	}
+	w._ProcessDelSub(sname,ps,nms,true)
 }
 
 func (w *Wrapper) ProcessDelegate(dname string, ps map[string][]string) {
-	w._ProcessDelSub(dname,ps,false)
+	w._ProcessDelSub(dname,ps,nil,false)
 }
 
 //NOTE: The delegate wrapper does not support variadic callback functions.
-func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) {
+func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Method, sub bool) {
 	//To create (per delegate):
 	//1. ObjC interface
 	//2. ObjC implementation
@@ -972,6 +1052,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) 
 
 	//set up array of methods for this delegate
 	methods := []*Method{}
+	sms := 0 // the number of methods that have super-methods
 	gnames := []string{} // go names for methods
 	pnames := make([]string,len(ps))
 	var supr string
@@ -998,14 +1079,14 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) 
 				if sup := types.Super(s); w.Interfaces[sup] != nil {
 					addmeths(sup)
 				}
-				fmt.Printf("Adding methods for %s\n",s)
+				//fmt.Printf("Adding methods for %s\n",s)
 				for k,v := range w.Interfaces[s].InstanceMethods {
 					ms[k] = v
 				}
 			}
 		//for subclasses, add all superclass methods, depth first
 			addmeths(interf.Name)
-		} else {
+		} else { // not a subclass
 			proto := w.Protocols[pname]
 			if proto == nil {
 				fmt.Printf("Failed to find protocol %s for delegate %s\n",pname,dname)
@@ -1019,9 +1100,6 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) 
 	//note:we may have capitalized the first character to make a goname,
 	//but m.Name is not disambiguated for polymorphics...
 			if !matches(string(m.Name[0])+gname[1:],pats) {
-				if sub {
-		//Add newly defined methods that don't match anything...
-				}
 				continue
 			}
 			if m.Type.IsFunction() || m.Type.IsFunctionPtr() || m.hasFunctionParam() {
@@ -1029,12 +1107,20 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) 
 			}
 			methods = append(methods,m)
 			gnames = append(gnames,gname)
+			if sub { sms = len(methods) }
+		}
+	}
+	//add new methods being defined for the subclass
+	if sub {
+		for _,m := range nms {
+			methods = append(methods,m)
+			gnames = append(gnames,strings.Title(m.Name))
 		}
 	}
 
 	methprotos := make([]string,len(methods)) // objc method prototypes
-	smethprotos := make([]string,len(methods)) // super method prototypes
-	sfunprotos := make([]string,len(methods)) // super method prototypes
+	smethprotos := make([]string,sms) // super method prototypes
+	sfunprotos := make([]string,sms) // super method prototypes
 	gname := strings.Title(dname) // go name for this Delegate
 	vnames := make([][]string,len(methods)) // objc variable names
 	vpnames := make([][]string,len(methods)) // objc parameter:variable names
@@ -1046,11 +1132,10 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) 
 
 	//1. ObjC interface
 	if sub {
-		fmt.Printf("Subclass ")
+		fmt.Printf("Subclass %s <%s>: %d overrides, %d new methods\n",dname,strings.Join(pnames,", "),sms, len(nms))
 	} else {
-		fmt.Printf("Delegate ")
+		fmt.Printf("Delegate %s <%s>: %d methods\n",dname,strings.Join(pnames,", "),len(methods))
 	}
-	fmt.Printf("%s <%s>: %d methods\n",dname,strings.Join(pnames,", "),len(methods))
 	for i,m := range methods {
 		w.processType(m.Type)
 		vnames[i] = make([]string,len(m.Parameters)+1)
@@ -1100,13 +1185,17 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) 
 		methprotos[i] = fmt.Sprintf(
 `- (%s)%s%s;`,m.Type.Node.CType(),m.Name,parms)
 		ct := m.Type.Node.CType()
-		smethprotos[i] = fmt.Sprintf(
+		if i < sms {
+			smethprotos[i] = fmt.Sprintf(
 `- (%s)super_%s%s;`,ct,m.Name,parms)
+		}
 		if ct == "instancetype" {
 			ct = gname + "*"
 		}
-		sfunprotos[i] = fmt.Sprintf(
+		if i < sms {
+			sfunprotos[i] = fmt.Sprintf(
 `%s %s_super_%s(%s);`,ct,dname,m.Name,cparms)
+		}
 		if x := m.Type.GoType(); x == "Void" {
 			grtypes[i] = ""
 		} else {
@@ -1150,8 +1239,11 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) 
 	sfundecls := make([]string,len(methods))
 	for i,mp := range methprotos {
 		mp := mp[:len(mp)-1]
-		smp := smethprotos[i][:len(smethprotos[i])-1]
-		sfp := sfunprotos[i][:len(sfunprotos[i])-1]
+		var smp, sfp string
+		if sub && i < sms {
+			smp = smethprotos[i][:len(smethprotos[i])-1]
+			sfp = sfunprotos[i][:len(sfunprotos[i])-1]
+		}
 		var ret string
 		if crtypes[i] != "void" {
 			ret = "return "
@@ -1168,7 +1260,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) 
 	%s%s(%s);
 }
 `,mp,ret,gname + gnames[i],strings.Join(vnames[i],", "))
-		if sub {
+		if sub && i < sms {
 			smethdecls[i] = fmt.Sprintf(`
 %s
 {
@@ -1207,10 +1299,8 @@ void*
 
 	//4. Go type
 	
-	gotypes.WriteString(fmt.Sprintf(`
-type %s struct { %s }
-func (o %s) Ptr() unsafe.Pointer { return o.ptr }
-`,gname,supr,gname))
+	gotypes.WriteString(
+		types.NewTypeFromString(gname,supr).GoInterfaceDecl())
 
 	//5. Go constructor
 	gocode.WriteString(fmt.Sprintf(`
@@ -1223,14 +1313,14 @@ func %sAlloc() %s {
 
 	//6. Go dispatch database for callbacks
 	dispitems := make([]string,len(gnames))
-	sdispitems := make([]string,len(gnames))
+	sdispitems := make([]string,sms)
 	for i,n := range gnames {
 		if !sub {
 			gtypes[i] = gtypes[i][1:]
 		}
 		dispitems[i] = fmt.Sprintf(
 `	%s func(%s)%s`,n,strings.Join(gtypes[i],", "),grtypes[i])
-		if sub {
+		if sub && i < sms {
 			sdispitems[i] = fmt.Sprintf(
 `	%s func(%s)%s`,n,strings.Join(gtypes[i][1:],", "),grtypes[i])
 		}
@@ -1259,7 +1349,7 @@ type %sSupermethods struct {
 `,crtypes[i],gname,gnames[i],ctps))
 		//2. Go callback registration functions
 		gocode.WriteString(fmt.Sprintf(`
-func (d *%s) %sCallback(f func(%s)%s) {
+func (d %s) %sCallback(f func(%s)%s) {
 	dispatch := %sLookup[d.Ptr()]
 	dispatch.%s = f
 	%sLookup[d.Ptr()] = dispatch
@@ -1304,16 +1394,19 @@ func (d *%s) %sCallback(f func(%s)%s) {
 			if cgtypes[i] == "unsafe.Pointer" {
 				retn = "return unsafe.Pointer("
 				crtype = " unsafe.Pointer"
+				if types.ShouldWrap(m.Type.GoType()) {
+					retnparen = ".Ptr()"
+				}
 			} else {
 				retn = "return (" + cgtypes[i] + ")("
 				crtype = " " + cgtypes[i]
 			}
-			retnparen = ")"
+			retnparen = retnparen + ")"
 		}
-		sdispentries := []string{}
-		for _,n := range gnames {
-			sdispentries = append(sdispentries,fmt.Sprintf(
-`		self.Super%s`,n))
+		sdispentries := make([]string,sms)
+		for i,_ := range sdispentries {
+			sdispentries[i] = fmt.Sprintf(
+`		self.Super%s`,gnames[i])
 		}
 		sper := ""
 		if sub && len(gnames) > 0 {
@@ -1338,7 +1431,7 @@ func %s%s(%s)%s {
 }
 `,gname,gnames[i],gname,gnames[i],strings.Join(earglist,", "),crtype,retdecl,gname,gnames[i],retname,sper,strings.Join(gargconv,"\n"),retn,strings.Join(garglist,", "),retnparen))
 		//4. Go wrapper functions for superclass methods
-		if !sub { continue } // for subclasses only
+		if !sub || i >= sms { continue } // for subclasses only
 		grtype := m.Type.GoType()
 		if grtype == "Void" {
 			grtype = ""
@@ -1351,7 +1444,7 @@ func %s%s(%s)%s {
 		}
 		if sub {
 			gocode.WriteString(fmt.Sprintf(`
-func (o *%s) Super%s(%s) %s {
+func (o %s) Super%s(%s) %s {
 `,gname,gnames[i],strings.Join(earglist[1:],", "), grtype))
 			ns,tps,_ := w.gpntp(m)
 			lparm := len(tps)-1

@@ -7,7 +7,8 @@ subclasses:
     ClassThree:
         ClassTwo:
             - geti1
-            - (void)myMethod:int
+            - -(void)myMethod1:(int)a
+            - +(const NSObject* _Nonnull)myMethod2:(int)a:(NSDictionary<NSString*,NSObject*> *)options
 
 imports: [ simple.h ]
 frameworks: [ Foundation ]
