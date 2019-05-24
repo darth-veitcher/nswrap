@@ -6,6 +6,8 @@ classes:
 subclasses:
     ClassThree:
         ClassTwo:
-            - .*
+            - geti1
+            - (void)myMethod:int
+
 imports: [ simple.h ]
 frameworks: [ Foundation ]

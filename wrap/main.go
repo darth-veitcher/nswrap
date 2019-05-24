@@ -981,14 +981,30 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) 
 		i++
 		var ms map[string]*Method
 		if sub {
+			if i > 1 {
+				fmt.Printf("Multiple inheritance is not permitted:\n    subclass %s already inherits from %s\n",dname,supr)
+				os.Exit(-1)
+			}
 			interf := w.Interfaces[pname]
 			if interf == nil {
 				fmt.Printf("Failed to find interface %s for subclass %s\n",pname,dname)
 				os.Exit(-1)
 			}
-			//fmt.Printf("  subclass for %s\n",pname)
-			ms = interf.InstanceMethods
 			supr = interf.GoName
+			//fmt.Printf("  subclass for %s\n",pname)
+			ms = map[string]*Method{}
+			var addmeths func(s string)
+			addmeths = func(s string) {
+				if sup := types.Super(s); w.Interfaces[sup] != nil {
+					addmeths(sup)
+				}
+				fmt.Printf("Adding methods for %s\n",s)
+				for k,v := range w.Interfaces[s].InstanceMethods {
+					ms[k] = v
+				}
+			}
+		//for subclasses, add all superclass methods, depth first
+			addmeths(interf.Name)
 		} else {
 			proto := w.Protocols[pname]
 			if proto == nil {
@@ -1003,6 +1019,9 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string,sub bool) 
 	//note:we may have capitalized the first character to make a goname,
 	//but m.Name is not disambiguated for polymorphics...
 			if !matches(string(m.Name[0])+gname[1:],pats) {
+				if sub {
+		//Add newly defined methods that don't match anything...
+				}
 				continue
 			}
 			if m.Type.IsFunction() || m.Type.IsFunctionPtr() || m.hasFunctionParam() {
@@ -1299,7 +1318,7 @@ func (d *%s) %sCallback(f func(%s)%s) {
 		sper := ""
 		if sub && len(gnames) > 0 {
 			sper = fmt.Sprintf(
-`self := (*%s)(o)
+`	self := (*%s)(o)
 	super := %sSupermethods{
 %s,
 	}
@@ -1486,7 +1505,7 @@ import (
 	of.WriteString(w.goCode.String())
 	of.Close()
 
-	if len(w.Delegates) > 0 {
+	if len(w.Delegates) > 0 || len(w.Subclasses) > 0 {
 		ef.WriteString("package " + w.Package + "\n\n")
 		ef.WriteString(w.cgoFlags.String() + "\n")
 		ef.WriteString(w.cImports.String() + "\n")

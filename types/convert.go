@@ -24,6 +24,7 @@ func IsGoInterface(gt string) bool {
 	return goInterfaces[gt]
 }
 
+
 //TypeParameters maps, for each class, a TypedefName to a type, representing
 //the Objective-C type parameters for that class
 var TypeParameters map[string]map[string]string
@@ -193,6 +194,9 @@ func _goType(ct string) string {
 	}
 	if ct == "Id" {
 		ct = "Id"
+	}
+	if len(ct) > 1 && ShouldWrap(ct[1:]) {
+		return ct[1:]
 	}
 	if len(ct) > 4 && ct[len(ct)-4:len(ct)] == "Void" {
 		ct = ct[:len(ct)-5] + "unsafe.Pointer"

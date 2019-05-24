@@ -216,8 +216,8 @@ func Start() (err error) {
 			case *ast.ObjCInterfaceDecl:
 				w.AddInterface(x)
 				for _,ss := range Config.Subclasses {
-					for ps,_ := range ss {
-						if matches(x.Name,[]string{ps}) {
+					if sc,ok := ss["superclass"]; ok {
+						if matches(x.Name,sc) {
 							Config.Classes = append(Config.Classes,x.Name)
 						}
 					}
