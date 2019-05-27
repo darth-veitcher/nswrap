@@ -165,6 +165,22 @@ type Protocol struct {
 	IPolymorphic map[string]int // polymorphic instance methods
 }
 
+func (p Protocol) name() string { return p.Name }
+func (p Protocol) goName() string { return p.GoName }
+func (p Protocol) classMethods() map[string]*Method { return p.ClassMethods }
+func (p Protocol) instanceMethods() map[string]*Method { return p.InstanceMethods }
+func (p Protocol) cPolymorphic() map[string]int { return p.CPolymorphic }
+func (p Protocol) iPolymorphic() map[string]int { return p.IPolymorphic }
+
+type methodCollection interface {
+	name() string
+	goName() string
+	classMethods() map[string]*Method
+	instanceMethods() map[string]*Method
+	cPolymorphic() map[string]int
+	iPolymorphic() map[string]int
+}
+
 //isVoid() returns true if the method has no return value.
 func (m Method) isVoid() bool {
 	return m.Type.CType() == "void"
@@ -274,9 +290,18 @@ type Interface struct {
 	Properties map[string]*Property
 	ClassMethods map[string]*Method
 	InstanceMethods map[string]*Method
+	CPolymorphic map[string]int // polymorphic class methods
+	IPolymorphic map[string]int // polymorphic instance methods
 	Protocols []string // Protocols impelemented by this Interface
 	ProcessedInstanceMethods map[string]bool
 }
+
+func (p Interface) name() string { return p.Name }
+func (p Interface) goName() string { return p.GoName }
+func (p Interface) classMethods() map[string]*Method { return p.ClassMethods }
+func (p Interface) instanceMethods() map[string]*Method { return p.InstanceMethods }
+func (p Interface) cPolymorphic() map[string]int { return p.CPolymorphic }
+func (p Interface) iPolymorphic() map[string]int { return p.IPolymorphic }
 
 func (w *Wrapper) AddInterface(n *ast.ObjCInterfaceDecl) {
 	//fmt.Printf("ast.ObjCInterfaceDecl: %s\n",n.Name)
@@ -350,43 +375,53 @@ func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
 	for _,c := range n.Children() {
 		switch x := c.(type) {
 		case *ast.ObjCMethodDecl:
+			w.AddMethod(p,x)
+		}
+	}
+	w.Protocols[n.Name] = p
+}
+
+func (w *Wrapper) AddMethod(p methodCollection, x *ast.ObjCMethodDecl) {
 			m := &Method{
 				Name: x.Name,
-				Type: types.NewTypeFromString(x.Type,p.Name),
-				Class: p.Name,
-				GoClass: p.GoName,
+				Type: types.NewTypeFromString(x.Type,p.name()),
+				Class: p.name(),
+				GoClass: p.goName(),
 				ClassMethod: x.ClassMethod,
 			}
 			//fmt.Printf("  -- Method %s\n",m.Name)
 			var avail bool
-			m.Parameters, avail = w.GetParms(x,p.Name)
+			m.Parameters, avail = w.GetParms(x,p.name())
 			if avail {
 				var mth map[string]*Method
 				var poly map[string]int
 				if m.ClassMethod {
-					mth = p.ClassMethods
-					poly = p.CPolymorphic
+					mth = p.classMethods()
+					poly = p.cPolymorphic()
 				} else {
-					mth = p.InstanceMethods
-					poly = p.IPolymorphic
+					mth = p.instanceMethods()
+					poly = p.iPolymorphic()
 				}
 				pname := strings.Title(m.Name)
+				fmt.Printf("%s: Adding %s (%d)\n",p.name(),m.Name,len(m.Parameters))
 				if x := poly[m.Name]; x != 0 && len(m.Parameters) > 1 {
 					poly[m.Name] = x + 1
+					fmt.Printf("  polymorphic detected (%d)\n",poly[m.Name])
 					pname = pname + strings.Title(m.Parameters[1].Pname)
-					if m2 := mth[pname]; m2 != nil {
+					m.Name = pname
+					//if m2 := mth[pname]; m2 != nil {
+					if m2 := mth[m.Name]; m2 != nil {
 						pname2 := pname + strings.Title(m2.Parameters[1].Pname)
+						m2.Name = pname2
 						mth[pname2] = m2
 						delete(mth,m.Name)
 					}
 				} else {
 					poly[m.Name] = 1
 				}
+				fmt.Printf("--Method name is %s\n",m.Name)
 				mth[pname] = m
 			}
-		}
-	}
-	w.Protocols[n.Name] = p
 }
 
 //FIXME: copied from nswrap/main.go, should put this in a utils package
@@ -451,6 +486,8 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			GoName: goname,
 			Properties: map[string]*Property{},
 			InstanceMethods: map[string]*Method{},
+			CPolymorphic: map[string]int{},
+			IPolymorphic: map[string]int{},
 			Protocols: []string{},
 			ProcessedInstanceMethods: map[string]bool{},
 		}
@@ -464,7 +501,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 		}
 		i.ClassMethods = map[string]*Method{"class": m}
 	}
-	var avail bool
+	//var avail bool
 	for _,c := range ns {
 		switch x := c.(type) {
 		case *ast.ObjCPropertyDecl:
@@ -479,6 +516,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			//}
 		case *ast.ObjCMethodDecl:
 			//fmt.Printf("ObjCMethodDecl: %s (%s) %s\n",x.Type,name,x.Name)
+			/*
 			if name == "NSObject" && x.Name == "initialize" {
 				continue
 			}
@@ -497,7 +535,8 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 				} else {
 					i.InstanceMethods[strings.Title(m.Name)] = m
 				}
-			}
+			}*/
+			w.AddMethod(i,x)
 		case *ast.ObjCProtocol:
 			//fmt.Printf("ast.ObjCProtocol: %s\n",x.Name)
 			i.Protocols = append(i.Protocols,x.Name)
