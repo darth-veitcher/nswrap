@@ -23,13 +23,12 @@ func didFinishLaunching(n ns.NSNotification) {
 	fmt.Println("Go: did finish launching")
 	fmt.Printf("Notification: %s\n",n.Name().UTF8String())
 	//Set up an NSWindow
-	win = ns.NSWindowAlloc().InitWithContentRect(
+	win = ns.NSWindowAlloc().InitWithContentRectStyleMask(
 		ns.NSMakeRect(200,200,600,600),
 		ns.NSWindowStyleMaskTitled | ns.NSWindowStyleMaskClosable |
 		ns.NSWindowStyleMaskResizable,
 		ns.NSBackingStoreBuffered,
 		0,
-		ns.NSScreen{},
 	)
 	// retain win since we called Alloc and did not add it to a collection
 	win.Retain()
@@ -83,10 +82,10 @@ func didFinishLaunching(n ns.NSNotification) {
 
 	cv := win.ContentView()
 
-	cv.AddSubview(b1.NSView,ns.NSWindowAbove,ns.NSView{})
-	cv.AddSubview(b2.NSView,ns.NSWindowAbove,ns.NSView{})
+	cv.AddSubview(b1.NSView)
+	cv.AddSubview(b2.NSView)
 
-	viewmap := ns.NSDictionaryWithObjects(
+	viewmap := ns.NSDictionaryWithObjectsForKeys(
 		ns.NSArrayWithObjects(b1,b2),
 		ns.NSArrayWithObjects(nst("b1"),nst("b2")))
 

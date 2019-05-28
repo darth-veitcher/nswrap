@@ -120,7 +120,7 @@ func main() {
 	hrm_uuid = ns.CBUUIDWithGoString("180D")
 	hrv_uuid = ns.CBUUIDWithGoString("2A37")
 
-	cm = ns.CBCentralManagerAlloc().InitWithDelegate(cd,queue,ns.NSDictionary{})
+	cm = ns.CBCentralManagerAlloc().InitWithDelegateQueue(cd,queue)
 
 	select { }
 }
