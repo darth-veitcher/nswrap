@@ -174,14 +174,12 @@ type Protocol struct {
 type MethodCollection struct {
 	Class string
 	Methods []*Method
-	Polymorphic map[string]int
 }
 
 func NewMethodCollection(class string) *MethodCollection {
 	ret := &MethodCollection{
 		Class: class,
 		Methods: []*Method{},
-		Polymorphic: map[string]int{},
 	}
 	return ret
 }
@@ -275,7 +273,7 @@ func (w Wrapper) objcparamlist(m *Method) string {
 			first = false
 		} else {
 			if p.Type.Variadic {
-				str := []string{m.Name + ":arr[0]"}
+				str := []string{p.Pname + ":arr[0]"}
 				for i := 1; i < w.Vaargs; i++ {
 					str = append(str,"arr["+strconv.Itoa(i)+"]")
 				}
@@ -402,8 +400,6 @@ func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
 		//p.GoName = types.NewTypeFromString(n.Name,n.Name).GoType()
 		p.ClassMethods = NewMethodCollection(n.Name)
 		p.InstanceMethods = NewMethodCollection(n.Name)
-		p.ClassMethods.Polymorphic = map[string]int{}
-		p.InstanceMethods.Polymorphic = map[string]int{}
 	}
 	//fmt.Printf("Protocol %s\n",p.Name)
 	for _,c := range n.Children() {
@@ -435,7 +431,6 @@ func (w *Wrapper) AddMethod(p *MethodCollection, x *ast.ObjCMethodDecl) {
 	m.Parameters, avail = w.GetParms(x,p.Class)
 	if avail {
 		//fmt.Printf("%s: Adding %s (%d)\n",p.Class,m.Name,len(m.Parameters))
-		p.Polymorphic[m.Name] = p.Polymorphic[m.Name] + 1
 		//fmt.Printf("--Method name is %s\n",m.Name)
 		p.Methods = append(p.Methods,m)
 	}
