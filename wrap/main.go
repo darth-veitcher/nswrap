@@ -292,9 +292,10 @@ func (w Wrapper) objcparamlist(m *Method) string {
 var goreserved map[string]bool = map[string]bool{
 	"range": true,
 	"type": true,
+	"len": true,
 }
 
-func (w *Wrapper) gpntp(m *Method) ([]string,[]*types.Type,string) {
+func (w *Wrapper) gpntp(m *Method) ([]string,[]string,[]*types.Type,string) {
 	ns := []string{}
 	tps := []*types.Type{}
 	if !m.ClassMethod {
@@ -311,6 +312,7 @@ func (w *Wrapper) gpntp(m *Method) ([]string,[]*types.Type,string) {
 	}
 	w.processTypes(tps)
 	ret := []string{}
+	snames := make([]string,len(ns))
 	i := 0
 	if !m.ClassMethod { i = 1 }
 	for ; i < len(ns); i++ {
@@ -322,9 +324,17 @@ func (w *Wrapper) gpntp(m *Method) ([]string,[]*types.Type,string) {
 			gt = "..." + gt
 			ns[i] = ns[i] + "s"
 		}
+		if len(gt) > 2 && gt[:2] == "**" && types.ShouldWrap(gt[2:]) {
+			x := gt[2:]
+			if types.IsGoInterface(x) {
+				x = "Id"
+			}
+			gt = "*[]" + x
+			snames[i] = "goSlice" + strconv.Itoa(i)
+		}
 		ret = append(ret,ns[i] + " " + gt)
 	}
-	return ns, tps, strings.Join(ret,", ")
+	return ns, snames, tps, strings.Join(ret,", ")
 }
 
 
@@ -715,9 +725,6 @@ func (w *Wrapper) _processType(bt *types.Type, gt string) {
 	if gt == "Char" {
 		w.CharHelpers()
 	}
-	if gt == "NSString" {
-		w.StringHelpers()
-	}
 	if gt == "SEL" {
 		w.SelectorHelpers()
 	}
@@ -895,7 +902,7 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	} else {
 		cmtype = m.Type.CTypeAttrib()
 	}
-	ns,tps,gplist := w.gpntp(m)
+	ns,snames,tps,gplist := w.gpntp(m)
 	grtype := m.Type.GoType()
 	if grtype == "Void" {
 		grtype = ""
@@ -941,8 +948,19 @@ func %s%s(%s) %s {
 	}
 `,vn,w.Vaargs,vn,vn))
 	}
+	for i,n := range ns {
+		if snames[i] == "" {
+			continue
+		}
+		w.goCode.WriteString(fmt.Sprintf(`
+	%s := make([]unsafe.Pointer,len(*%s))
+	for i := 0; i < len(*%s); i++ {
+		%s[i] = (*%s)[i].Ptr()
+	}
+`,snames[i],n,n,snames[i],n))
+	}
 	w.goCode.WriteString(`	` +
-		types.GoToC(cname,ns,m.Type,tps,fun) + "\n}\n")
+		types.GoToC(cname,ns,snames,m.Type,tps,fun) + "\n}\n")
 
 	cret := ""
 	if !m.isVoid() {
@@ -1513,7 +1531,7 @@ func %s%s(%s)%s {
 			gocode.WriteString(fmt.Sprintf(`
 func (o %s) Super%s(%s) %s {
 `,gname,gnames[i],strings.Join(earglist[1:],", "), grtype))
-			ns,tps,_ := w.gpntp(m)
+			ns,snames,tps,_ := w.gpntp(m)
 			lparm := len(tps)-1
 			if len(tps) > 0 && tps[lparm].Variadic {
 				vn := ns[lparm]
@@ -1526,7 +1544,7 @@ func (o %s) Super%s(%s) %s {
 	}
 `,vn,w.Vaargs,vn,vn))
 			}
-			gocode.WriteString(`  ` + types.GoToC(dname + "_super_"+m.Name,ns,m.Type,tps,false) + "\n}\n")
+			gocode.WriteString(`  ` + types.GoToC(dname + "_super_"+m.Name,ns,snames,m.Type,tps,false) + "\n}\n")
 		}
 	}
 	w.cCode.WriteString(cprotos.String())
@@ -1567,6 +1585,9 @@ func (w *Wrapper) Wrap(toproc []string) {
 			continue
 		}
 		w.processType(types.NewTypeFromString(i.GoName,""))
+		if i.Name == "NSString" {
+			w.StringHelpers()
+		}
 		if i.Name == "NSEnumerator" {
 			w.EnumeratorHelpers()
 		}

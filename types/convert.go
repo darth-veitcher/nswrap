@@ -328,7 +328,7 @@ func (t *Type) CToGo(cval string) string {
 }
 
 // Call a C function from Go with a given return type and parameter types
-func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type, fun bool) string {
+func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fun bool) string {
 	if rtype == nil {
 		fmt.Println("nil sent to GoToC")
 		return ""
@@ -347,10 +347,10 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type, fun bool) 
 	ret.ptr = `,rtgt))
 		} else {
 			if rtgt == "BOOL" {
-				ret.WriteString("return (")
+				ret.WriteString("ret := (")
 				rtgt = "bool"
 			} else {
-				ret.WriteString("return (" + rtgt + ")(")
+				ret.WriteString("ret := (" + rtgt + ")(")
 			}
 			if rtype.IsPointer() {
 				ret.WriteString("unsafe.Pointer(")
@@ -366,6 +366,8 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type, fun bool) 
 			p = pn + ".Ptr()"
 		} else {
 			switch {
+			case snames[i] != "":
+				p = "unsafe.Pointer(&" + snames[i] + "[0])"
 			case pt.Variadic:
 				p = "unsafe.Pointer(&" + p + ")"
 			case pt.IsPointer() && !fun:
@@ -387,7 +389,18 @@ func GoToC(name string, pnames []string, rtype *Type, ptypes []*Type, fun bool) 
 	if rt == "BOOL" {
 		ret.WriteString(" != 0")
 	}
-	if sw {
+	for i,sname := range snames {
+		if sname == "" { continue }
+		ret.WriteString(fmt.Sprintf(`
+	for i := 0; i < len(*%s); i++ {
+		if %s[i] == nil {
+			(*%s) = (*%s)[:i]
+			break
+		}
+		(*%s)[i].ptr = %s[i]
+	}`,pnames[i],sname,pnames[i],pnames[i],pnames[i],sname))
+	}
+	if rt != "void" {
 		ret.WriteString(`
 	return ret`)
 	}
