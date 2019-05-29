@@ -106,7 +106,7 @@ var (
 )
 
 func main() {
-	queue := ns.DispatchQueueCreate(ns.CharWithGoString("st.wow.gitlab.ble"),nil)
+	queue := ns.DispatchQueueCreate(ns.CharWithGoString("my_new_queue"),nil)
 
 	cd = ns.CBDelegateAlloc()
 

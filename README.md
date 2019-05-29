@@ -19,7 +19,7 @@ go get git.wow.st/gmp/nswrap/...
 From your `go` source directory, type:
 
 ```sh
-cd gitlab.wow.st/gmp/nswrap/cmd/nswrap
+cd git.wow.st/gmp/nswrap
 go install
 ```
 
@@ -36,7 +36,7 @@ NSWrap is designed to be easy to use. To get started with an example, visit
 your Go source directory in a terminal and enter:
 
 ```sh
-cd gitlab.wow.st/gmp/nswrap/examples/app
+cd git.wow.st/gmp/nswrap/examples/app
 go generate
 go build
 ./app
@@ -585,7 +585,7 @@ package main
 import (
 	"fmt"
 	"runtime"
-	"gitlab.wow.st/gmp/nswrap/examples/app/ns" // point to your NSWrap output directory
+	"git.wow.st/gmp/nswrap/examples/app/ns" // point to your NSWrap output directory
 )
 
 func didFinishLaunching(n ns.NSNotification) {
