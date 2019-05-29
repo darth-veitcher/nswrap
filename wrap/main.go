@@ -161,6 +161,12 @@ func (m *Method) LongName() string {
 	return ret
 }
 
+func (m *Method) HasUnsupportedType() bool {
+	return	m.Type.IsFunction() ||
+		m.Type.IsFunctionPtr() ||
+		m.hasUnsupportedParam()
+}
+
 type Enum struct {
 	Name string
 	Type *types.Type
@@ -190,7 +196,7 @@ func (a ByParams) Len() int { return len(a) }
 func (a ByParams) Swap(i,j int) { a[i], a[j] = a[j], a[i] }
 func (a ByParams) Less(i, j int) bool { return len(a[i].Parameters) < len(a[j].Parameters) }
 
-//Disambiguate polyorphic method names
+//Disambiguate overloaded method names
 func Disambiguate(mc *MethodCollection) {
 	lst := map[string][]*Method{}
 	for _,m := range mc.Methods {
@@ -229,10 +235,13 @@ func (m Method) isVoid() bool {
 	return m.Type.CType() == "void"
 }
 
-//hasFunctionParam() returns true if a method has a function as a parameter.
-func (m Method) hasFunctionParam() bool {
+//hasUnsupportedParam() returns true if a method has a function as a parameter.
+func (m Method) hasUnsupportedParam() bool {
 	for _,p := range m.Parameters {
 		if p.Type.IsFunction() || p.Type.IsFunctionPtr() {
+			return true
+		}
+		if pt := p.Type.PointsTo(); pt.IsValist() {
 			return true
 		}
 	}
@@ -273,7 +282,7 @@ func (w Wrapper) objcparamlist(m *Method) string {
 			first = false
 		} else {
 			if p.Type.Variadic {
-				str := []string{p.Pname + ":arr[0]"}
+				str := []string{p.Pname + ", arr[0]"}
 				for i := 1; i < w.Vaargs; i++ {
 					str = append(str,"arr["+strconv.Itoa(i)+"]")
 				}
@@ -391,12 +400,20 @@ func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
 			m.Parameters = append(m.Parameters,p)
 			i++
 			//fmt.Printf("  %s\n",p.Type.CType())
+		case *ast.Variadic:
+			p := &Parameter{
+				Vname: "object",
+				Type: types.NewTypeFromString("NSObject*",""),
+			}
+			p.Type.Variadic = true
+			m.Parameters = append(m.Parameters,p)
+			i++
 		}
 	}
 	if i > 0 && len(f.Children) > i {
 		if e := f.Children[i]; len(e.Children) > 0 {
 			//fmt.Println("  Next parameter: ",e.Children[0].String())
-			m.Parameters[i-1].Type.Variadic = true
+			//m.Parameters[i-1].Type.Variadic = true
 		}
 	}
 	w.Functions[n.Name] = m
@@ -670,7 +687,14 @@ func (w *Wrapper) GetParms(n ast.Node,class string) ([]*Parameter,bool) {
 			ret = append(ret,p)
 			j++
 		case *ast.Variadic:
-			ret[j-1].Type.Variadic = true
+			//ret[j-1].Type.Variadic = true
+			p := &Parameter{
+				Vname: "object",
+				Type: types.NewTypeFromString("NSObject*",""),
+			}
+			p.Type.Variadic = true
+			ret = append(ret,p)
+			j++
 		case *ast.AvailabilityAttr, *ast.UnavailableAttr, *ast.DeprecatedAttr:
 			avail.Add(x)
 		case *ast.Unknown:
@@ -847,7 +871,7 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	if Debug {
 		fmt.Printf("  method: %s (%s)\n", m.Name, m.Type)
 	}
-	if m.Type.IsFunction() || m.Type.IsFunctionPtr() || m.hasFunctionParam() {
+	if m.HasUnsupportedType() {
 		return
 	}
 	w.processType(m.Type)
@@ -1098,7 +1122,6 @@ func (w *Wrapper) MethodFromSig(sig,class string) *Method {
 }
 
 func (w *Wrapper) ProcessSubclass(sname string, sc *Subclass) {
-	fmt.Printf("Wrapping %s\n",sname)
 	gname := strings.Title(sname)
 	types.Wrap(gname)
 	types.SetSuper(gname,sc.Super)
@@ -1187,7 +1210,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 			if !matches(string(m.Name[0])+m.GoName[1:],pats) {
 				continue
 			}
-			if m.Type.IsFunction() || m.Type.IsFunctionPtr() || m.hasFunctionParam() {
+			if m.HasUnsupportedType() {
 				continue
 			}
 			methods = append(methods,m)

@@ -13,6 +13,8 @@ classes:
     - NSLocale
     - NSCharacterSet
     - NSString
+    - NSURL
+    - NSError
     - NSScanner
     - NSFileManager
     - NSObject

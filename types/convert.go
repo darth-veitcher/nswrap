@@ -305,6 +305,16 @@ func (t *Type) IsFunction() bool {
 	return t.Node.IsFunction()
 }
 
+func (t *Type) IsValist() bool {
+	if t == nil {
+		return false
+	}
+	if t.GoType() == "__va_list_tag" { // OS dependent
+		return true
+	}
+	return false
+}
+
 func (t *Type) ReturnType() *Type {
 	if rt := t.Node.ReturnType(); rt != nil {
 		return NewType(rt,t.Class)

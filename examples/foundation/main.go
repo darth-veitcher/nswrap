@@ -78,18 +78,26 @@ func main() {
 	})
 
 	nst := ns.NSStringWithGoString
-	fmt.Printf("\nGetObjectsAndKeysCount()\n")
+	fmt.Printf("\nNSDictionaryWithObjectsForKeys()\n")
 	d := ns.NSDictionaryWithObjectsForKeys(
 		ns.NSArrayWithObjects(nst("obj1"),nst("obj2")),
 		ns.NSArrayWithObjects(nst("key1"),nst("key2")),
 	)
 	os := make([]ns.Id,4)
+	fmt.Printf("Length of os is %d\n",len(os))
 	ks := make([]ns.Id,4)
+	fmt.Printf("\nGetObjects()\n")
 	d.GetObjects(&os,&ks,4)
-	for _,o := range os {
-		fmt.Printf("--%s\n",o.NSString())
+	fmt.Printf("Length of os is now %d\n",len(os))
+	for i,k := range ks {
+		fmt.Printf("--%s -> %s\n",k.NSString(),os[i].NSString())
 	}
-	for _,o := range ks {
-		fmt.Printf("--%s\n",o.NSString())
-	}
+	fmt.Printf("\nNSStringWithContentsOfURLEncoding()\n")
+	err := make([]ns.NSError,1)
+	n1 = ns.NSStringWithContentsOfURLEncoding(ns.NSURLWithGoString("htttypo://example.com"),0,&err)
+	fmt.Printf("err: %s\n",err[0].LocalizedDescription())
+
+	fmt.Printf("\nNSStringWithFormat()\n")
+	str := ns.NSStringWithFormat(nst("(%@) (%@)\n(%@)\n"),n2,n3,s1)
+	fmt.Printf("%s\n",str)
 }
