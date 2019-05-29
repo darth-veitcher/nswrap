@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"gitlab.wow.st/gmp/nswrap/ast"
-	"gitlab.wow.st/gmp/nswrap/types"
+	"git.wow.st/gmp/nswrap/ast"
+	"git.wow.st/gmp/nswrap/types"
 )
 
 var (

@@ -4,7 +4,7 @@ package main
 import (
 	"fmt"
 	"runtime"
-	"gitlab.wow.st/gmp/nswrap/examples/app/ns"
+	"git.wow.st/gmp/nswrap/examples/app/ns"
 )
 
 //Shortcut for literal NSStrings

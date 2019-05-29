@@ -5,7 +5,7 @@ import "C"
 import (
 	"encoding/binary"
 	"fmt"
-	"gitlab.wow.st/gmp/nswrap/examples/bluetooth/ns"
+	"git.wow.st/gmp/nswrap/examples/bluetooth/ns"
 )
 
 func updateState(c ns.CBCentralManager) {

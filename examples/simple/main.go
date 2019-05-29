@@ -3,7 +3,7 @@ package main
 
 import (
 	"fmt"
-	ns "gitlab.wow.st/gmp/nswrap/examples/simple/ClassOne"
+	ns "git.wow.st/gmp/nswrap/examples/simple/ClassOne"
 )
 
 func cb(super ns.ClassThreeSupermethods) ns.Int {

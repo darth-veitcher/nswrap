@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
-	"gitlab.wow.st/gmp/nswrap/ast"
-	"gitlab.wow.st/gmp/nswrap/wrap"
+	"git.wow.st/gmp/nswrap/ast"
+	"git.wow.st/gmp/nswrap/wrap"
 )
 
 var Debug = false

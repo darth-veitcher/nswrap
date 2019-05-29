@@ -4,7 +4,7 @@ package main
 import (
 	"fmt"
 
-	"gitlab.wow.st/gmp/nswrap/examples/foundation/ns"
+	"git.wow.st/gmp/nswrap/examples/foundation/ns"
 )
 
 func main() {

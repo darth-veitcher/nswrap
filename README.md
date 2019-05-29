@@ -13,7 +13,7 @@ NSWrap runs on MacOS and requires `clang` (from the XCode command line
 tools) and the MacOS system header files.
 
 ```sh
-go get gitlab.wow.st/gmp/nswrap
+go get git.wow.st/gmp/nswrap/...
 ```
 
 From your `go` source directory, type:
