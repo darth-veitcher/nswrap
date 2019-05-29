@@ -83,14 +83,14 @@ func main() {
 		ns.NSArrayWithObjects(nst("obj1"),nst("obj2")),
 		ns.NSArrayWithObjects(nst("key1"),nst("key2")),
 	)
-	os := make([]ns.Id,4)
+	os := make([]ns.Id,0,5)
 	fmt.Printf("Length of os is %d\n",len(os))
-	ks := make([]ns.Id,4)
+	ks := make([]ns.Id,0,5)
 	fmt.Printf("\nGetObjects()\n")
 	d.GetObjects(&os,&ks,4)
 	fmt.Printf("Length of os is now %d\n",len(os))
 	for i,k := range ks {
-		fmt.Printf("--%s -> %s\n",k.NSString(),os[i].NSString())
+		fmt.Printf("-- %s -> %s\n",k.NSString(),os[i].NSString())
 	}
 	fmt.Printf("\nNSStringWithContentsOfURLEncoding()\n")
 	err := make([]ns.NSError,1)

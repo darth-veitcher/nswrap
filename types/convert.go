@@ -402,13 +402,14 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 	for i,sname := range snames {
 		if sname == "" { continue }
 		ret.WriteString(fmt.Sprintf(`
+	(*%s) = (*%s)[:cap(*%s)]
 	for i := 0; i < len(*%s); i++ {
 		if %s[i] == nil {
 			(*%s) = (*%s)[:i]
 			break
 		}
 		(*%s)[i].ptr = %s[i]
-	}`,pnames[i],sname,pnames[i],pnames[i],pnames[i],sname))
+	}`,pnames[i],pnames[i],pnames[i],pnames[i],sname,pnames[i],pnames[i],pnames[i],sname))
 	}
 	if rt != "void" {
 		ret.WriteString(`

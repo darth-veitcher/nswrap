@@ -977,7 +977,7 @@ func %s%s(%s) %s {
 			continue
 		}
 		w.goCode.WriteString(fmt.Sprintf(`
-	%s := make([]unsafe.Pointer,len(*%s))
+	%s := make([]unsafe.Pointer,cap(*%s))
 	for i := 0; i < len(*%s); i++ {
 		%s[i] = (*%s)[i].Ptr()
 	}
