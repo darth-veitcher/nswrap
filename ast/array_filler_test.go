@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/elliotchance/c2go/util"
+	"git.wow.st/gmp/nswrap/util"
 )
 
 func TestArrayFiller(t *testing.T) {

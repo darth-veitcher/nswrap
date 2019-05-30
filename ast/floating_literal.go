@@ -1,11 +1,11 @@
 package ast
 
 import (
-	"errors"
-	"fmt"
-	"reflect"
+	//"errors"
+	//"fmt"
+	//"reflect"
 
-	"github.com/elliotchance/c2go/cc"
+	//"github.com/elliotchance/c2go/cc"
 )
 
 // FloatingLiteral is type of float literal
@@ -63,6 +63,7 @@ type FloatingLiteralError struct {
 	Err  error
 }
 
+/* NOT USED
 // RepairFloatingLiteralsFromSource finds the exact values of floating literals
 // by reading their values directly from the preprocessed source.
 //
@@ -111,4 +112,4 @@ func RepairFloatingLiteralsFromSource(rootNode Node, preprocessedFile string) []
 	}
 
 	return errs
-}
+}*/

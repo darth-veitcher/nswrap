@@ -3,7 +3,7 @@ package ast
 import (
 	"strings"
 
-	"github.com/elliotchance/c2go/util"
+	"git.wow.st/gmp/nswrap/util"
 )
 
 // NonNullAttr is a type of attribute that is optionally attached to a variable

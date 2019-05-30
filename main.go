@@ -256,7 +256,7 @@ func main() {
 
 	confbytes, err := ioutil.ReadFile("nswrap.yaml")
 	if err != nil {
-		fmt.Printf("Cannot open config file nswrap.yaml. %s\n",err)
+		fmt.Printf("%s\n\nFATAL ERROR: Configuration file must be present in directory where nswrap\nis invoked.\n",err)
 		os.Exit(-1)
 	}
 	if err = yaml.Unmarshal(confbytes,&Config); err != nil {

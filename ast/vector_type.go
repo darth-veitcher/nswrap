@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"github.com/elliotchance/c2go/util"
+	"git.wow.st/gmp/nswrap/util"
 )
 
 // VectorType is vector type

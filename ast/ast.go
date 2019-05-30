@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/elliotchance/c2go/util"
+	"git.wow.st/gmp/nswrap/util"
 )
 
 var TrackPositions bool = false

@@ -96,6 +96,8 @@ func didFinishLaunching(n ns.NSNotification) {
 	cv.AddConstraints(ns.NSLayoutConstraintsWithVisualFormat(
 		nst("H:[b1]-[b2]"),ns.NSLayoutFormatAlignAllBaseline,
 		ns.NSDictionary{}, viewmap))
+
+	a.ActivateIgnoringOtherApps(1)
 }
 
 func shouldTerminateAfterLastWindowClosed(s ns.NSApplication) ns.BOOL {

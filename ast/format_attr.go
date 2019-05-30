@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"github.com/elliotchance/c2go/util"
+	"git.wow.st/gmp/nswrap/util"
 )
 
 // FormatAttr is a type of attribute that is optionally attached to a variable

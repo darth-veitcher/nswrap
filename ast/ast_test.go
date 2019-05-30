@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elliotchance/c2go/util"
+	"git.wow.st/gmp/nswrap/util"
 )
 
 func formatMultiLine(o interface{}) string {
