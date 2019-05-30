@@ -299,7 +299,7 @@ NSWrap supports variadic
 functions. Because of the limitations of `cgo`, there is a numerical limit
 to the number of parameters in a variadic function call, which defaults to
 16 but can be set with the `vaargs` configuration directive. NSWrap will
-automatically include a `nil` sentinel before calling any Objective-C
+automatically include a `nil` sentinel when calling any Objective-C
 methods with variadic parameter lists. The direct types `va_list` and
 `va_list_tag` are not currently supported.
 
@@ -340,7 +340,7 @@ An example in Core Foundation is the `getObjects:andKeys:count` method for
 ```
 
 NSWrap will never check the "count" parameter, so the user will always need
-to make sure it is less than or equal to the capacity of the relevant input
+to make sure it is less than or equal to the capacity of the input
 Go slices.
 
 Using pointers to pointers is necessary in many Core Foundation situations
@@ -482,9 +482,9 @@ tests before anyone should feel confident with it.
 The `delegates` directive in `nswrap.yaml` creates a new Objective-C
 class and associated Go wrapper functions. For example, the following
 configuration file creates a class called `CBDelegate` that implements
-the Objective-C protocols `CBCentralManagerDelegate` and
-`CBPeripheralDelegate`, along with the Go code you need to allocate
-and use instances of the class.
+the `CBCentralManagerDelegate` and `CBPeripheralDelegate`
+protocols from Core Bluetooth, along with the Go code you need to allocate
+and use instances of the new class.
 
 ```yaml
 # nswrap.yaml
@@ -514,7 +514,7 @@ declaration, is advertised as implementing the protocols specified in
 When a delegate is activated and one of the callback methods named in the
 configuration file is called, the delegate will call back into a Go 
 function exported by NSWrap. If a user-defined callback function has been
-specified,
+registered,
 it will be called with all of its parameters converted to their Go type
 equivalents. User-defined callbacks are registered by calling a function
 with the method name in TitleCase + `Callback`, so in the example above,
@@ -552,7 +552,7 @@ $ go build
 ./main.go:127:43: cannot use didFinishLaunching (type func(ns.NSNotification, bool)) as type
 func(ns.NSNotification) in argument to del.ApplicationDidFinishLaunchingCallback
 ```
-In the above example, build failed because an extra `bool` parameter was
+In the above example, the build failed because an extra `bool` parameter was
 included in the callback function. The compiler is telling you that the right
 type for the callback is `func(ns.NSNotification)` with no return value.
 
@@ -669,8 +669,8 @@ name, its return type, and the names and types of its parameters if any.
 Since multiple inheritance is not permitted in Objective-C, it is not possible
 to specify more than one superclass in a `subclasses` entry.
 
-Go callbacks for subclasses are passed a special struct named "super" as their
-first parameter. This struct is filled with superclass methods, which
+Go callbacks for overridden methods are passed a special struct 
+as their first parameter. This struct is filled with superclass methods, which
 allows you to do things like this:
 
 ```go
@@ -681,7 +681,7 @@ func methodCallback(super ns.MyClassSupermethods, param NSString) {
 ```
 
 You can use subclasses to define new AppKit controls with configurable
-callbacks. For example, lets make an `NSButton` that calls back into Go when
+callbacks. For example, let's make an `NSButton` that calls back into Go when
 you press it:
 
 ```yaml
