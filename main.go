@@ -33,6 +33,8 @@ type conf struct {
 	Sysimports []string
 	Pragma []string
 	Vaargs int
+	//Arc flag for debugging only, builds will break
+	Arc bool
 }
 
 var Config conf
@@ -189,6 +191,9 @@ func Start() (err error) {
 	fmt.Printf("Building nodes\n")
 	if Config.Positions {
 		ast.TrackPositions = true
+	}
+	if Config.Arc {
+		wrap.Arc = true
 	}
 	//NOTE: converting in parallel is slower on my system
 	//nodes := convertLinesToNodesParallel(lines)

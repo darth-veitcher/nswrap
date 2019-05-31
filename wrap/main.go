@@ -15,6 +15,8 @@ import (
 
 var (
 	Debug = false
+// Arc flag is for debugging only, your builds will break if you turn it on
+	Arc = false
 )
 
 type Wrapper struct {
@@ -55,9 +57,13 @@ func NewWrapper(debug bool) *Wrapper {
 		ProcessedClassMethods: map[string]bool{},
 		Vaargs: 16,
 	}
+	arc := " -fno-objc-arc"
+	if Arc {
+		arc = " -fobjc-arc"
+	}
 	ret.cgoFlags.WriteString(fmt.Sprintf(`/*
-#cgo CFLAGS: -x objective-c
-`))
+#cgo CFLAGS: -x objective-c%s
+`,arc))
 	ret.goTypes.WriteString(`
 type Id struct {
 	ptr unsafe.Pointer
@@ -432,6 +438,12 @@ func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
 	for _,c := range n.Children() {
 		switch x := c.(type) {
 		case *ast.ObjCMethodDecl:
+			if Arc {
+				switch x.Name {
+				case "retain","release","autorelease":
+					continue
+				}
+			}
 			if x.ClassMethod {
 				w.AddMethod(p.ClassMethods,x)
 			} else {
