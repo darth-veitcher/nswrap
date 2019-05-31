@@ -17,7 +17,7 @@ func TestCStyleCastExpr(t *testing.T) {
 			Addr:       0x2781518,
 			Pos:        NewPositionFromString("col:7, col:17"),
 			Type:       "T_ENUM",
-			Type2:      "T_ENUM",
+			Type2:      "",
 			Kind:       "IntegralCast",
 			ChildNodes: []Node{},
 		},

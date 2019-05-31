@@ -120,6 +120,7 @@ func main() {
 	hrm_uuid = ns.CBUUIDWithGoString("180D")
 	hrv_uuid = ns.CBUUIDWithGoString("2A37")
 
+	//We defined our own queue because this won't work on the main queue.
 	cm = ns.CBCentralManagerAlloc().InitWithDelegateQueue(cd,queue)
 
 	select { }

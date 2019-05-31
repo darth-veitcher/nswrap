@@ -17,7 +17,7 @@ func TestBinaryOperator(t *testing.T) {
 			Addr:       0x1ff95b8,
 			Pos:        NewPositionFromString("line:78:2, col:7"),
 			Type:       "T_ENUM",
-			Type2:      "T_ENUM",
+			Type2:      "",
 			Operator:   "=",
 			ChildNodes: []Node{},
 		},

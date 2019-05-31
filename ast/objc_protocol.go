@@ -4,7 +4,6 @@ package ast
 type ObjCProtocol struct {
 	Addr       Address
 	Name       string
-	Content    string
 	ChildNodes []Node
 }
 
@@ -17,7 +16,6 @@ func parseObjCProtocol(line string) *ObjCProtocol {
 	return &ObjCProtocol{
 		Addr:       ParseAddress(groups["address"]),
 		Name:       groups["name"],
-		Content:    groups["content"],
 		ChildNodes: []Node{},
 	}
 }

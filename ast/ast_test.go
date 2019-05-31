@@ -9,6 +9,10 @@ import (
 	"git.wow.st/gmp/nswrap/util"
 )
 
+func init() {
+	TrackPositions = true
+}
+
 func formatMultiLine(o interface{}) string {
 	s := fmt.Sprintf("%#v", o)
 	s = strings.Replace(s, "{", "{\n", -1)
@@ -17,23 +21,26 @@ func formatMultiLine(o interface{}) string {
 	return s
 }
 
+func runNodeTest(t *testing.T, actual, expected Node, i int) {
+	testName := fmt.Sprintf("Example%d", i)
+	t.Run(testName, func(t *testing.T) {
+		if !reflect.DeepEqual(expected, actual) {
+			t.Errorf("%s", util.ShowDiff(formatMultiLine(expected),
+				formatMultiLine(actual)))
+		}
+	})
+}
+
 func runNodeTests(t *testing.T, tests map[string]Node) {
 	i := 1
 	for line, expected := range tests {
-		testName := fmt.Sprintf("Example%d", i)
+		// Append the name of the struct onto the front. This would
+		// make the complete line it would normally be parsing.
+		name := reflect.TypeOf(expected).Elem().Name()
+		actual := Parse(name + " " + line)
+
+		runNodeTest(t,actual,expected,i)
 		i++
-
-		t.Run(testName, func(t *testing.T) {
-			// Append the name of the struct onto the front. This would make the
-			// complete line it would normally be parsing.
-			name := reflect.TypeOf(expected).Elem().Name()
-			actual := Parse(name + " " + line)
-
-			if !reflect.DeepEqual(expected, actual) {
-				t.Errorf("%s", util.ShowDiff(formatMultiLine(expected),
-					formatMultiLine(actual)))
-			}
-		})
 	}
 }
 

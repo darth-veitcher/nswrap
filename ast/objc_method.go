@@ -3,19 +3,19 @@ package ast
 // ObjCMethod is an Objective-C method
 type ObjCMethod struct {
 	Addr       Address
-	Type       string
+	Name       string
 	ChildNodes []Node
 }
 
 func parseObjCMethod(line string) *ObjCMethod {
 	groups := groupsFromRegex(
-		"'(?P<type>.*)'",
+		"'(?P<name>.*)'",
 		line,
 	)
 
 	return &ObjCMethod{
 		Addr:       ParseAddress(groups["address"]),
-		Type:       groups["type"],
+		Name:       groups["name"],
 		ChildNodes: []Node{},
 	}
 }

@@ -34,7 +34,7 @@ func parseEnumDecl(line string) *EnumDecl {
 	return &EnumDecl{
 		Addr:       ParseAddress(groups["address"]),
 		Pos:        NewPositionFromString(groups["position"]),
-		//Position2:  groups["position2"],
+		Position2:  groups["position2"],
 		Name:       strings.TrimSpace(groups["name"]),
 		Type:       removeQuotes(groups["type"]),
 		//Type2:      type2,
