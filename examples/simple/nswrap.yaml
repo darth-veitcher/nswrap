@@ -12,3 +12,4 @@ subclasses:
 
 imports: [ simple.h ]
 frameworks: [ Foundation ]
+#arc: true

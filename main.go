@@ -167,6 +167,9 @@ func Start() (err error) {
 	// Generate AST
 	cargs := []string{"-xobjective-c", "-Xclang", "-ast-dump",
 			"-fsyntax-only","-fno-color-diagnostics"}
+	if Config.Arc {
+		cargs = append(cargs,"-fobjc-arc")
+	}
 	cargs = append(cargs,Config.Inputfiles...)
 	fmt.Printf("Generating AST\n")
 	astPP, err := exec.Command("clang",cargs...).Output()
