@@ -19,7 +19,8 @@ func parseUnaryOperator(line string) *UnaryOperator {
 		(?P<lvalue> lvalue)?
 		(?P<prefix> prefix)?
 		(?P<postfix> postfix)?
-		 '(?P<operator>.*?)'`,
+		 '(?P<operator>.*?)'
+		( .*)?`,
 		line,
 	)
 

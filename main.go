@@ -23,6 +23,7 @@ type conf struct {
 	Positions bool
 	Package string
 	Inputfiles []string
+	Astfile string
 	Classes []string
 	Functions []string
 	Enums []string
@@ -157,35 +158,48 @@ func matches(x string, rs []string) bool {
 
 // Start begins transpiling an input file.
 func Start() (err error) {
-	for _, in := range Config.Inputfiles {
-		_, err := os.Stat(in)
+	astPP := []byte{}
+	if Config.Astfile != "" {
+		fmt.Printf("Reading ast file %s\n",Config.Astfile)
+		_, err = os.Stat(Config.Astfile)
 		if err != nil {
-			return fmt.Errorf("Input file %s is not found", in)
+			return fmt.Errorf("Input AST file %s not found",Config.Astfile)
 		}
-	}
+		astPP, err = ioutil.ReadFile(Config.Astfile)
+		if err != nil {
+			return err
+		}
+	} else {
+		for _, in := range Config.Inputfiles {
+			_, err = os.Stat(in)
+			if err != nil {
+				return fmt.Errorf("Input file %s is not found", in)
+			}
+		}
 
-	// Generate AST
-	cargs := []string{"-xobjective-c", "-Xclang", "-ast-dump",
-			"-fsyntax-only","-fno-color-diagnostics"}
-	if Config.Arc {
-		cargs = append(cargs,"-fobjc-arc")
-	}
-	cargs = append(cargs,Config.Inputfiles...)
-	fmt.Printf("Generating AST\n")
-	astPP, err := exec.Command("clang",cargs...).Output()
-	if err != nil {
-		// If clang fails it still prints out the AST, so we have to run it
-		// again to get the real error.
-		//errBody, _ := exec.Command("clang", cargs...).CombinedOutput()
-		var txt string
-		switch x := err.(type) {
-		case *exec.ExitError:
-			txt = string(x.Stderr)
-		default:
-			txt = err.Error()
+		// Generate AST
+		cargs := []string{"-xobjective-c", "-Xclang", "-ast-dump",
+				"-fsyntax-only","-fno-color-diagnostics"}
+		if Config.Arc {
+			cargs = append(cargs,"-fobjc-arc")
 		}
-		fmt.Printf("clang failed:\n%s\n", txt)
-		os.Exit(-1)
+		cargs = append(cargs,Config.Inputfiles...)
+		fmt.Printf("Generating AST\n")
+		astPP, err = exec.Command("clang",cargs...).Output()
+		if err != nil {
+			// If clang fails it still prints out the AST, so we have to run it
+			// again to get the real error.
+			//errBody, _ := exec.Command("clang", cargs...).CombinedOutput()
+			var txt string
+			switch x := err.(type) {
+			case *exec.ExitError:
+				txt = string(x.Stderr)
+			default:
+				txt = err.Error()
+			}
+			fmt.Printf("clang failed:\n%s\n", txt)
+			os.Exit(-1)
+		}
 	}
 
 	lines := readAST(astPP)
@@ -271,6 +285,8 @@ func main() {
 		fmt.Printf("Cannot decode config file nswrap.yaml. %s\n",err)
 		os.Exit(-1)
 	}
+	fmt.Printf("Package = %s\n",Config.Package)
+	fmt.Printf("Astfile = %s\n",Config.Astfile)
 	if err := Start(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(-1)

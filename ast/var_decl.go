@@ -15,6 +15,7 @@ type VarDecl struct {
 	Type2        string
 	IsExtern     bool
 	IsUsed       bool
+	IsRange      bool
 	IsCInit      bool
 	IsReferenced bool
 	IsStatic     bool
@@ -28,6 +29,7 @@ func parseVarDecl(line string) *VarDecl {
 		(?:parent (?P<parent>0x[0-9a-f]+) )?
 		<(?P<position>.*)>(?P<position2> .+:\d+)?
 		(?P<used> used)?
+		(?P<range> range)?
 		(?P<referenced> referenced)?
 		(?P<name> \w+)?
 		 '(?P<type>.+?)'
@@ -36,6 +38,7 @@ func parseVarDecl(line string) *VarDecl {
 		(?P<static> static)?
 		(?P<cinit> cinit)?
 		(?P<register> register)?
+		(.*)
 		`,
 		line,
 	)
@@ -55,6 +58,7 @@ func parseVarDecl(line string) *VarDecl {
 		Type2:        type2,
 		IsExtern:     len(groups["extern"]) > 0,
 		IsUsed:       len(groups["used"]) > 0,
+		IsRange:      len(groups["range"]) > 0,
 		IsCInit:      len(groups["cinit"]) > 0,
 		IsReferenced: len(groups["referenced"]) > 0,
 		IsStatic:     len(groups["static"]) > 0,

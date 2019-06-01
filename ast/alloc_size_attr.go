@@ -3,7 +3,7 @@ package ast
 import (
 	"strings"
 
-	"git.wow.st/gmp/nswrap/util"
+	//"git.wow.st/gmp/nswrap/util"
 )
 
 // AllocSizeAttr is a type of attribute that is optionally attached to a variable
@@ -12,8 +12,8 @@ type AllocSizeAttr struct {
 	Addr       Address
 	Pos        Position
 	Inherited  bool
-	A          int
-	B          int
+	A          string
+	B          string
 	ChildNodes []Node
 }
 
@@ -27,8 +27,8 @@ func parseAllocSizeAttr(line string) *AllocSizeAttr {
 		Addr:       ParseAddress(groups["address"]),
 		Pos:        NewPositionFromString(groups["position"]),
 		Inherited:  len(groups["inherited"]) > 0,
-		A:          util.Atoi(strings.TrimSpace(groups["a"])),
-		B:          util.Atoi(strings.TrimSpace(groups["b"])),
+		A:          strings.TrimSpace(groups["a"]),
+		B:          strings.TrimSpace(groups["b"]),
 		ChildNodes: []Node{},
 	}
 }

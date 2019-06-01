@@ -18,7 +18,8 @@ func parseImplicitCastExpr(line string) *ImplicitCastExpr {
 		`<(?P<position>.*)>
 		 '(?P<type>.*?)'
 		(:'(?P<type2>.*?)')?
-		 <(?P<kind>.*)>`,
+		 <(?P<kind>.*)>
+		( part_of_explicit_cast)?`,
 		line,
 	)
 
