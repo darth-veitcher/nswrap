@@ -8,11 +8,14 @@ type StmtExpr struct {
 	ChildNodes []Node
 }
 
-func parseStmtExpr(line string) *StmtExpr {
+func parseStmtExpr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type>.*)'",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &StmtExpr{
 		Addr:       ParseAddress(groups["address"]),

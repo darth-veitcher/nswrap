@@ -2,6 +2,7 @@
 package ast
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -69,6 +70,8 @@ func Parse(fullline string) Node {
 		return parseAlwaysInlineAttr(line)
 	case "ArraySubscriptExpr":
 		return parseArraySubscriptExpr(line)
+	case "ArcWeakrefUnavailableAttr":
+		return parseArcWeakrefUnavailableAttr(line)
 	case "AsmLabelAttr":
 		return parseAsmLabelAttr(line)
 	case "AttributedType":
@@ -87,8 +90,18 @@ func Parse(fullline string) Node {
 		return parseBuiltinType(line)
 	case "CallExpr":
 		return parseCallExpr(line)
+	case "ConvertVectorExpr":
+		return parseConvertVectorExpr(line)
 	case "CaseStmt":
 		return parseCaseStmt(line)
+	case "CFAuditedTransferAttr":
+		return parseCFAuditedTransferAttr(line)
+	case "CFConsumedAttr":
+		return parseCFConsumedAttr(line)
+	case "CFReturnsRetainedAttr":
+		return parseCFReturnsRetainedAttr(line)
+	case "CFReturnsNotRetainedAttr":
+		return parseCFReturnsNotRetainedAttr(line)
 	case "CharacterLiteral":
 		return parseCharacterLiteral(line)
 	case "CompoundLiteralExpr":
@@ -129,12 +142,16 @@ func Parse(fullline string) Node {
 		return parseEnumConstantDecl(line)
 	case "EnumDecl":
 		return parseEnumDecl(line)
+	case "EnumExtensibilityAttr":
+		return parseEnumExtensibilityAttr(line)
 	case "EnumType":
 		return parseEnumType(line)
 	case "Field":
 		return parseField(line)
 	case "FieldDecl":
 		return parseFieldDecl(line)
+	case "FlagEnumAttr":
+		return parseFlagEnumAttr(line)
 	case "FloatingLiteral":
 		return parseFloatingLiteral(line)
 	case "FormatAttr":
@@ -157,6 +174,10 @@ func Parse(fullline string) Node {
 		return parseGCCAsmStmt(line)
 	case "GotoStmt":
 		return parseGotoStmt(line)
+	case "IBActionAttr":
+		return parseIBActionAttr(line)
+	case "IBOutletAttr":
+		return parseIBOutletAttr(line)
 	case "IfStmt":
 		return parseIfStmt(line)
 	case "ImplicitCastExpr":
@@ -179,10 +200,18 @@ func Parse(fullline string) Node {
 		return parseMallocAttr(line)
 	case "MaxFieldAlignmentAttr":
 		return parseMaxFieldAlignmentAttr(line)
+	case "MayAliasAttr":
+		return parseMayAliasAttr(line)
 	case "MemberExpr":
 		return parseMemberExpr(line)
+	case "MinVectorWidthAttr":
+		return parseMinVectorWidthAttr(line)
 	case "ModeAttr":
 		return parseModeAttr(line)
+	case "NoDebugAttr":
+		return parseNoDebugAttr(line)
+	case "NoEscapeAttr":
+		return parseNoEscapeAttr(line)
 	case "NoInlineAttr":
 		return parseNoInlineAttr(line)
 	case "NoThrowAttr":
@@ -191,8 +220,34 @@ func Parse(fullline string) Node {
 		return parseNonNullAttr(line)
 	case "NotTailCalledAttr":
 		return parseNotTailCalledAttr(line)
+	case "NSConsumedAttr":
+		return parseNSConsumedAttr(line)
+	case "NSConsumesSelfAttr":
+		return parseNSConsumesSelfAttr(line)
+	case "NSErrorDomainAttr":
+		return parseNSErrorDomainAttr(line)
+	case "NSReturnsRetainedAttr":
+		return parseNSReturnsRetainedAttr(line)
+	case "ObjCBoolLiteralExpr":
+		return parseObjCBoolLiteralExpr(line)
+	case "ObjCBoxableAttr":
+		return parseObjCBoxableAttr(line)
+	case "ObjCBridgeAttr":
+		return parseObjCBridgeAttr(line)
+	case "ObjCBridgeRelatedAttr":
+		return parseObjCBridgeRelatedAttr(line)
+	case "ObjCBridgeMutableAttr":
+		return parseObjCBridgeMutableAttr(line)
 	case "ObjCCategoryDecl":
 		return parseObjCCategoryDecl(line)
+	case "ObjCDesignatedInitializerAttr":
+		return parseObjCDesignatedInitializerAttr(line)
+	case "ObjCExceptionAttr":
+		return parseObjCExceptionAttr(line)
+	case "ObjCExplicitProtocolImplAttr":
+		return parseObjCExplicitProtocolImplAttr(line)
+	case "ObjCIndependentClassAttr":
+		return parseObjCIndependentClassAttr(line)
 	case "ObjCInterface":
 		return parseObjCInterface(line,false)
 	case "super ObjCInterface":
@@ -201,10 +256,14 @@ func Parse(fullline string) Node {
 		return parseObjCInterfaceDecl(line)
 	case "ObjCInterfaceType":
 		return parseObjCInterfaceType(line)
+	case "ObjCIvarDecl":
+		return parseObjCIvarDecl(line)
 	case "getter ObjCMethod":
 		return parseObjCMethod(line)
 	case "ObjCMethod":
 		return parseObjCMethod(line)
+	case "ObjCMessageExpr":
+		return parseObjCMessageExpr(line)
 	case "ObjCMethodDecl":
 		return parseObjCMethodDecl(line)
 	case "ObjCObjectType":
@@ -213,8 +272,14 @@ func Parse(fullline string) Node {
 		return parseObjCObjectPointerType(line)
 	case "ObjCProtocol":
 		return parseObjCProtocol(line)
+	case "ObjCReturnsInnerPointerAttr":
+		return parseObjCReturnsInnerPointerAttr(line)
+	case "ObjCRequiresSuperAttr":
+		return parseObjCRequiresSuperAttr(line)
 	case "ObjCProtocolDecl":
 		return parseObjCProtocolDecl(line)
+	case "ObjCRootClassAttr":
+		return parseObjCRootClassAttr(line)
 	case "ObjCPropertyDecl":
 		return parseObjCPropertyDecl(line)
 	case "ObjCTypeParamDecl":
@@ -257,12 +322,26 @@ func Parse(fullline string) Node {
 		return parseReturnsTwiceAttr(line)
 	case "SentinelAttr":
 		return parseSentinelAttr(line)
+	case "ShuffleVectorExpr":
+		return parseShuffleVectorExpr(line)
 	case "StmtExpr":
 		return parseStmtExpr(line)
 	case "StringLiteral":
 		return parseStringLiteral(line)
+	case "SwiftBridgedTypedefAttr":
+		return parseSwiftBridgedTypedefAttr(line)
+	case "SwiftErrorAttr":
+		return parseSwiftErrorAttr(line)
+	case "SwiftNameAttr":
+		return parseSwiftNameAttr(line)
+	case "SwiftNewtypeAttr":
+		return parseSwiftNewtypeAttr(line)
+	case "SwiftPrivateAttr":
+		return parseSwiftPrivateAttr(line)
 	case "SwitchStmt":
 		return parseSwitchStmt(line)
+	case "TargetAttr":
+		return parseTargetAttr(line)
 	case "TextComment":
 		return parseTextComment(line)
 	case "TranslationUnitDecl":
@@ -281,6 +360,8 @@ func Parse(fullline string) Node {
 		return parseUnaryOperator(line)
 	case "UnavailableAttr":
 		return parseUnavailableAttr(line)
+	case "UsedAttr":
+		return parseUsedAttr(line)
 	case "UnusedAttr":
 		return parseUnusedAttr(line)
 	case "VAArgExpr":
@@ -301,6 +382,8 @@ func Parse(fullline string) Node {
 		return parseWarnUnusedResultAttr(line)
 	case "WeakAttr":
 		return parseWeakAttr(line)
+	case "WeakImportAttr":
+		return parseWeakImportAttr(line)
 	case "WhileStmt":
 		return parseWhileStmt(line)
 	case "...":
@@ -323,7 +406,8 @@ func groupsFromRegex(rx, line string) map[string]string {
 	re := util.GetRegex(rx)
 	match := re.FindStringSubmatch(line)
 	if len(match) == 0 {
-		panic("could not match regexp with string\n" + rx + "\n" + line + "\n")
+		fmt.Printf("AST parser: could not match regexp with string. Regexp:\n" + rx + "\nOriginal line:\n" + line + "\n\n")
+		return nil
 	}
 
 	result := make(map[string]string)

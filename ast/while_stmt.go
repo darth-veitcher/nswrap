@@ -7,11 +7,14 @@ type WhileStmt struct {
 	ChildNodes []Node
 }
 
-func parseWhileStmt(line string) *WhileStmt {
+func parseWhileStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &WhileStmt{
 		Addr:       ParseAddress(groups["address"]),

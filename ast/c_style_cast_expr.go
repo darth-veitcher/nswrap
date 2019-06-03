@@ -16,11 +16,14 @@ var CStyleCastExprNullToPointer = "NullToPointer"
 // CStyleCastExprToVoid - string of kind ToVoid
 var CStyleCastExprToVoid = "ToVoid"
 
-func parseCStyleCastExpr(line string) *CStyleCastExpr {
+func parseCStyleCastExpr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type1>.*?)'(:'(?P<type2>.*?)')? <(?P<kind>.*)>",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &CStyleCastExpr{
 		Addr:       ParseAddress(groups["address"]),

@@ -8,12 +8,15 @@ type AttributedType struct {
 	ChildNodes []Node
 }
 
-func parseAttributedType(line string) *AttributedType {
+func parseAttributedType(line string) Node {
 	groups := groupsFromRegex(
 		`'(?P<type>.*)'
 		(?P<sugar> sugar)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &AttributedType{
 		Addr:       ParseAddress(groups["address"]),

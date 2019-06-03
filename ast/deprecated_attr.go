@@ -11,11 +11,14 @@ type DeprecatedAttr struct {
 	ChildNodes  []Node
 }
 
-func parseDeprecatedAttr(line string) *DeprecatedAttr {
+func parseDeprecatedAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>(?P<inherited> Inherited)? "(?P<message1>.*?)"(?P<message2> ".*?")?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &DeprecatedAttr{
 		Addr:        ParseAddress(groups["address"]),

@@ -8,12 +8,15 @@ type EmptyDecl struct {
 	ChildNodes []Node
 }
 
-func parseEmptyDecl(line string) *EmptyDecl {
+func parseEmptyDecl(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		( (?P<position2>.*))?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &EmptyDecl{
 		Addr:       ParseAddress(groups["address"]),

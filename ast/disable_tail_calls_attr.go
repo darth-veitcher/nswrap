@@ -8,11 +8,14 @@ type DisableTailCallsAttr struct {
 	ChildNodes []Node
 }
 
-func parseDisableTailCallsAttr(line string) *DisableTailCallsAttr {
+func parseDisableTailCallsAttr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &DisableTailCallsAttr{
 		Addr:       ParseAddress(groups["address"]),

@@ -8,11 +8,14 @@ type LabelStmt struct {
 	ChildNodes []Node
 }
 
-func parseLabelStmt(line string) *LabelStmt {
+func parseLabelStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<name>.*)'",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &LabelStmt{
 		Addr:       ParseAddress(groups["address"]),

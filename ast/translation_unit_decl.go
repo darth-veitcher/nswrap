@@ -6,8 +6,11 @@ type TranslationUnitDecl struct {
 	ChildNodes []Node
 }
 
-func parseTranslationUnitDecl(line string) *TranslationUnitDecl {
+func parseTranslationUnitDecl(line string) Node {
 	groups := groupsFromRegex("<(?P<position>.*)> <(?P<position2>.*)>", line)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &TranslationUnitDecl{
 		Addr:       ParseAddress(groups["address"]),

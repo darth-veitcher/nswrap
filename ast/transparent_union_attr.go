@@ -8,8 +8,11 @@ type TransparentUnionAttr struct {
 	ChildNodes []Node
 }
 
-func parseTransparentUnionAttr(line string) *TransparentUnionAttr {
+func parseTransparentUnionAttr(line string) Node {
 	groups := groupsFromRegex(`<(?P<position>.*)>`, line)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &TransparentUnionAttr{
 		Addr:       ParseAddress(groups["address"]),

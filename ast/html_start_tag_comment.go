@@ -8,11 +8,14 @@ type HTMLStartTagComment struct {
 	ChildNodes []Node
 }
 
-func parseHTMLStartTagComment(line string) *HTMLStartTagComment {
+func parseHTMLStartTagComment(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> Name="(?P<name>.*)"`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &HTMLStartTagComment{
 		Addr:       ParseAddress(groups["address"]),

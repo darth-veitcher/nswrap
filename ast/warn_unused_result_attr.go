@@ -8,8 +8,11 @@ type WarnUnusedResultAttr struct {
 	ChildNodes []Node
 }
 
-func parseWarnUnusedResultAttr(line string) *WarnUnusedResultAttr {
+func parseWarnUnusedResultAttr(line string) Node {
 	groups := groupsFromRegex(`<(?P<position>.*)>( warn_unused_result)?`, line)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &WarnUnusedResultAttr{
 		Addr:       ParseAddress(groups["address"]),

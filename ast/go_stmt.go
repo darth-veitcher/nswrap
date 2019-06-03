@@ -9,11 +9,14 @@ type GotoStmt struct {
 	ChildNodes []Node
 }
 
-func parseGotoStmt(line string) *GotoStmt {
+func parseGotoStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<name>.*)' (?P<position2>.*)",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &GotoStmt{
 		Addr:       ParseAddress(groups["address"]),

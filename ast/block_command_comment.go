@@ -8,11 +8,14 @@ type BlockCommandComment struct {
 	ChildNodes []Node
 }
 
-func parseBlockCommandComment(line string) *BlockCommandComment {
+func parseBlockCommandComment(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> Name="(?P<name>.*)"`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &BlockCommandComment{
 		Addr:       ParseAddress(groups["address"]),

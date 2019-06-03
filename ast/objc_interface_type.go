@@ -7,11 +7,14 @@ type ObjCInterfaceType struct {
 	ChildNodes []Node
 }
 
-func parseObjCInterfaceType(line string) *ObjCInterfaceType {
+func parseObjCInterfaceType(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<type>.*)'",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCInterfaceType{
 		Addr:       ParseAddress(groups["address"]),

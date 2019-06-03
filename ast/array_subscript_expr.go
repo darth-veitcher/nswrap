@@ -11,13 +11,16 @@ type ArraySubscriptExpr struct {
 	ChildNodes []Node
 }
 
-func parseArraySubscriptExpr(line string) *ArraySubscriptExpr {
+func parseArraySubscriptExpr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> '(?P<type>.*?)'(:'(?P<type2>.*?)')?
 		(?P<lvalue> lvalue)?
 		(?P<vcomp> vectorcomponent)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ArraySubscriptExpr{
 		Addr:       ParseAddress(groups["address"]),

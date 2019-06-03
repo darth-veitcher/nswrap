@@ -16,7 +16,7 @@ type AvailabilityAttr struct {
 	ChildNodes    []Node
 }
 
-func parseAvailabilityAttr(line string) *AvailabilityAttr {
+func parseAvailabilityAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<inherited> Inherited)?
@@ -29,6 +29,9 @@ func parseAvailabilityAttr(line string) *AvailabilityAttr {
 		(?P<message2> ".*?")?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &AvailabilityAttr{
 		Addr:          ParseAddress(groups["address"]),

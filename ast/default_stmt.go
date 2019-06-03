@@ -7,8 +7,11 @@ type DefaultStmt struct {
 	ChildNodes []Node
 }
 
-func parseDefaultStmt(line string) *DefaultStmt {
+func parseDefaultStmt(line string) Node {
 	groups := groupsFromRegex(`<(?P<position>.*)>`, line)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &DefaultStmt{
 		Addr:       ParseAddress(groups["address"]),

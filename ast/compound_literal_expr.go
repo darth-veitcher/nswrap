@@ -9,11 +9,14 @@ type CompoundLiteralExpr struct {
 	ChildNodes []Node
 }
 
-func parseCompoundLiteralExpr(line string) *CompoundLiteralExpr {
+func parseCompoundLiteralExpr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> '(?P<type1>.*?)'(:'(?P<type2>.*?)')? lvalue`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &CompoundLiteralExpr{
 		Addr:       ParseAddress(groups["address"]),

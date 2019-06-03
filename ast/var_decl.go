@@ -23,7 +23,7 @@ type VarDecl struct {
 	ChildNodes   []Node
 }
 
-func parseVarDecl(line string) *VarDecl {
+func parseVarDecl(line string) Node {
 	groups := groupsFromRegex(
 		`(?:prev (?P<prev>0x[0-9a-f]+) )?
 		(?:parent (?P<parent>0x[0-9a-f]+) )?
@@ -42,6 +42,10 @@ func parseVarDecl(line string) *VarDecl {
 		`,
 		line,
 	)
+
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	type2 := groups["type2"]
 	if type2 != "" {

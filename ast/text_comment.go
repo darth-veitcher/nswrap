@@ -8,11 +8,14 @@ type TextComment struct {
 	ChildNodes []Node
 }
 
-func parseTextComment(line string) *TextComment {
+func parseTextComment(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> Text="(?P<text>.*)"`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &TextComment{
 		Addr:       ParseAddress(groups["address"]),

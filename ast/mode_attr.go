@@ -9,11 +9,14 @@ type ModeAttr struct {
 	ChildNodes []Node
 }
 
-func parseModeAttr(line string) *ModeAttr {
+func parseModeAttr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> (?P<name>.+)",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &ModeAttr{
 		Addr:       ParseAddress(groups["address"]),

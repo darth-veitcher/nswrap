@@ -19,7 +19,7 @@ type ObjCMethodDecl struct {
 	ChildNodes   []Node
 }
 
-func parseObjCMethodDecl(line string) *ObjCMethodDecl {
+func parseObjCMethodDecl(line string) Node {
 	groups := groupsFromRegex(
                 `(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position>.*<scratch space>.*?|.*<built-in>.*?|.*<invalid sloc>|.*?)>
@@ -32,6 +32,10 @@ func parseObjCMethodDecl(line string) *ObjCMethodDecl {
 		(?P<attr> .*)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
+
 	names := strings.TrimSpace(groups["names"])
 	parts := strings.Split(strings.TrimSpace(groups["names"]),":")
 	params := []string{}

@@ -17,7 +17,7 @@ type TypedefDecl struct {
 	ChildNodes   []Node
 }
 
-func parseTypedefDecl(line string) *TypedefDecl {
+func parseTypedefDecl(line string) Node {
 	groups := groupsFromRegex(
 		`(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position><invalid sloc>|.*?)>
@@ -29,6 +29,9 @@ func parseTypedefDecl(line string) *TypedefDecl {
 		(?P<type2>:'.*?')?`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	type2 := groups["type2"]
 	if type2 != "" {

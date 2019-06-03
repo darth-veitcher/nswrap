@@ -7,11 +7,14 @@ type BreakStmt struct {
 	ChildNodes []Node
 }
 
-func parseBreakStmt(line string) *BreakStmt {
+func parseBreakStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &BreakStmt{
 		Addr:       ParseAddress(groups["address"]),

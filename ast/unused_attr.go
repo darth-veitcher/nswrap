@@ -9,11 +9,14 @@ type UnusedAttr struct {
 	IsUnused   bool
 }
 
-func parseUnusedAttr(line string) *UnusedAttr {
+func parseUnusedAttr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>(?P<unused> unused)?",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &UnusedAttr{
 		Addr:       ParseAddress(groups["address"]),

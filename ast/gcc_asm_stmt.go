@@ -7,11 +7,14 @@ type GCCAsmStmt struct {
 	ChildNodes []Node
 }
 
-func parseGCCAsmStmt(line string) *GCCAsmStmt {
+func parseGCCAsmStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &GCCAsmStmt{
 		Addr:       ParseAddress(groups["address"]),

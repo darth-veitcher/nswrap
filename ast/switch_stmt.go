@@ -7,8 +7,11 @@ type SwitchStmt struct {
 	ChildNodes []Node
 }
 
-func parseSwitchStmt(line string) *SwitchStmt {
+func parseSwitchStmt(line string) Node {
 	groups := groupsFromRegex(`<(?P<position>.*)>`, line)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &SwitchStmt{
 		Addr:       ParseAddress(groups["address"]),

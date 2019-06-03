@@ -7,11 +7,14 @@ type FullComment struct {
 	ChildNodes []Node
 }
 
-func parseFullComment(line string) *FullComment {
+func parseFullComment(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &FullComment{
 		Addr:       ParseAddress(groups["address"]),

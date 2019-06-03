@@ -7,11 +7,14 @@ type ObjCMethod struct {
 	ChildNodes []Node
 }
 
-func parseObjCMethod(line string) *ObjCMethod {
+func parseObjCMethod(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<name>.*)'",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCMethod{
 		Addr:       ParseAddress(groups["address"]),

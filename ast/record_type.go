@@ -7,11 +7,14 @@ type RecordType struct {
 	ChildNodes []Node
 }
 
-func parseRecordType(line string) *RecordType {
+func parseRecordType(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<type>.*)'",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &RecordType{
 		Addr:       ParseAddress(groups["address"]),

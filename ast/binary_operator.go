@@ -10,11 +10,14 @@ type BinaryOperator struct {
 	ChildNodes []Node
 }
 
-func parseBinaryOperator(line string) *BinaryOperator {
+func parseBinaryOperator(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type1>.*?)'(:'(?P<type2>.*?)')? '(?P<operator>.*?)'",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &BinaryOperator{
 		Addr:       ParseAddress(groups["address"]),

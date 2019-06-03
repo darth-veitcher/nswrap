@@ -23,7 +23,7 @@ type FunctionDecl struct {
 	ChildNodes   []Node
 }
 
-func parseFunctionDecl(line string) *FunctionDecl {
+func parseFunctionDecl(line string) Node {
 	groups := groupsFromRegex(
 		`(?:parent (?P<parent>0x[0-9a-f]+) )?
 		(?:prev (?P<prev>0x[0-9a-f]+) )?
@@ -41,6 +41,9 @@ func parseFunctionDecl(line string) *FunctionDecl {
 		`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &FunctionDecl{
 		Addr:         ParseAddress(groups["address"]),

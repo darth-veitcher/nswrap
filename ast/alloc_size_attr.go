@@ -17,11 +17,14 @@ type AllocSizeAttr struct {
 	ChildNodes []Node
 }
 
-func parseAllocSizeAttr(line string) *AllocSizeAttr {
+func parseAllocSizeAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>(?P<inherited> Inherited)?(?P<a> \d+)(?P<b> \d+)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &AllocSizeAttr{
 		Addr:       ParseAddress(groups["address"]),

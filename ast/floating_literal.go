@@ -17,11 +17,14 @@ type FloatingLiteral struct {
 	ChildNodes []Node
 }
 
-func parseFloatingLiteral(line string) *FloatingLiteral {
+func parseFloatingLiteral(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type>.*?)' (?P<value>.+)",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &FloatingLiteral{
 		Addr:       ParseAddress(groups["address"]),

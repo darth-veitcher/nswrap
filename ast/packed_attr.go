@@ -8,11 +8,14 @@ type PackedAttr struct {
 	ChildNodes []Node
 }
 
-func parsePackedAttr(line string) *PackedAttr {
+func parsePackedAttr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &PackedAttr{
 		Addr:       ParseAddress(groups["address"]),

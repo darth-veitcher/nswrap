@@ -7,11 +7,14 @@ type PointerType struct {
 	ChildNodes []Node
 }
 
-func parsePointerType(line string) *PointerType {
+func parsePointerType(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<type>.*)'",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &PointerType{
 		Addr:       ParseAddress(groups["address"]),

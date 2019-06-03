@@ -7,11 +7,14 @@ type DeclStmt struct {
 	ChildNodes []Node
 }
 
-func parseDeclStmt(line string) *DeclStmt {
+func parseDeclStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &DeclStmt{
 		Addr:       ParseAddress(groups["address"]),

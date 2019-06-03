@@ -7,11 +7,14 @@ type ParagraphComment struct {
 	ChildNodes []Node
 }
 
-func parseParagraphComment(line string) *ParagraphComment {
+func parseParagraphComment(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &ParagraphComment{
 		Addr:       ParseAddress(groups["address"]),

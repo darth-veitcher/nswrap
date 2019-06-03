@@ -11,7 +11,7 @@ type ParenExpr struct {
 	ChildNodes []Node
 }
 
-func parseParenExpr(line string) *ParenExpr {
+func parseParenExpr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> '(?P<type1>.*?)'(:'(?P<type2>.*)')?
 		(?P<lvalue> lvalue)?
@@ -19,6 +19,9 @@ func parseParenExpr(line string) *ParenExpr {
 		`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &ParenExpr{
 		Addr:       ParseAddress(groups["address"]),

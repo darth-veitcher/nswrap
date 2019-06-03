@@ -9,11 +9,14 @@ type ImplicitValueInitExpr struct {
 	ChildNodes []Node
 }
 
-func parseImplicitValueInitExpr(line string) *ImplicitValueInitExpr {
+func parseImplicitValueInitExpr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type1>.*?)'(:'(?P<type2>.*)')?",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &ImplicitValueInitExpr{
 		Addr:       ParseAddress(groups["address"]),

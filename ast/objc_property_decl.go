@@ -16,7 +16,7 @@ type ObjCPropertyDecl struct {
 	ChildNodes   []Node
 }
 
-func parseObjCPropertyDecl(line string) *ObjCPropertyDecl {
+func parseObjCPropertyDecl(line string) Node {
 	groups := groupsFromRegex(
                 `(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position>.*<scratch space>.*?|.*<built-in>.*?|.*<invalid sloc>|.*?)>
@@ -27,6 +27,9 @@ func parseObjCPropertyDecl(line string) *ObjCPropertyDecl {
 		(?P<attr> .*)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCPropertyDecl{
 		Addr:         ParseAddress(groups["address"]),

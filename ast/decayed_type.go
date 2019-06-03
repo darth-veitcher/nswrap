@@ -7,11 +7,14 @@ type DecayedType struct {
 	ChildNodes []Node
 }
 
-func parseDecayedType(line string) *DecayedType {
+func parseDecayedType(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<type>.*)' sugar",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &DecayedType{
 		Addr:       ParseAddress(groups["address"]),

@@ -8,11 +8,14 @@ type HTMLEndTagComment struct {
 	ChildNodes []Node
 }
 
-func parseHTMLEndTagComment(line string) *HTMLEndTagComment {
+func parseHTMLEndTagComment(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> Name="(?P<name>.*)"`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &HTMLEndTagComment{
 		Addr:       ParseAddress(groups["address"]),

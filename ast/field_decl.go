@@ -17,7 +17,7 @@ type FieldDecl struct {
 	ChildNodes []Node
 }
 
-func parseFieldDecl(line string) *FieldDecl {
+func parseFieldDecl(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<position2> col:\d+| line:\d+:\d+)?
@@ -29,6 +29,9 @@ func parseFieldDecl(line string) *FieldDecl {
 		`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &FieldDecl{
 		Addr:       ParseAddress(groups["address"]),

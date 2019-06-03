@@ -9,13 +9,16 @@ type AsmLabelAttr struct {
 	ChildNodes   []Node
 }
 
-func parseAsmLabelAttr(line string) *AsmLabelAttr {
+func parseAsmLabelAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<inherited> Inherited)?
 		 "(?P<function>.+)"`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &AsmLabelAttr{
 		Addr:         ParseAddress(groups["address"]),

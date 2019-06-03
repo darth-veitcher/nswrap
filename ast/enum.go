@@ -7,11 +7,14 @@ type Enum struct {
 	ChildNodes []Node
 }
 
-func parseEnum(line string) *Enum {
+func parseEnum(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<name>.*?)'",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &Enum{
 		Addr:       ParseAddress(groups["address"]),

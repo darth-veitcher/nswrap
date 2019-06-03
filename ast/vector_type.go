@@ -12,12 +12,15 @@ type VectorType struct {
 	ChildNodes []Node
 }
 
-func parseVectorType(line string) *VectorType {
+func parseVectorType(line string) Node {
 	groups := groupsFromRegex(
 		`'(?P<type>.*)'
 		 (?P<length>[\d]+)`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &VectorType{
 		Addr:       ParseAddress(groups["address"]),

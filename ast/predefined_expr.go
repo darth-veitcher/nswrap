@@ -10,11 +10,14 @@ type PredefinedExpr struct {
 	ChildNodes []Node
 }
 
-func parsePredefinedExpr(line string) *PredefinedExpr {
+func parsePredefinedExpr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type>.*)' lvalue (?P<name>.*)",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &PredefinedExpr{
 		Addr:       ParseAddress(groups["address"]),

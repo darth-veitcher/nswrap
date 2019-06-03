@@ -10,7 +10,7 @@ type VisibilityAttr struct {
 	IsHidden    bool
 }
 
-func parseVisibilityAttr(line string) *VisibilityAttr {
+func parseVisibilityAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<inherited> Inherited)?
@@ -19,6 +19,9 @@ func parseVisibilityAttr(line string) *VisibilityAttr {
 		`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &VisibilityAttr{
 		Addr:        ParseAddress(groups["address"]),

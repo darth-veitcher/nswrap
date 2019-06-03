@@ -16,11 +16,14 @@ type SentinelAttr struct {
 	ChildNodes []Node
 }
 
-func parseSentinelAttr(line string) *SentinelAttr {
+func parseSentinelAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>(?P<a> \d+)(?P<b> \d+)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	b := 0
 	if groups["b"] != "" {

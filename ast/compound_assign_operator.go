@@ -11,7 +11,7 @@ type CompoundAssignOperator struct {
 	ChildNodes            []Node
 }
 
-func parseCompoundAssignOperator(line string) *CompoundAssignOperator {
+func parseCompoundAssignOperator(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		 '(?P<type>.+?)'
@@ -20,6 +20,9 @@ func parseCompoundAssignOperator(line string) *CompoundAssignOperator {
 		 ComputeResultTy='(?P<crestype>.+?)'`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &CompoundAssignOperator{
 		Addr:                  ParseAddress(groups["address"]),

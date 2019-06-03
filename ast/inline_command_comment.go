@@ -8,11 +8,14 @@ type InlineCommandComment struct {
 	ChildNodes []Node
 }
 
-func parseInlineCommandComment(line string) *InlineCommandComment {
+func parseInlineCommandComment(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> (?P<other>.*)`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &InlineCommandComment{
 		Addr:       ParseAddress(groups["address"]),

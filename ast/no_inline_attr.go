@@ -8,11 +8,14 @@ type NoInlineAttr struct {
 	ChildNodes []Node
 }
 
-func parseNoInlineAttr(line string) *NoInlineAttr {
+func parseNoInlineAttr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &NoInlineAttr{
 		Addr:       ParseAddress(groups["address"]),

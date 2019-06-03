@@ -8,11 +8,14 @@ type ParamCommandComment struct {
 	ChildNodes []Node
 }
 
-func parseParamCommandComment(line string) *ParamCommandComment {
+func parseParamCommandComment(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> (?P<other>.*)`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &ParamCommandComment{
 		Addr:       ParseAddress(groups["address"]),

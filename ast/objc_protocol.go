@@ -7,11 +7,14 @@ type ObjCProtocol struct {
 	ChildNodes []Node
 }
 
-func parseObjCProtocol(line string) *ObjCProtocol {
+func parseObjCProtocol(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<name>.*)'",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCProtocol{
 		Addr:       ParseAddress(groups["address"]),

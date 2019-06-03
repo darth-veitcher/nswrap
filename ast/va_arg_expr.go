@@ -8,11 +8,14 @@ type VAArgExpr struct {
 	ChildNodes []Node
 }
 
-func parseVAArgExpr(line string) *VAArgExpr {
+func parseVAArgExpr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type>.*)'",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &VAArgExpr{
 		Addr:       ParseAddress(groups["address"]),

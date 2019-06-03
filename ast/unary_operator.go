@@ -12,7 +12,7 @@ type UnaryOperator struct {
 	ChildNodes []Node
 }
 
-func parseUnaryOperator(line string) *UnaryOperator {
+func parseUnaryOperator(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		 '(?P<type>.*?)'(:'(?P<type2>.*)')?
@@ -23,6 +23,9 @@ func parseUnaryOperator(line string) *UnaryOperator {
 		( .*)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &UnaryOperator{
 		Addr:       ParseAddress(groups["address"]),

@@ -10,13 +10,16 @@ type PureAttr struct {
 	ChildNodes []Node
 }
 
-func parsePureAttr(line string) *PureAttr {
+func parsePureAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<inherited> Inherited)?
 		(?P<implicit> Implicit)?`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &PureAttr{
 		Addr:       ParseAddress(groups["address"]),

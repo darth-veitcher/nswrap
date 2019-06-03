@@ -16,7 +16,7 @@ type EnumConstantDecl struct {
 	ChildNodes []Node
 }
 
-func parseEnumConstantDecl(line string) *EnumConstantDecl {
+func parseEnumConstantDecl(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		( (?P<position2>[^ ]+))?
@@ -26,6 +26,9 @@ func parseEnumConstantDecl(line string) *EnumConstantDecl {
 		(?P<type2>:'.*?')?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	/*type2 := groups["type2"]
 	if type2 != "" {

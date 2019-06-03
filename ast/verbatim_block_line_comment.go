@@ -8,11 +8,14 @@ type VerbatimBlockLineComment struct {
 	ChildNodes []Node
 }
 
-func parseVerbatimBlockLineComment(line string) *VerbatimBlockLineComment {
+func parseVerbatimBlockLineComment(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> Text="(?P<text>.*?)"`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &VerbatimBlockLineComment{
 		Addr:       ParseAddress(groups["address"]),

@@ -10,7 +10,7 @@ type NoThrowAttr struct {
 	Inherited  bool
 }
 
-func parseNoThrowAttr(line string) *NoThrowAttr {
+func parseNoThrowAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<inherited> Inherited)?
@@ -18,6 +18,9 @@ func parseNoThrowAttr(line string) *NoThrowAttr {
 		`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &NoThrowAttr{
 		Addr:       ParseAddress(groups["address"]),

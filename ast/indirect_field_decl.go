@@ -13,7 +13,7 @@ type IndirectFieldDecl struct {
 	ChildNodes []Node
 }
 
-func parseIndirectFieldDecl(line string) *IndirectFieldDecl {
+func parseIndirectFieldDecl(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<position2> [^ ]+:[\d:]+)?
@@ -22,6 +22,9 @@ func parseIndirectFieldDecl(line string) *IndirectFieldDecl {
 		 '(?P<type>.+?)'`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &IndirectFieldDecl{
 		Addr:       ParseAddress(groups["address"]),

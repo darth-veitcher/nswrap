@@ -11,11 +11,14 @@ type MaxFieldAlignmentAttr struct {
 	ChildNodes []Node
 }
 
-func parseMaxFieldAlignmentAttr(line string) *MaxFieldAlignmentAttr {
+func parseMaxFieldAlignmentAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> Implicit (?P<size>\d*)`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &MaxFieldAlignmentAttr{
 		Addr:       ParseAddress(groups["address"]),

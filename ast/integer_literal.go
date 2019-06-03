@@ -9,11 +9,14 @@ type IntegerLiteral struct {
 	ChildNodes []Node
 }
 
-func parseIntegerLiteral(line string) *IntegerLiteral {
+func parseIntegerLiteral(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type>.*?)' (?P<value>\\d+)",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &IntegerLiteral{
 		Addr:       ParseAddress(groups["address"]),

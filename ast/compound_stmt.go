@@ -10,11 +10,14 @@ type CompoundStmt struct {
 	BelongsToSwitch bool
 }
 
-func parseCompoundStmt(line string) *CompoundStmt {
+func parseCompoundStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &CompoundStmt{
 		Addr:            ParseAddress(groups["address"]),

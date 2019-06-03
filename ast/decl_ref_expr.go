@@ -15,7 +15,7 @@ type DeclRefExpr struct {
 	ChildNodes []Node
 }
 
-func parseDeclRefExpr(line string) *DeclRefExpr {
+func parseDeclRefExpr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		 '(?P<type>.*?)'(:'(?P<type1>.*?)')?
@@ -28,6 +28,9 @@ func parseDeclRefExpr(line string) *DeclRefExpr {
 		`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &DeclRefExpr{
 		Addr:       ParseAddress(groups["address"]),

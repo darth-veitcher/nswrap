@@ -7,11 +7,14 @@ type WeakAttr struct {
 	ChildNodes []Node
 }
 
-func parseWeakAttr(line string) *WeakAttr {
+func parseWeakAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &WeakAttr{
 		Addr:       ParseAddress(groups["address"]),

@@ -9,12 +9,15 @@ type FormatArgAttr struct {
 	ChildNodes []Node
 }
 
-func parseFormatArgAttr(line string) *FormatArgAttr {
+func parseFormatArgAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		 *(?P<arg>\d+)`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &FormatArgAttr{
 		Addr:       ParseAddress(groups["address"]),

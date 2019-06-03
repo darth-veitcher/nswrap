@@ -8,11 +8,14 @@ type TypedefType struct {
 	ChildNodes []Node
 }
 
-func parseTypedefType(line string) *TypedefType {
+func parseTypedefType(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<type>.*)' (?P<tags>.+)",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &TypedefType{
 		Addr:       ParseAddress(groups["address"]),

@@ -8,11 +8,14 @@ type MallocAttr struct {
 	ChildNodes []Node
 }
 
-func parseMallocAttr(line string) *MallocAttr {
+func parseMallocAttr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &MallocAttr{
 		Addr:       ParseAddress(groups["address"]),

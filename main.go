@@ -24,6 +24,7 @@ type conf struct {
 	Package string
 	Inputfiles []string
 	Astfile string
+	Debugast bool
 	Classes []string
 	Functions []string
 	Enums []string
@@ -49,10 +50,25 @@ type treeNode struct {
 	node   ast.Node
 }
 
+func printLinesWithContext(lines []string,i int) {
+	b := i - 3
+	if b < 0 { b = 0 }
+	var flag string
+	for x := b; (x < b + 6) && (x < len(lines)); x++ {
+		if x == i {
+			flag = "--> "
+		} else {
+			flag = "    "
+		}
+		fmt.Printf("%s%s\n",flag,lines[x])
+	}
+}
+
 func convertLinesToNodes(lines []string) []treeNode {
 	nodes := make([]treeNode, len(lines))
 	var counter int
-	for _, line := range lines {
+	unknowns := 0
+	for i, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
@@ -66,9 +82,27 @@ func convertLinesToNodes(lines []string) []treeNode {
 		indentLevel := (len(line) - len(trimmed)) / 2
 		nodes[counter] = treeNode{indentLevel, node}
 		counter++
+		if !Config.Debugast {
+			continue
+		}
+		switch node.(type) {
+		case *ast.Unknown:
+			fmt.Printf("Unrecognized node:\n")
+			printLinesWithContext(lines,i)
+			fmt.Printf("\n")
+			unknowns++
+			if unknowns > 5 {
+				fmt.Printf("nswrap failed due to unrecognized nodes.\n")
+				os.Exit(-1)
+			}
+		}
 	}
 	nodes = nodes[0:counter]
 
+	if Config.Debugast && unknowns > 0 {
+		fmt.Printf("\nswrap failed due to unrecognized nodes.\n")
+		os.Exit(-1)
+	}
 	return nodes
 }
 
@@ -281,12 +315,10 @@ func main() {
 		fmt.Printf("%s\n\nFATAL ERROR: Configuration file must be present in directory where nswrap\nis invoked.\n",err)
 		os.Exit(-1)
 	}
-	if err = yaml.Unmarshal(confbytes,&Config); err != nil {
+	if err = yaml.UnmarshalStrict(confbytes,&Config); err != nil {
 		fmt.Printf("Cannot decode config file nswrap.yaml. %s\n",err)
 		os.Exit(-1)
 	}
-	fmt.Printf("Package = %s\n",Config.Package)
-	fmt.Printf("Astfile = %s\n",Config.Astfile)
 	if err := Start(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(-1)

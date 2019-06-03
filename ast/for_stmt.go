@@ -7,11 +7,14 @@ type ForStmt struct {
 	ChildNodes []Node
 }
 
-func parseForStmt(line string) *ForStmt {
+func parseForStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ForStmt{
 		Addr:       ParseAddress(groups["address"]),

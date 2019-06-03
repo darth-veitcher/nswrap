@@ -7,11 +7,14 @@ type ReturnStmt struct {
 	ChildNodes []Node
 }
 
-func parseReturnStmt(line string) *ReturnStmt {
+func parseReturnStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &ReturnStmt{
 		Addr:       ParseAddress(groups["address"]),

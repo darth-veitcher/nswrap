@@ -8,11 +8,14 @@ type AlwaysInlineAttr struct {
 	ChildNodes []Node
 }
 
-func parseAlwaysInlineAttr(line string) *AlwaysInlineAttr {
+func parseAlwaysInlineAttr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> always_inline",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &AlwaysInlineAttr{
 		Addr:       ParseAddress(groups["address"]),

@@ -19,13 +19,16 @@ type NonNullAttr struct {
 	ChildNodes []Node
 }
 
-func parseNonNullAttr(line string) *NonNullAttr {
+func parseNonNullAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<inherited> Inherited)?
 		(?P<a> \d+)?(?P<b> \d+)?(?P<c> \d+)?(?P<d> \d+)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	a := 0
 	if groups["a"] != "" {

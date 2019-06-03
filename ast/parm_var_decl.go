@@ -18,7 +18,7 @@ type ParmVarDecl struct {
 	ChildNodes   []Node
 }
 
-func parseParmVarDecl(line string) *ParmVarDecl {
+func parseParmVarDecl(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<position2> [^ ]+:[\d:]+)?
@@ -31,6 +31,9 @@ func parseParmVarDecl(line string) *ParmVarDecl {
 		`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	/*type2 := groups["type2"]
 	if type2 != "" {

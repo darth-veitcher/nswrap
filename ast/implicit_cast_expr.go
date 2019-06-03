@@ -13,7 +13,7 @@ type ImplicitCastExpr struct {
 // ImplicitCastExprArrayToPointerDecay - constant
 const ImplicitCastExprArrayToPointerDecay = "ArrayToPointerDecay"
 
-func parseImplicitCastExpr(line string) *ImplicitCastExpr {
+func parseImplicitCastExpr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		 '(?P<type>.*?)'
@@ -22,6 +22,9 @@ func parseImplicitCastExpr(line string) *ImplicitCastExpr {
 		( part_of_explicit_cast)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ImplicitCastExpr{
 		Addr:       ParseAddress(groups["address"]),

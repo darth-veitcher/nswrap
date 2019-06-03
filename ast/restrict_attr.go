@@ -9,11 +9,14 @@ type RestrictAttr struct {
 	ChildNodes []Node
 }
 
-func parseRestrictAttr(line string) *RestrictAttr {
+func parseRestrictAttr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> (?P<name>.+)",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &RestrictAttr{
 		Addr:       ParseAddress(groups["address"]),

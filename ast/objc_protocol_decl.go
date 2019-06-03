@@ -13,7 +13,7 @@ type ObjCProtocolDecl struct {
 	ChildNodes   []Node
 }
 
-func parseObjCProtocolDecl(line string) *ObjCProtocolDecl {
+func parseObjCProtocolDecl(line string) Node {
 	groups := groupsFromRegex(
                 `(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position>.*<scratch space>.*?|.*<built-in>.*?|.*<invalid sloc>|.*?)>
@@ -21,6 +21,9 @@ func parseObjCProtocolDecl(line string) *ObjCProtocolDecl {
 		(?P<name>.*?)`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCProtocolDecl{
 		Addr:         ParseAddress(groups["address"]),

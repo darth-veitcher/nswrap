@@ -15,11 +15,14 @@ type StringLiteral struct {
 	ChildNodes []Node
 }
 
-func parseStringLiteral(line string) *StringLiteral {
+func parseStringLiteral(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> '(?P<type>.*)' lvalue (?P<value>".*")`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	s, err := strconv.Unquote(groups["value"])
 	if err != nil {

@@ -8,11 +8,14 @@ type OffsetOfExpr struct {
 	ChildNodes []Node
 }
 
-func parseOffsetOfExpr(line string) *OffsetOfExpr {
+func parseOffsetOfExpr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type>.*)'",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &OffsetOfExpr{
 		Addr:       ParseAddress(groups["address"]),

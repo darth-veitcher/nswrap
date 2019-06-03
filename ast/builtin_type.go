@@ -7,11 +7,14 @@ type BuiltinType struct {
 	ChildNodes []Node
 }
 
-func parseBuiltinType(line string) *BuiltinType {
+func parseBuiltinType(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<type>.*?)'",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &BuiltinType{
 		Addr:       ParseAddress(groups["address"]),

@@ -13,7 +13,7 @@ type UnavailableAttr struct {
 	ChildNodes   []Node
 }
 
-func parseUnavailableAttr(line string) *UnavailableAttr {
+func parseUnavailableAttr(line string) Node {
 	groups := groupsFromRegex(
 		`(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position><invalid sloc>|.*?)>
@@ -21,6 +21,9 @@ func parseUnavailableAttr(line string) *UnavailableAttr {
 		(?P<content>.*)`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &UnavailableAttr{
 		Addr:         ParseAddress(groups["address"]),

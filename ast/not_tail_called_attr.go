@@ -8,11 +8,14 @@ type NotTailCalledAttr struct {
 	ChildNodes []Node
 }
 
-func parseNotTailCalledAttr(line string) *NotTailCalledAttr {
+func parseNotTailCalledAttr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &NotTailCalledAttr{
 		Addr:       ParseAddress(groups["address"]),

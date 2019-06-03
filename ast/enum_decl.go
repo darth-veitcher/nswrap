@@ -15,7 +15,7 @@ type EnumDecl struct {
 	ChildNodes []Node
 }
 
-func parseEnumDecl(line string) *EnumDecl {
+func parseEnumDecl(line string) Node {
 	groups := groupsFromRegex(
 		`(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position>.*)>
@@ -25,6 +25,9 @@ func parseEnumDecl(line string) *EnumDecl {
 		(?P<type2>:'.*')?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	/*type2 := groups["type2"]
 	if type2 != "" {

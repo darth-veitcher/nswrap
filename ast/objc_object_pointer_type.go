@@ -7,11 +7,14 @@ type ObjCObjectPointerType struct {
 	ChildNodes []Node
 }
 
-func parseObjCObjectPointerType(line string) *ObjCObjectPointerType {
+func parseObjCObjectPointerType(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<type>.*)'",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCObjectPointerType{
 		Addr:       ParseAddress(groups["address"]),

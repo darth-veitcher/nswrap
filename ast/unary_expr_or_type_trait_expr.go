@@ -11,7 +11,7 @@ type UnaryExprOrTypeTraitExpr struct {
 	ChildNodes []Node
 }
 
-func parseUnaryExprOrTypeTraitExpr(line string) *UnaryExprOrTypeTraitExpr {
+func parseUnaryExprOrTypeTraitExpr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		 '(?P<type1>.+?)'
@@ -21,6 +21,9 @@ func parseUnaryExprOrTypeTraitExpr(line string) *UnaryExprOrTypeTraitExpr {
 		`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &UnaryExprOrTypeTraitExpr{
 		Addr:       ParseAddress(groups["address"]),

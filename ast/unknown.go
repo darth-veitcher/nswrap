@@ -9,7 +9,6 @@ type Unknown struct {
 	Name         string
 	Addr         Address
 	Pos          Position
-	Position2    string
 	Content      string
 	ChildNodes   []Node
 }
@@ -18,19 +17,14 @@ func parseUnknown(name, line string) *Unknown {
 	groups := groupsFromRegex(
                 `(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position>.*<scratch space>.*?|.*<built-in>.*?|.*<invalid sloc>|.*?)>
-		(?P<position2> <invalid sloc>| col:\d+| line:\d+:\d+)?
 		(?P<content>.*)`,
 		line,
 	)
-/*
-		(?P<position2> <invalid sloc>| col:\d+| line:\d+:\d+)?
-*/
 
 	return &Unknown{
 		Name:         name,
 		Addr:         ParseAddress(groups["address"]),
 		Pos:          NewPositionFromString(groups["position"]),
-		//Position2:    strings.TrimSpace(groups["position2"]),
 		Content:      groups["content"],
 		ChildNodes:   []Node{},
 	}

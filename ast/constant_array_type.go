@@ -12,11 +12,14 @@ type ConstantArrayType struct {
 	ChildNodes []Node
 }
 
-func parseConstantArrayType(line string) *ConstantArrayType {
+func parseConstantArrayType(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<type>.*)' (?P<size>\\d+)",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ConstantArrayType{
 		Addr:       ParseAddress(groups["address"]),

@@ -9,11 +9,14 @@ type AlignedAttr struct {
 	ChildNodes []Node
 }
 
-func parseAlignedAttr(line string) *AlignedAttr {
+func parseAlignedAttr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>(?P<aligned> aligned)?",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &AlignedAttr{
 		Addr:       ParseAddress(groups["address"]),

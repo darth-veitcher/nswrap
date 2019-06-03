@@ -8,11 +8,14 @@ type ElaboratedType struct {
 	ChildNodes []Node
 }
 
-func parseElaboratedType(line string) *ElaboratedType {
+func parseElaboratedType(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<type>.*?)' (?P<tags>.+)",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ElaboratedType{
 		Addr:       ParseAddress(groups["address"]),

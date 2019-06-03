@@ -7,8 +7,11 @@ type CaseStmt struct {
 	ChildNodes []Node
 }
 
-func parseCaseStmt(line string) *CaseStmt {
+func parseCaseStmt(line string) Node {
 	groups := groupsFromRegex(`<(?P<position>.*)>`, line)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &CaseStmt{
 		Addr:       ParseAddress(groups["address"]),

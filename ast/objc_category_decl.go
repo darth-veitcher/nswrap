@@ -14,7 +14,7 @@ type ObjCCategoryDecl struct {
 	ChildNodes   []Node
 }
 
-func parseObjCCategoryDecl(line string) *ObjCCategoryDecl {
+func parseObjCCategoryDecl(line string) Node {
 	groups := groupsFromRegex(
 		`(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position><invalid sloc>|.*)>
@@ -22,6 +22,9 @@ func parseObjCCategoryDecl(line string) *ObjCCategoryDecl {
 		(?P<name> \w+)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCCategoryDecl{
 		Addr:         ParseAddress(groups["address"]),

@@ -8,11 +8,14 @@ type ConditionalOperator struct {
 	ChildNodes []Node
 }
 
-func parseConditionalOperator(line string) *ConditionalOperator {
+func parseConditionalOperator(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)> '(?P<type>.*?)'`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ConditionalOperator{
 		Addr:       ParseAddress(groups["address"]),

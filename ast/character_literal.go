@@ -13,11 +13,14 @@ type CharacterLiteral struct {
 	ChildNodes []Node
 }
 
-func parseCharacterLiteral(line string) *CharacterLiteral {
+func parseCharacterLiteral(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type>.*?)' (?P<value>\\d+)",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &CharacterLiteral{
 		Addr:       ParseAddress(groups["address"]),

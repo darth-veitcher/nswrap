@@ -16,7 +16,7 @@ type RecordDecl struct {
 	ChildNodes []Node
 }
 
-func parseRecordDecl(line string) *RecordDecl {
+func parseRecordDecl(line string) Node {
 	groups := groupsFromRegex(
 		`(?:parent (?P<parent>0x[0-9a-f]+) )?
 		(?:prev (?P<prev>0x[0-9a-f]+) )?
@@ -26,6 +26,9 @@ func parseRecordDecl(line string) *RecordDecl {
 		(?P<name>.*)`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	definition := false
 	name := strings.TrimSpace(groups["name"])

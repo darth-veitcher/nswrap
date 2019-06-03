@@ -7,11 +7,14 @@ type DoStmt struct {
 	ChildNodes []Node
 }
 
-func parseDoStmt(line string) *DoStmt {
+func parseDoStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &DoStmt{
 		Addr:       ParseAddress(groups["address"]),

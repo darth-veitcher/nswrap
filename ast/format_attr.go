@@ -17,7 +17,7 @@ type FormatAttr struct {
 	ChildNodes   []Node
 }
 
-func parseFormatAttr(line string) *FormatAttr {
+func parseFormatAttr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<implicit> Implicit)?
@@ -27,6 +27,9 @@ func parseFormatAttr(line string) *FormatAttr {
 		 (?P<unknown2>\d+)`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &FormatAttr{
 		Addr:         ParseAddress(groups["address"]),

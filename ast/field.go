@@ -8,11 +8,14 @@ type Field struct {
 	ChildNodes []Node
 }
 
-func parseField(line string) *Field {
+func parseField(line string) Node {
 	groups := groupsFromRegex(
 		`'(?P<string1>.*?)' '(?P<string2>.*?)'`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &Field{
 		Addr:       ParseAddress(groups["address"]),

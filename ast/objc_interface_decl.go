@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// ObjCInterfaceDecl is node represents a typedef declaration.
+// ObjCInterfaceDecl
 type ObjCInterfaceDecl struct {
 	Addr         Address
 	Pos          Position
@@ -15,7 +15,7 @@ type ObjCInterfaceDecl struct {
 	ChildNodes   []Node
 }
 
-func parseObjCInterfaceDecl(line string) *ObjCInterfaceDecl {
+func parseObjCInterfaceDecl(line string) Node {
 	groups := groupsFromRegex(
 		`(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position><invalid sloc>|.*)>
@@ -24,6 +24,9 @@ func parseObjCInterfaceDecl(line string) *ObjCInterfaceDecl {
 		(?P<name> \w+)?`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCInterfaceDecl{
 		Addr:         ParseAddress(groups["address"]),

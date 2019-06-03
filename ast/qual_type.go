@@ -8,11 +8,14 @@ type QualType struct {
 	ChildNodes []Node
 }
 
-func parseQualType(line string) *QualType {
+func parseQualType(line string) Node {
 	groups := groupsFromRegex(
 		"'(?P<type>.*)' (?P<kind>.*)",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &QualType{
 		Addr:       ParseAddress(groups["address"]),

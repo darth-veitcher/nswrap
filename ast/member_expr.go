@@ -14,7 +14,7 @@ type MemberExpr struct {
 	ChildNodes []Node
 }
 
-func parseMemberExpr(line string) *MemberExpr {
+func parseMemberExpr(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		 '(?P<type>.*?)'
@@ -26,6 +26,9 @@ func parseMemberExpr(line string) *MemberExpr {
 		 (?P<address2>[0-9a-fx]+)`,
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	type2 := groups["type2"]
 	if type2 != "" {

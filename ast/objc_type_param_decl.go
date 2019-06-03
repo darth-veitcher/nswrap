@@ -18,7 +18,7 @@ type ObjCTypeParamDecl struct {
 	ChildNodes   []Node
 }
 
-func parseObjCTypeParamDecl(line string) *ObjCTypeParamDecl {
+func parseObjCTypeParamDecl(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
 		(?P<position2> [^ ]+:[\d:]+)?
@@ -31,6 +31,9 @@ func parseObjCTypeParamDecl(line string) *ObjCTypeParamDecl {
 		`,
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	/*type2 := groups["type2"]
 	if type2 != "" {

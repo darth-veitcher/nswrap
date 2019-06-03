@@ -8,8 +8,11 @@ type ParenType struct {
 	ChildNodes []Node
 }
 
-func parseParenType(line string) *ParenType {
+func parseParenType(line string) Node {
 	groups := groupsFromRegex(`'(?P<type>.*?)' sugar`, line)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &ParenType{
 		Addr:       ParseAddress(groups["address"]),

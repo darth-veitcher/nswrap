@@ -9,11 +9,14 @@ type InitListExpr struct {
 	ChildNodes []Node
 }
 
-func parseInitListExpr(line string) *InitListExpr {
+func parseInitListExpr(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)> '(?P<type1>.*?)'(:'(?P<type2>.*)')?",
 		line,
 	)
+        if groups == nil {
+                return &Unknown{}
+        }
 
 	return &InitListExpr{
 		Addr:       ParseAddress(groups["address"]),

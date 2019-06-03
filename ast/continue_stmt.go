@@ -7,11 +7,14 @@ type ContinueStmt struct {
 	ChildNodes []Node
 }
 
-func parseContinueStmt(line string) *ContinueStmt {
+func parseContinueStmt(line string) Node {
 	groups := groupsFromRegex(
 		"<(?P<position>.*)>",
 		line,
 	)
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ContinueStmt{
 		Addr:       ParseAddress(groups["address"]),
