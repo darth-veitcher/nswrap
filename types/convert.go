@@ -192,9 +192,10 @@ func _goType(ct string) string {
 	if IsGoInterface(ct) {
 		return ct
 	}
+	/*
 	if ct == "Id" {
 		ct = "Id"
-	}
+	}*/
 	if len(ct) > 1 && ShouldWrap(ct[1:]) {
 		return ct[1:]
 	}
@@ -296,7 +297,7 @@ func (t *Type) IsFunctionPtr() bool {
 
 func (t *Type) IsFunction() bool {
 	if t == nil {
-		fmt.Println("nil sent to IsFunction()")
+		//fmt.Println("nil sent to IsFunction()")
 		return false
 	}
 	if td := t.Typedef(); td != nil {
@@ -316,6 +317,9 @@ func (t *Type) IsValist() bool {
 }
 
 func (t *Type) ReturnType() *Type {
+	if td := t.Typedef(); td != nil {
+		return td.ReturnType()
+	}
 	if rt := t.Node.ReturnType(); rt != nil {
 		return NewType(rt,t.Class)
 	}
@@ -323,6 +327,9 @@ func (t *Type) ReturnType() *Type {
 }
 
 func (t *Type) IsPointer() bool {
+	if t == nil {
+		return false
+	}
 	if td := t.Typedef(); td != nil {
 		return td.IsPointer()
 	}
@@ -340,7 +347,7 @@ func (t *Type) CToGo(cval string) string {
 // Call a C function from Go with a given return type and parameter types
 func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fun bool) string {
 	if rtype == nil {
-		fmt.Println("nil sent to GoToC")
+		//fmt.Println("nil sent to GoToC")
 		return ""
 	}
 	var ret strings.Builder

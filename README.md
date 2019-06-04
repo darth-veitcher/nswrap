@@ -238,15 +238,14 @@ not necessary because `NSButton` embeds `NSControl` which in turn embeds
 receivers. Go will automatically find the indirectly embedded `NSView` and
 call the right method.
 
-Go's type inference appears to be slightly broken (as of 1.12.1) because
-the following does not work. Look out for this if you like to chain your
+Note that, since `InitWithFrame()` is defined only for `NSView` and returns
+an `NSView` type,
+the following will not work. Look out for this if you like to chain your
 `Alloc` and `Init` methods and are getting type errors:
 
 ```go
-//DO NOT DO THIS
+//DO NOT DO THIS -- InitWithFrame returns NSView, not NSButton
 b := ns.NSButtonAlloc().InitWithFrame(ns.MakeRect(100,100,200,200))
-//For some reason Go thinks b has type ns.NSView, because InitWithFrame is defined for ns.NSView,
-//even though NSButtonAlloc() returns an ns.NSButton.
 ```
 
 Go has no trouble finding embedded methods for your `NSButton` and will
