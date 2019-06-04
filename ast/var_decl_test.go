@@ -5,8 +5,9 @@ import (
 )
 
 func TestVarDecl(t *testing.T) {
-	nodes := map[string]Node{
-		`0x7fd5e90e5a00 <col:14> col:17 'int'`: &VarDecl{
+	nodes := map[string]testNode{
+		`0x7fd5e90e5a00 <col:14> col:17 'int'`:
+		testNode{&VarDecl{
 			Addr:         0x7fd5e90e5a00,
 			Pos:          NewPositionFromString("col:14"),
 			Position2:    "col:17",
@@ -22,7 +23,12 @@ func TestVarDecl(t *testing.T) {
 			Parent:       0,
 			ChildNodes:   []Node{},
 		},
-		`0x7fd5e90e9078 <line:156:1, col:14> col:14 __stdinp 'FILE *' extern`: &VarDecl{
+		0x7fd5e90e5a00,
+		NewPositionFromString("col:14"),
+		[]Node{},
+		},
+		`0x7fd5e90e9078 <line:156:1, col:14> col:14 __stdinp 'FILE *' extern`:
+		testNode{&VarDecl{
 			Addr:         0x7fd5e90e9078,
 			Pos:          NewPositionFromString("line:156:1, col:14"),
 			Position2:    "col:14",
@@ -38,7 +44,12 @@ func TestVarDecl(t *testing.T) {
 			Parent:       0,
 			ChildNodes:   []Node{},
 		},
-		`0x7fd5e90ed630 <col:40, col:47> col:47 __size 'size_t':'unsigned long'`: &VarDecl{
+		0x7fd5e90e9078,
+		NewPositionFromString("line:156:1, col:14"),
+		[]Node{},
+		},
+		`0x7fd5e90ed630 <col:40, col:47> col:47 __size 'size_t':'unsigned long'`:
+		testNode{&VarDecl{
 			Addr:         0x7fd5e90ed630,
 			Pos:          NewPositionFromString("col:40, col:47"),
 			Position2:    "col:47",
@@ -54,7 +65,12 @@ func TestVarDecl(t *testing.T) {
 			Parent:       0,
 			ChildNodes:   []Node{},
 		},
-		`0x7fee35907a78 <col:4, col:8> col:8 used c 'int'`: &VarDecl{
+		0x7fd5e90ed630,
+		NewPositionFromString("col:40, col:47"),
+		[]Node{},
+		},
+		`0x7fee35907a78 <col:4, col:8> col:8 used c 'int'`:
+		testNode{&VarDecl{
 			Addr:         0x7fee35907a78,
 			Pos:          NewPositionFromString("col:4, col:8"),
 			Position2:    "col:8",
@@ -70,7 +86,12 @@ func TestVarDecl(t *testing.T) {
 			Parent:       0,
 			ChildNodes:   []Node{},
 		},
-		`0x7fb0fd90ba30 <col:3, /usr/include/sys/_types.h:52:33> tests/assert/assert.c:13:9 used b 'int *' cinit`: &VarDecl{
+		0x7fee35907a78,
+		NewPositionFromString("col:4, col:8"),
+		[]Node{},
+		},
+		`0x7fb0fd90ba30 <col:3, /usr/include/sys/_types.h:52:33> tests/assert/assert.c:13:9 used b 'int *' cinit`:
+		testNode{&VarDecl{
 			Addr:         0x7fb0fd90ba30,
 			Pos:          NewPositionFromString("col:3, /usr/include/sys/_types.h:52:33"),
 			Position2:    "tests/assert/assert.c:13:9",
@@ -86,7 +107,12 @@ func TestVarDecl(t *testing.T) {
 			Parent:       0,
 			ChildNodes:   []Node{},
 		},
-		`0x7fb20308bd40 <col:5, col:11> col:11 referenced a 'short'`: &VarDecl{
+		0x7fb0fd90ba30,
+		NewPositionFromString("col:3, /usr/include/sys/_types.h:52:33"),
+		[]Node{},
+		},
+		`0x7fb20308bd40 <col:5, col:11> col:11 referenced a 'short'`:
+		testNode{&VarDecl{
 			Addr:         0x7fb20308bd40,
 			Pos:          NewPositionFromString("col:5, col:11"),
 			Position2:    "col:11",
@@ -102,7 +128,12 @@ func TestVarDecl(t *testing.T) {
 			Parent:       0,
 			ChildNodes:   []Node{},
 		},
-		`0x55a040ddd798 <sqlite3.c:66:1, line:770:1> line:66:27 used sqlite3azCompileOpt 'const char *const [2]' static cinit`: &VarDecl{
+		0x7fb20308bd40,
+		NewPositionFromString("col:5, col:11"),
+		[]Node{},
+		},
+		`0x55a040ddd798 <sqlite3.c:66:1, line:770:1> line:66:27 used sqlite3azCompileOpt 'const char *const [2]' static cinit`:
+		testNode{&VarDecl{
 			Addr:         0x55a040ddd798,
 			Pos:          NewPositionFromString("sqlite3.c:66:1, line:770:1"),
 			Position2:    "line:66:27",
@@ -118,7 +149,12 @@ func TestVarDecl(t *testing.T) {
 			Parent:       0,
 			ChildNodes:   []Node{},
 		},
-		`0x55772c7774d0 <col:3, col:27> col:27 used a 'unsigned char *' register`: &VarDecl{
+		0x55a040ddd798,
+		NewPositionFromString("sqlite3.c:66:1, line:770:1"),
+		[]Node{},
+		},
+		`0x55772c7774d0 <col:3, col:27> col:27 used a 'unsigned char *' register`:
+		testNode{&VarDecl{
 			Addr:         0x55772c7774d0,
 			Pos:          NewPositionFromString("col:3, col:27"),
 			Position2:    "col:27",
@@ -134,7 +170,12 @@ func TestVarDecl(t *testing.T) {
 			Parent:       0,
 			ChildNodes:   []Node{},
 		},
-		`0x26fd180 <col:4, col:32> col:13 used aExt 'extCoord':'extCoord' cinit`: &VarDecl{
+		0x55772c7774d0,
+		NewPositionFromString("col:3, col:27"),
+		[]Node{},
+		},
+		`0x26fd180 <col:4, col:32> col:13 used aExt 'extCoord':'extCoord' cinit`:
+		testNode{&VarDecl{
 			Addr:         0x26fd180,
 			Pos:          NewPositionFromString("col:4, col:32"),
 			Position2:    "col:13",
@@ -150,7 +191,12 @@ func TestVarDecl(t *testing.T) {
 			Parent:       0,
 			ChildNodes:   []Node{},
 		},
-		`0x7f985e0ffb10 parent 0x7f985e0246d0 <col:3, col:20> col:20 used DEFAULT_MEM_ALLOCATOR 'cmark_mem':'struct cmark_mem' extern`: &VarDecl{
+		0x26fd180,
+		NewPositionFromString("col:4, col:32"),
+		[]Node{},
+		},
+		`0x7f985e0ffb10 parent 0x7f985e0246d0 <col:3, col:20> col:20 used DEFAULT_MEM_ALLOCATOR 'cmark_mem':'struct cmark_mem' extern`:
+		testNode{&VarDecl{
 			Addr:         0x7f985e0ffb10,
 			Pos:          NewPositionFromString("col:3, col:20"),
 			Position2:    "col:20",
@@ -165,6 +211,10 @@ func TestVarDecl(t *testing.T) {
 			IsRegister:   false,
 			Parent:       0x7f985e0246d0,
 			ChildNodes:   []Node{},
+		},
+		0x7f985e0ffb10,
+		NewPositionFromString("col:3, col:20"),
+		[]Node{},
 		},
 	}
 

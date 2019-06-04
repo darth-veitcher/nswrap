@@ -40,11 +40,6 @@ func parseObjCTypeParamDecl(line string) Node {
 		type2 = type2[2 : len(type2)-1]
 	}*/
 
-	if strings.Index(groups["position"], "<invalid sloc>") > -1 {
-		groups["position"] = "<invalid sloc>"
-		groups["position2"] = "<invalid sloc>"
-	}
-
 	return &ObjCTypeParamDecl{
 		Addr:         ParseAddress(groups["address"]),
 	        Pos:          NewPositionFromString(groups["position"]),

@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -107,3 +108,22 @@ func TestNewPositionFromString(t *testing.T) {
 		})
 	}
 }
+
+func TestTrackPositions(t *testing.T) {
+	TrackPositions = false
+	t.Run("TrackPositions1", func(t *testing.T) {
+		pos := NewPositionFromString("line:120:1, col:16")
+		if !reflect.DeepEqual(pos,Position{}) {
+			t.Errorf("TrackPositions = false but NewPositionFromString did not return Position{}\n")
+		}
+	})
+
+	t.Run("TrackPositions2", func(t *testing.T) {
+		addr := ParseAddress("0x7fdef0862430")
+		if addr != 0 {
+			t.Errorf("TrackPositions = false but ParseAddress did not return 0\n")
+		}
+	})
+	TrackPositions = true
+}
+

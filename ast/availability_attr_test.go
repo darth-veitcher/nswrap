@@ -5,8 +5,9 @@ import (
 )
 
 func TestAvailabilityAttr(t *testing.T) {
-	nodes := map[string]Node{
-		`0x7fc5ff8e5d18 </usr/include/AvailabilityInternal.h:21697:88, col:124> macos 10.10 0 0 "" ""`: &AvailabilityAttr{
+	nodes := map[string]testNode{
+		`0x7fc5ff8e5d18 </usr/include/AvailabilityInternal.h:21697:88, col:124> macos 10.10 0 0 "" ""`:
+		testNode{&AvailabilityAttr{
 			Addr:          0x7fc5ff8e5d18,
 			Pos:           NewPositionFromString("/usr/include/AvailabilityInternal.h:21697:88, col:124"),
 			OS:            "macos",
@@ -19,7 +20,12 @@ func TestAvailabilityAttr(t *testing.T) {
 			IsInherited:   false,
 			ChildNodes:    []Node{},
 		},
-		`0x7fc5ff8e60d0 </usr/include/Availability.h:215:81, col:115> watchos 3.0 0 0 "" ""`: &AvailabilityAttr{
+		0x7fc5ff8e5d18,
+		NewPositionFromString("/usr/include/AvailabilityInternal.h:21697:88, col:124"),
+		[]Node{},
+		},
+		`0x7fc5ff8e60d0 </usr/include/Availability.h:215:81, col:115> watchos 3.0 0 0 "" ""`:
+		testNode{&AvailabilityAttr{
 			Addr:          0x7fc5ff8e60d0,
 			Pos:           NewPositionFromString("/usr/include/Availability.h:215:81, col:115"),
 			OS:            "watchos",
@@ -32,7 +38,12 @@ func TestAvailabilityAttr(t *testing.T) {
 			IsInherited:   false,
 			ChildNodes:    []Node{},
 		},
-		`0x7fc5ff8e6170 <col:81, col:115> tvos 10.0 0 0 "" ""`: &AvailabilityAttr{
+		0x7fc5ff8e60d0,
+		NewPositionFromString("/usr/include/Availability.h:215:81, col:115"),
+		[]Node{},
+		},
+		`0x7fc5ff8e6170 <col:81, col:115> tvos 10.0 0 0 "" ""`:
+		testNode{&AvailabilityAttr{
 			Addr:          0x7fc5ff8e6170,
 			Pos:           NewPositionFromString("col:81, col:115"),
 			OS:            "tvos",
@@ -45,7 +56,12 @@ func TestAvailabilityAttr(t *testing.T) {
 			IsInherited:   false,
 			ChildNodes:    []Node{},
 		},
-		`0x7fc5ff8e61d8 <col:81, col:115> ios 10.0 0 0 "" ""`: &AvailabilityAttr{
+		0x7fc5ff8e6170,
+		NewPositionFromString("col:81, col:115"),
+		[]Node{},
+		},
+		`0x7fc5ff8e61d8 <col:81, col:115> ios 10.0 0 0 "" ""`:
+		testNode{&AvailabilityAttr{
 			Addr:          0x7fc5ff8e61d8,
 			Pos:           NewPositionFromString("col:81, col:115"),
 			OS:            "ios",
@@ -58,7 +74,12 @@ func TestAvailabilityAttr(t *testing.T) {
 			IsInherited:   false,
 			ChildNodes:    []Node{},
 		},
-		`0x7fc5ff8f0e18 </usr/include/sys/cdefs.h:275:50, col:99> swift 0 0 0 Unavailable "Use snprintf instead." ""`: &AvailabilityAttr{
+		0x7fc5ff8e61d8,
+		NewPositionFromString("col:81, col:115"),
+		[]Node{},
+		},
+		`0x7fc5ff8f0e18 </usr/include/sys/cdefs.h:275:50, col:99> swift 0 0 0 Unavailable "Use snprintf instead." ""`:
+		testNode{&AvailabilityAttr{
 			Addr:          0x7fc5ff8f0e18,
 			Pos:           NewPositionFromString("/usr/include/sys/cdefs.h:275:50, col:99"),
 			OS:            "swift",
@@ -71,7 +92,12 @@ func TestAvailabilityAttr(t *testing.T) {
 			IsInherited:   false,
 			ChildNodes:    []Node{},
 		},
-		`0x7fc5ff8f1988 <line:275:50, col:99> swift 0 0 0 Unavailable "Use mkstemp(3) instead." ""`: &AvailabilityAttr{
+		0x7fc5ff8f0e18,
+		NewPositionFromString("/usr/include/sys/cdefs.h:275:50, col:99"),
+		[]Node{},
+		},
+		`0x7fc5ff8f1988 <line:275:50, col:99> swift 0 0 0 Unavailable "Use mkstemp(3) instead." ""`:
+		testNode{&AvailabilityAttr{
 			Addr:          0x7fc5ff8f1988,
 			Pos:           NewPositionFromString("line:275:50, col:99"),
 			OS:            "swift",
@@ -84,7 +110,12 @@ func TestAvailabilityAttr(t *testing.T) {
 			IsInherited:   false,
 			ChildNodes:    []Node{},
 		},
-		`0x104035438 </usr/include/AvailabilityInternal.h:14571:88, col:124> macosx 10.10 0 0 ""`: &AvailabilityAttr{
+		0x7fc5ff8f1988,
+		NewPositionFromString("line:275:50, col:99"),
+		[]Node{},
+		},
+		`0x104035438 </usr/include/AvailabilityInternal.h:14571:88, col:124> macosx 10.10 0 0 ""`:
+		testNode{&AvailabilityAttr{
 			Addr:          0x104035438,
 			Pos:           NewPositionFromString("/usr/include/AvailabilityInternal.h:14571:88, col:124"),
 			OS:            "macosx",
@@ -97,7 +128,12 @@ func TestAvailabilityAttr(t *testing.T) {
 			IsInherited:   false,
 			ChildNodes:    []Node{},
 		},
-		`0x7f9bd588b1a8 </usr/include/gethostuuid.h:39:65, col:100> Inherited macos 10.5 0 0 "" ""`: &AvailabilityAttr{
+		0x104035438,
+		NewPositionFromString("/usr/include/AvailabilityInternal.h:14571:88, col:124"),
+		[]Node{},
+		},
+		`0x7f9bd588b1a8 </usr/include/gethostuuid.h:39:65, col:100> Inherited macos 10.5 0 0 "" ""`:
+		testNode{&AvailabilityAttr{
 			Addr:          0x7f9bd588b1a8,
 			Pos:           NewPositionFromString("/usr/include/gethostuuid.h:39:65, col:100"),
 			OS:            "macos",
@@ -109,6 +145,10 @@ func TestAvailabilityAttr(t *testing.T) {
 			Message2:      "",
 			IsInherited:   true,
 			ChildNodes:    []Node{},
+		},
+		0x7f9bd588b1a8,
+		NewPositionFromString("/usr/include/gethostuuid.h:39:65, col:100"),
+		[]Node{},
 		},
 	}
 

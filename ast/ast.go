@@ -9,7 +9,10 @@ import (
 	"git.wow.st/gmp/nswrap/util"
 )
 
-var TrackPositions bool = false
+var (
+	TrackPositions bool = false
+	Debug = false
+)
 
 // Node represents any node in the AST.
 type Node interface {
@@ -406,7 +409,9 @@ func groupsFromRegex(rx, line string) map[string]string {
 	re := util.GetRegex(rx)
 	match := re.FindStringSubmatch(line)
 	if len(match) == 0 {
-		fmt.Printf("AST parser: could not match regexp with string. Regexp:\n" + rx + "\nOriginal line:\n" + line + "\n\n")
+		if Debug {
+			fmt.Printf("AST parser: could not match regexp with string. Regexp:\n" + rx + "\nOriginal line:\n" + line + "\n\n")
+		}
 		return nil
 	}
 

@@ -5,9 +5,9 @@ import (
 )
 
 func TestObjCMethodDecl(t *testing.T) {
-	nodes := map[string]Node{
+	nodes := map[string]testNode{
 		`0x7f92a58a7570 <line:17:1, col:27> col:1 - isEqual: 'BOOL':'signed char'`:
-		&ObjCMethodDecl{
+		testNode{&ObjCMethodDecl{
 			Addr:         0x7f92a58a7570,
 			Pos:          NewPositionFromString("line:17:1, col:27"),
 			Position2:    "",
@@ -19,8 +19,12 @@ func TestObjCMethodDecl(t *testing.T) {
 			Implicit:     false,
 			ChildNodes:   []Node{},
 		},
+		0x7f92a58a7570,
+		NewPositionFromString("line:17:1, col:27"),
+		[]Node{},
+		},
 		`0x7f92a58a7978 </usr/include/objc/NSObject.h:22:1, col:21> col:1 - self 'instancetype':'id'`:
-		&ObjCMethodDecl{
+		testNode{&ObjCMethodDecl{
 			Addr:         0x7f92a58a7978,
 			Pos:          NewPositionFromString("/usr/include/objc/NSObject.h:22:1, col:21"),
 			Position2:    "",
@@ -32,8 +36,12 @@ func TestObjCMethodDecl(t *testing.T) {
 			Implicit:     false,
 			ChildNodes:   []Node{},
 		},
+		0x7f92a58a7978,
+		NewPositionFromString("/usr/include/objc/NSObject.h:22:1, col:21"),
+		[]Node{},
+		},
 		`0x7f92a58a82b0 <line:34:1, col:42> col:1 - respondsToSelector: 'BOOL':'signed char'`:
-		&ObjCMethodDecl{
+		testNode{&ObjCMethodDecl{
 			Addr:         0x7f92a58a82b0,
 			Pos:          NewPositionFromString("line:34:1, col:42"),
 			Position2:    "",
@@ -45,8 +53,12 @@ func TestObjCMethodDecl(t *testing.T) {
 			Implicit:     false,
 			ChildNodes:   []Node{},
 		},
+		0x7f92a58a82b0,
+		NewPositionFromString("line:34:1, col:42"),
+		[]Node{},
+		},
 		`0x7f92a58a82b0 <line:34:1, col:42> col:1 + instancesRespondToSelector: 'BOOL':'signed char'`:
-		&ObjCMethodDecl{
+		testNode{&ObjCMethodDecl{
 			Addr:         0x7f92a58a82b0,
 			Pos:          NewPositionFromString("line:34:1, col:42"),
 			Position2:    "",
@@ -58,8 +70,12 @@ func TestObjCMethodDecl(t *testing.T) {
 			Implicit:     false,
 			ChildNodes:   []Node{},
 		},
+		0x7f92a58a82b0,
+		NewPositionFromString("line:34:1, col:42"),
+		[]Node{},
+		},
 		`0x7f92a58a7cd8 <line:26:1, col:83> col:1 - performSelector:withObject:withObject: 'id':'id'`:
-		&ObjCMethodDecl{
+		testNode{&ObjCMethodDecl{
 			Addr:         0x7f92a58a7cd8,
 			Pos:          NewPositionFromString("line:26:1, col:83"),
 			Position2:    "",
@@ -71,8 +87,12 @@ func TestObjCMethodDecl(t *testing.T) {
 			Implicit:     false,
 			ChildNodes:   []Node{},
 		},
+		0x7f92a58a7cd8,
+		NewPositionFromString("line:26:1, col:83"),
+		[]Node{},
+		},
 		`0x7f92a4459318 <line:41:71> col:71 implicit - writableTypeIdentifiersForItemProvider 'NSArray<NSString *> * _Nonnull':'NSArray<NSString *> *'`:
-		&ObjCMethodDecl{
+		testNode{&ObjCMethodDecl{
 			Addr:         0x7f92a4459318,
 			Pos:          NewPositionFromString("line:41:71"),
 			Position2:    "",
@@ -83,6 +103,10 @@ func TestObjCMethodDecl(t *testing.T) {
 			Parameters:   []string{},
 			Implicit:     true,
 			ChildNodes:   []Node{},
+		},
+		0x7f92a4459318,
+		NewPositionFromString("line:41:71"),
+		[]Node{},
 		},
 	}
 

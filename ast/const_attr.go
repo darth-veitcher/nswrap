@@ -14,9 +14,6 @@ func parseConstAttr(line string) Node {
 		"<(?P<position>.*)>(?P<tags>.*)",
 		line,
 	)
-	if groups == nil {
-		return &Unknown{}
-	}
 
 	return &ConstAttr{
 		Addr:       ParseAddress(groups["address"]),

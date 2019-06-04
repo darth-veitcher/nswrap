@@ -319,6 +319,7 @@ func main() {
 		fmt.Printf("Cannot decode config file nswrap.yaml. %s\n",err)
 		os.Exit(-1)
 	}
+	ast.Debug = Config.Debugast
 	if err := Start(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(-1)

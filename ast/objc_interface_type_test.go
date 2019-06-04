@@ -5,12 +5,16 @@ import (
 )
 
 func TestObjCInterfaceType(t *testing.T) {
-	nodes := map[string]Node{
+	nodes := map[string]testNode{
 		`0x7fdef0862430 'NSObject'`:
-		&ObjCInterfaceType{
+		testNode{&ObjCInterfaceType{
 			Addr:         0x7fdef0862430,
 			Type:         "NSObject",
 			ChildNodes:   []Node{},
+		},
+		0x7fdef0862430,
+		NewPositionFromString(""),
+		[]Node{},
 		},
 	}
 

@@ -35,9 +35,20 @@ func init() {
 func MethodSignature(s string, n *Node) (string, *Node) {
 	return ChildOf(NewNode("MethodSignature"),Seq(
 		Parenthesized(TypeName),
-		Identifier,
+		MethodName,
 		Opt(MethodParameterList),
 	))(s,n)
+}
+
+func MethodName(s string, n *Node) (string, *Node) {
+	return Seq(
+		Identifier,
+		Opt(Seq(
+			Lit(":"),
+			Parenthesized(TypeName),
+			Identifier,
+		)),
+	)(s,n)
 }
 
 func MethodParameterList(s string, n *Node) (string, *Node) {
@@ -46,6 +57,7 @@ func MethodParameterList(s string, n *Node) (string, *Node) {
 
 func MethodParameter(s string, n *Node) (string, *Node) {
 	return ChildOf(NewNode("MethodParameter"),Seq(
+		Identifier,
 		Lit(":"),
 		Parenthesized(TypeName),
 		Identifier,

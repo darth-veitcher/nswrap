@@ -34,8 +34,7 @@ func (n *Node) String(ls ...int) string {
 	if len(ls) > 0 {
 		level = ls[0]
 		if level > 100 {
-			fmt.Println("(*Node)String(): Recursion too deep")
-			os.Exit(-1)
+			return "(*Node)String(): Recursion too deep"
 		}
 	}
 	prefix := strings.Repeat("-",level)

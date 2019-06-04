@@ -1,8 +1,8 @@
 package ast
 
 import (
-	"fmt"
-	"path/filepath"
+	//"fmt"
+	//"path/filepath"
 
 	"git.wow.st/gmp/nswrap/util"
 )
@@ -24,13 +24,14 @@ type Position struct {
 // GetSimpleLocation - return a string like : "file:line" in
 // according to position
 // Example : " /tmp/1.c:200 "
+/*
 func (p Position) GetSimpleLocation() (loc string) {
 	file := p.File
 	if f, err := filepath.Abs(p.File); err != nil {
 		file = f
 	}
 	return fmt.Sprintf(" %s:%d ", file, p.Line)
-}
+}*/
 
 func NewPositionFromString(s string) Position {
 	if !TrackPositions {
@@ -183,6 +184,7 @@ func NewPositionFromString(s string) Position {
 	panic("unable to understand position '" + s + "'")
 }
 
+/*
 func mergePositions(p1, p2 Position) Position {
 	if p2.File != "" {
 		p1.File = p2.File
@@ -416,4 +418,4 @@ func setPosition(node Node, position Position) {
 	default:
 		panic(fmt.Sprintf("unknown node type: %+#v", node))
 	}
-}
+}*/

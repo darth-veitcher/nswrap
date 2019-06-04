@@ -5,9 +5,9 @@ import (
 )
 
 func TestObjCTypeParamDecl(t *testing.T) {
-	nodes := map[string]Node{
+	nodes := map[string]testNode{
 		`0x10c2d1a78 <col:27> col:27 AnchorType 'id':'id'`:
-		&ObjCTypeParamDecl{
+		testNode{&ObjCTypeParamDecl{
 			Addr:         0x10c2d1a78,
 			Pos:          NewPositionFromString("col:27"),
 			Position2:    "",
@@ -19,8 +19,12 @@ func TestObjCTypeParamDecl(t *testing.T) {
 			IsBounded:    false,
 			ChildNodes:   []Node{},
 		},
+		0x10c2d1a78,
+		NewPositionFromString("col:27"),
+		[]Node{},
+		},
 		`0x7faa181df328 <col:16> col:16 ObjectType covariant 'id':'id'`:
-		&ObjCTypeParamDecl{
+		testNode{&ObjCTypeParamDecl{
 			Addr:         0x7faa181df328,
 			Pos:          NewPositionFromString("col:16"),
 			Position2:    "",
@@ -32,8 +36,12 @@ func TestObjCTypeParamDecl(t *testing.T) {
 			IsBounded:    false,
 			ChildNodes:   []Node{},
 		},
+		0x7faa181df328,
+		NewPositionFromString("col:16"),
+		[]Node{},
+		},
 		`0x7faa18216cf0 <col:26, col:43> col:26 referenced UnitType bounded 'NSUnit *'`:
-		&ObjCTypeParamDecl{
+		testNode{&ObjCTypeParamDecl{
 			Addr:         0x7faa18216cf0,
 			Pos:          NewPositionFromString("col:26, col:43"),
 			Position2:    "",
@@ -45,8 +53,12 @@ func TestObjCTypeParamDecl(t *testing.T) {
 			IsBounded:    true,
 			ChildNodes:   []Node{},
 		},
+		0x7faa18216cf0,
+		NewPositionFromString("col:26, col:43"),
+		[]Node{},
+		},
 		`0x7faa18ba2ba8 <col:25> col:25 referenced K covariant 'id':'id'`:
-		&ObjCTypeParamDecl{
+		testNode{&ObjCTypeParamDecl{
 			Addr:         0x7faa18ba2ba8,
 			Pos:          NewPositionFromString("col:25"),
 			Position2:    "",
@@ -58,8 +70,12 @@ func TestObjCTypeParamDecl(t *testing.T) {
 			IsBounded:    false,
 			ChildNodes:   []Node{},
 		},
+		0x7faa18ba2ba8,
+		NewPositionFromString("col:25"),
+		[]Node{},
+		},
 		`0x7faa18ba2c18 <col:28> col:28 V covariant 'id':'id'`:
-		&ObjCTypeParamDecl{
+		testNode{&ObjCTypeParamDecl{
 			Addr:         0x7faa18ba2c18,
 			Pos:          NewPositionFromString("col:28"),
 			Position2:    "",
@@ -70,6 +86,10 @@ func TestObjCTypeParamDecl(t *testing.T) {
 			IsCovariant:  true,
 			IsBounded:    false,
 			ChildNodes:   []Node{},
+		},
+		0x7faa18ba2c18,
+		NewPositionFromString("col:28"),
+		[]Node{},
 		},
 	}
 

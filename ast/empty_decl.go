@@ -11,7 +11,7 @@ type EmptyDecl struct {
 func parseEmptyDecl(line string) Node {
 	groups := groupsFromRegex(
 		`<(?P<position>.*)>
-		( (?P<position2>.*))?`,
+		( (?P<position2>[^\s]+))?`,
 		line,
 	)
 	if groups == nil {

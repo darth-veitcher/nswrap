@@ -9,6 +9,13 @@ import (
 	"git.wow.st/gmp/nswrap/util"
 )
 
+type testNode struct {
+	n Node
+	addr Address
+	pos Position
+	children []Node
+}
+
 func init() {
 	TrackPositions = true
 }
@@ -21,26 +28,50 @@ func formatMultiLine(o interface{}) string {
 	return s
 }
 
-func runNodeTest(t *testing.T, actual, expected Node, i int) {
-	testName := fmt.Sprintf("Example%d", i)
-	t.Run(testName, func(t *testing.T) {
-		if !reflect.DeepEqual(expected, actual) {
-			t.Errorf("%s", util.ShowDiff(formatMultiLine(expected),
+func runNodeTest(t *testing.T, actual Node, expected testNode, i *int) {
+	testName := fmt.Sprintf("Example%d", *i)
+	t.Run(testName + "a", func(t *testing.T) {
+		if !reflect.DeepEqual(expected.n, actual) {
+			t.Errorf("%s", util.ShowDiff(formatMultiLine(expected.n),
 				formatMultiLine(actual)))
 		}
 	})
+	t.Run(testName+"b", func(t *testing.T) {
+		if !reflect.DeepEqual(actual.Address(),expected.addr) {
+			t.Errorf("Address mismatch")
+		}
+	})
+	t.Run(testName+"c", func(t *testing.T) {
+		if !reflect.DeepEqual(actual.Position(),expected.pos) {
+			t.Errorf("Position mismatch")
+		}
+	})
+	t.Run(testName+"d", func(t *testing.T) {
+		if !reflect.DeepEqual(actual.Children(),expected.children) {
+			t.Errorf("Children mismatch")
+		}
+	})
+	t.Run(testName+"e", func(t *testing.T) {
+		cs := expected.children
+		node := &Unknown{}
+		actual.AddChild(node)
+		cs = append(cs,node)
+		if !reflect.DeepEqual(actual.Children(),cs) {
+			t.Errorf("Children mismatch")
+		}
+	})
+	(*i)++
 }
 
-func runNodeTests(t *testing.T, tests map[string]Node) {
+func runNodeTests(t *testing.T, tests map[string]testNode) {
 	i := 1
 	for line, expected := range tests {
 		// Append the name of the struct onto the front. This would
 		// make the complete line it would normally be parsing.
-		name := reflect.TypeOf(expected).Elem().Name()
+		name := reflect.TypeOf(expected.n).Elem().Name()
 		actual := Parse(name + " " + line)
 
-		runNodeTest(t,actual,expected,i)
-		i++
+		runNodeTest(t,actual,expected,&i)
 	}
 }
 
@@ -75,3 +106,4 @@ func BenchmarkParse(b *testing.B) {
 		}
 	}
 }
+

@@ -1,5 +1,5 @@
 package ast
-
+/*
 import (
 	"reflect"
 )
@@ -25,4 +25,4 @@ func GetAllNodesOfType(root Node, t reflect.Type) []Node {
 	}
 
 	return nodes
-}
+}*/

@@ -5,11 +5,16 @@ import (
 )
 
 func TestVariadic(t *testing.T) {
+	i := 1
 	runNodeTest(t,
 		Parse(`...`),
-		&Variadic{
+		testNode{&Variadic{
 			ChildNodes: []Node{},
 		},
-		1,
+		0,
+		NewPositionFromString(""),
+		[]Node{},
+		},
+		&i,
 	)
 }
