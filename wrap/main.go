@@ -1108,6 +1108,7 @@ func (w *Wrapper) MethodFromSig(sig,class string) *Method {
 		fmt.Printf("Failed to parse method signature %s (%s)\n",sig,rem)
 		os.Exit(-1)
 	}
+	i := 0 // count MethodParameters
 	for _,c := range n.Children {
 		switch c.Kind {
 		case "TypeName":
@@ -1124,9 +1125,14 @@ func (w *Wrapper) MethodFromSig(sig,class string) *Method {
 					tp := types.NewType(d,class)
 					p.Type = tp
 				case "Identifier":
-					p.Vname = d.Content
+					if i == 0 || p.Pname != "" {
+						p.Vname = d.Content
+					} else {
+						p.Pname = d.Content
+					}
 				}
 			}
+			i++
 			ret.Parameters = append(ret.Parameters,p)
 		}
 	}
