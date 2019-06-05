@@ -31,6 +31,7 @@ type conf struct {
 	Delegates map[string]map[string][]string
 	Subclasses map[string]map[string][]string
 	Frameworks []string
+	Frameworkdirs []string
 	Imports []string
 	Sysimports []string
 	Pragma []string
@@ -217,6 +218,9 @@ func Start() (err error) {
 		if Config.Arc {
 			cargs = append(cargs,"-fobjc-arc")
 		}
+		for _,f := range Config.Frameworkdirs {
+			cargs = append(cargs,"-F" + f)
+		}
 		cargs = append(cargs,Config.Inputfiles...)
 		fmt.Printf("Generating AST\n")
 		astPP, err = exec.Command("clang",cargs...).Output()
@@ -255,10 +259,11 @@ func Start() (err error) {
 	tree := buildTree(nodes, 0)
 	w := wrap.NewWrapper(Debug)
 	w.Package = Config.Package
-	w.Frameworks(Config.Frameworks)
+	w.Frameworks = Config.Frameworks
+	w.Frameworkdirs = Config.Frameworkdirs
 	w.Import(Config.Imports)
 	w.SysImport(Config.Sysimports)
-	w.Pragma(Config.Pragma)
+	w.Pragmas = Config.Pragma
 	w.Delegate(Config.Delegates)
 	w.Subclass(Config.Subclasses)
 	if Config.Vaargs == 0 {

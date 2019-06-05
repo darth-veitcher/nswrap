@@ -28,6 +28,9 @@ type Wrapper struct {
 	Delegates map[string]map[string][]string
 	Subclasses map[string]*Subclass
 	Protocols map[string]*Protocol
+	Frameworks []string
+	Frameworkdirs []string
+	Pragmas []string
 
 	cgoFlags strings.Builder  // put cGo directives here
 	cImports strings.Builder  // put C imports and sysimports here
@@ -57,13 +60,6 @@ func NewWrapper(debug bool) *Wrapper {
 		ProcessedClassMethods: map[string]bool{},
 		Vaargs: 16,
 	}
-	arc := " -fno-objc-arc"
-	if Arc {
-		arc = " -fobjc-arc"
-	}
-	ret.cgoFlags.WriteString(fmt.Sprintf(`/*
-#cgo CFLAGS: -x objective-c%s
-`,arc))
 	ret.goTypes.WriteString(`
 type Id struct {
 	ptr unsafe.Pointer
@@ -71,16 +67,6 @@ type Id struct {
 func (o Id) Ptr() unsafe.Pointer { return o.ptr }
 `)
 	return ret
-}
-
-func (w *Wrapper) Frameworks(ss []string) {
-	if len(ss) == 0 {
-		return
-	}
-	for _,s := range ss {
-		w.cImports.WriteString(fmt.Sprintf("#import <%s/%s.h>\n",s,s))
-	}
-	w.cgoFlags.WriteString("#cgo LDFLAGS: -framework " + strings.Join(ss," -framework "))
 }
 
 func (w *Wrapper) Import(ss []string) {
@@ -92,12 +78,6 @@ func (w *Wrapper) Import(ss []string) {
 func (w *Wrapper) SysImport(ss []string) {
 	for _,s := range ss {
 		w.cImports.WriteString("\n#import <" + s + ">\n")
-	}
-}
-
-func (w *Wrapper) Pragma(ss []string) {
-	for _,s := range ss {
-		w.cgoFlags.WriteString("\n#pragma " + s + "\n")
 	}
 }
 
@@ -220,7 +200,10 @@ func Disambiguate(mc *MethodCollection) {
 		sort.Sort(ByParams(v))
 		for _,m := range v {
 			if len(v) < 2 || len(m.Parameters) < 2 {
-				mc.Methods = append(mc.Methods,m)
+				if !used[m.Name] {
+					mc.Methods = append(mc.Methods,m)
+					used[m.Name] = true
+				}
 				continue
 			}
 			i := 2
@@ -1198,7 +1181,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 				os.Exit(-1)
 			}
 			//fmt.Printf("  subclass for %s\n",pname)
-			ms = []*Method{}
+			mc := NewMethodCollection(dname)
 			var addmeths func(s string)
 			addmeths = func(s string) {
 				if sup := types.Super(s); w.Interfaces[sup] != nil {
@@ -1206,11 +1189,18 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 				}
 				//fmt.Printf("Adding methods for %s\n",s)
 				for _,m := range w.Interfaces[s].InstanceMethods.Methods {
-					ms = append(ms,m)
+					mc.Methods = append(mc.Methods,m)
+				}
+				for _,p := range w.Interfaces[s].Protocols {
+					for _,m := range w.Protocols[p].InstanceMethods.Methods {
+						mc.Methods = append(mc.Methods,m)
+					}
 				}
 			}
 		//for subclasses, add all superclass methods, depth first
 			addmeths(interf.Name)
+			Disambiguate(mc)
+			ms = mc.Methods
 		} else { // not a subclass
 			proto := w.Protocols[pname]
 			if proto == nil {
@@ -1710,6 +1700,33 @@ void*
 	fmt.Printf("%d functions\n", len(w.Functions))
 	fmt.Printf("%d enums\n", len(w.NamedEnums) + len(w.AnonEnums))
 	of.WriteString("package " + w.Package + "\n\n")
+
+	arc := " -fno-objc-arc"
+	if Arc {
+		arc = " -fobjc-arc"
+	}
+	w.cgoFlags.WriteString(fmt.Sprintf(`
+/*
+#cgo CFLAGS: -x objective-c%s`,arc))
+	ldflags := ""
+	if w.Frameworks != nil && len(w.Frameworks) > 0 {
+		for _,s := range w.Frameworks {
+			w.cImports.WriteString(fmt.Sprintf("#import <%s/%s.h>\n",s,s))
+		}
+		ldflags = "-framework " + strings.Join(w.Frameworks," -framework ")
+	}
+	if w.Frameworkdirs != nil && len(w.Frameworkdirs) > 0 {
+		s := strings.Join(w.Frameworkdirs," -F")
+		w.cgoFlags.WriteString(" -F" + s)
+		ldflags = ldflags + " -F" + s
+	}
+	if ldflags != "" {
+		w.cgoFlags.WriteString(`
+#cgo LDFLAGS: ` + ldflags)
+	}
+	for _,s := range w.Pragmas {
+		w.cgoFlags.WriteString("\n#pragma " + s + "\n")
+	}
 
 	of.WriteString(w.cgoFlags.String() + "\n")
 	of.WriteString(w.cImports.String() + "\n")
