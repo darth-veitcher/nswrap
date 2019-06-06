@@ -1,0 +1,16 @@
+inputfiles:
+    - /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
+classes:
+    - NSAutoreleasePool
+    - NSArray
+    - NSMutableArray
+    - NSString
+    - NSObject
+subclasses:
+    MyClass:
+        NSObject:
+            - dealloc
+            - release
+frameworks:
+    - Foundation
+pragma: [ clang diagnostic ignored "-Wformat-security" ]

@@ -38,6 +38,7 @@ type conf struct {
 	Vaargs int
 	//Arc flag for debugging only, builds will break
 	Arc bool
+	Autorelease bool
 }
 
 var Config conf
@@ -249,6 +250,9 @@ func Start() (err error) {
 	}
 	if Config.Arc {
 		wrap.Arc = true
+	}
+	if Config.Autorelease {
+		wrap.Autorelease = true
 	}
 	//NOTE: converting in parallel is slower on my system
 	//nodes := convertLinesToNodesParallel(lines)

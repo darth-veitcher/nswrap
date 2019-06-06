@@ -547,6 +547,7 @@ func TestFuncs(t *testing.T) {
 	str = "id"
 	n,err = Parse(str)
 	f(str,n.IsId(),true)
+	f(str,n.IsPointer(),true)
 
 	str = "int * _Nullable * _Nonnull"
 	n,err = Parse(str)

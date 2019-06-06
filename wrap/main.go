@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -17,6 +18,7 @@ var (
 	Debug = false
 // Arc flag is for debugging only, your builds will break if you turn it on
 	Arc = false
+	Autorelease = false
 )
 
 type Wrapper struct {
@@ -344,17 +346,21 @@ type Interface struct {
 	ProcessedInstanceMethods map[string]bool
 }
 
+//AddInterface adds an Objective-C interface to a Wrapper.
 func (w *Wrapper) AddInterface(n *ast.ObjCInterfaceDecl) {
-	//fmt.Printf("ast.ObjCInterfaceDecl: %s\n",n.Name)
-	w.add(n.Name, n.Children())
+	if Debug { fmt.Printf("ast.ObjCInterfaceDecl: %s\n",n.Name) }
+	w.addIntCat(n.Name, n.Children())
 }
 
+//AddCategory adds an Objective-C category to a Wrapper.
+//the first child node of an ObjCCategoryDecl is always an ObjCInterface
+//indicating which interface is being extended by this category.
 func (w *Wrapper) AddCategory(n *ast.ObjCCategoryDecl) {
 	ns := n.Children()
 	if len(ns) > 0 {
 		switch x := ns[0].(type) {
 		case *ast.ObjCInterface:
-			w.add(x.Name, ns[1:])
+			w.addIntCat(x.Name, ns[1:])
 			return
 		}
 	}
@@ -377,7 +383,7 @@ func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
 		//fmt.Printf("AddFunction(%s): not a function -- Node type is %s\n%s",n.Name,f.Kind,tp.String())
 		return
 	}
-	//fmt.Printf("FunctionDecl: %s (%s) %s\n",n.Type,m.Type.CType(),n.Name)
+	if Debug { fmt.Printf("FunctionDecl: %s (%s) %s\n",n.Type,m.Type.CType(),n.Name) }
 	i := 0
 	for _,c := range n.Children() {
 		switch x := c.(type) {
@@ -388,7 +394,7 @@ func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
 			}
 			m.Parameters = append(m.Parameters,p)
 			i++
-			//fmt.Printf("  %s\n",p.Type.CType())
+			if Debug { fmt.Printf("  %s\n",p.Type.CType()) }
 		case *ast.Variadic:
 			p := &Parameter{
 				Vname: "object",
@@ -399,25 +405,19 @@ func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
 			i++
 		}
 	}
-	if i > 0 && len(f.Children) > i {
-		if e := f.Children[i]; len(e.Children) > 0 {
-			//fmt.Println("  Next parameter: ",e.Children[0].String())
-			//m.Parameters[i-1].Type.Variadic = true
-		}
-	}
 	w.Functions[n.Name] = m
 }
 
 func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
 	p := w.Protocols[n.Name]
 	if p == nil {
-		//fmt.Printf("Adding protocol %s\n",n.Name)
-		p = &Protocol{ }
-		//p.GoName = types.NewTypeFromString(n.Name,n.Name).GoType()
-		p.ClassMethods = NewMethodCollection(n.Name)
-		p.InstanceMethods = NewMethodCollection(n.Name)
+		if Debug { fmt.Printf("Adding protocol %s\n",n.Name) }
+		p = &Protocol{
+			ClassMethods: NewMethodCollection(n.Name),
+			InstanceMethods: NewMethodCollection(n.Name),
+		}
 	}
-	//fmt.Printf("Protocol %s\n",p.Name)
+	if Debug { fmt.Printf("Protocol %s\n",n.Name) }
 	for _,c := range n.Children() {
 		switch x := c.(type) {
 		case *ast.ObjCMethodDecl:
@@ -448,13 +448,14 @@ func (w *Wrapper) AddMethod(p *MethodCollection, x *ast.ObjCMethodDecl) {
 		GoClass: strings.Title(p.Class),
 		ClassMethod: x.ClassMethod,
 	}
-	//fmt.Printf("  -- Method %s\n",m.Name)
+	if Debug { fmt.Printf("  -- Method %s\n",m.Name) }
 	var avail bool
 	m.Parameters, avail = w.GetParms(x,p.Class)
 	if avail {
-		//fmt.Printf("%s: Adding %s (%d)\n",p.Class,m.Name,len(m.Parameters))
-		//fmt.Printf("--Method name is %s\n",m.Name)
+		if Debug { fmt.Printf("%s: Adding %s (%d)\n",p.Class,m.Name,len(m.Parameters)) }
 		p.Methods = append(p.Methods,m)
+	} else {
+		if Debug { fmt.Printf("--Method %s is not available\n",m.Name) }
 	}
 }
 
@@ -472,14 +473,14 @@ func (w *Wrapper) AddEnum(n *ast.EnumDecl,rs []string) {
 	if n.Name != "" && !matches(n.Name,rs) {
 		return
 	}
-	//fmt.Printf("Adding enum: (%s) %s\n",n.Type,n.Name)
+	if Debug { fmt.Printf("Adding enum: (%s) %s\n",n.Type,n.Name) }
 	var tp *types.Type
 	a := (*Avail)(&[]AvailAttr{})
 	if n.Type == "" {
 		tp = nil
 	} else {
 		tp = types.NewTypeFromString(n.Type,"")
-		//fmt.Printf("  type: %s -> %s\n",n.Type,tp.CType())
+		if Debug { fmt.Printf("  type: %s -> %s\n",n.Type,tp.CType()) }
 	}
 	e := &Enum{
 		Name: n.Name, // NOTE: may be empty string
@@ -491,7 +492,7 @@ func (w *Wrapper) AddEnum(n *ast.EnumDecl,rs []string) {
 		case *ast.AvailabilityAttr, *ast.UnavailableAttr, *ast.DeprecatedAttr:
 			a.Add(x)
 		case *ast.EnumConstantDecl:
-			//fmt.Printf("*ast.EnumConstantDecl: (%s) '%s': %s\n",n.Type,n.Name,x.Name)
+			if Debug { fmt.Printf("*ast.EnumConstantDecl: (%s) '%s': %s\n",n.Type,n.Name,x.Name) }
 			if n.Name == "" && !matches(x.Name,rs) {
 				continue
 			}
@@ -504,12 +505,12 @@ func (w *Wrapper) AddEnum(n *ast.EnumDecl,rs []string) {
 		} else {
 			w.NamedEnums[e.Name] = e
 		}
-		//fmt.Printf("  added\n")
+		if Debug { fmt.Printf("  added\n") }
 	}
 }
 
 //Add an Interface or add a Category to an Interface
-func (w *Wrapper) add(name string, ns []ast.Node) {
+func (w *Wrapper) addIntCat(name string, ns []ast.Node) {
 	var i *Interface
 	var ok bool
 	goname := strings.Title(types.NewTypeFromString(name,name).GoType())
@@ -518,11 +519,11 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 		i = &Interface{ }
 		i.Name = name
 		i.GoName = goname
-		i.Properties = map[string]*Property{}
 		i.InstanceMethods = NewMethodCollection(name)
 		i.ClassMethods = NewMethodCollection(name)
 		i.Protocols = []string{}
 		i.ProcessedInstanceMethods = map[string]bool{}
+		/*
 		m := &Method{
 			Name: "class",
 			GoName: "Class",
@@ -533,47 +534,66 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 			Parameters: []*Parameter{},
 		}
 		i.ClassMethods.Methods = []*Method{m}
+		*/
 	}
-	//var avail bool
+	avail := (*Avail)(&[]AvailAttr{})
+	mcc := NewMethodCollection(name)
+	mci := NewMethodCollection(name)
+	prots := []string{}
 	for _,c := range ns {
 		switch x := c.(type) {
 		case *ast.ObjCPropertyDecl:
-			//fmt.Printf("ObjCPropertyDecl: %s\n",x.Name)
-			p := &Property{
-				Name: x.Name,
-				Type: types.NewTypeFromString(x.Type,name),
-			}
+			//FIXME: Properties are not supported, typically there
+			//will be setter/getter methods you can use instead
+			if Debug { fmt.Printf("ObjCPropertyDecl: %s\n",x.Name) }
+			//p := &Property{
+			//	Name: x.Name,
+			//	Type: types.NewTypeFromString(x.Type,name),
+			//}
 			//_,avail = w.GetParms(x,name) // TODO
 			//if avail {
-				i.Properties[p.Name] = p
+			//	i.Properties[p.Name] = p
 			//}
 		case *ast.ObjCMethodDecl:
-			//fmt.Printf("ObjCMethodDecl: %s (%s) %s\n",x.Type,name,x.Name)
+			if Debug { fmt.Printf("ObjCMethodDecl: %s (%s) %s\n",x.Type,name,x.Name) }
 			if name == "NSObject" && x.Name == "initialize" {
 				continue
 			}
 			if x.ClassMethod {
-				w.AddMethod(i.ClassMethods,x)
+				w.AddMethod(mcc,x)
 			} else {
-				w.AddMethod(i.InstanceMethods,x)
+				w.AddMethod(mci,x)
 			}
 		case *ast.ObjCProtocol:
-			//fmt.Printf("ast.ObjCProtocol: %s\n",x.Name)
-			i.Protocols = append(i.Protocols,x.Name)
+			if Debug { fmt.Printf("ast.ObjCProtocol: %s\n",x.Name) }
+			prots = append(prots,x.Name)
 		case *ast.ObjCInterface:
 			if x.Super {
-				//fmt.Printf("ast.ObjCInterface: %s inherits from %s\n",name,x.Name)
+				if Debug { fmt.Printf("ast.ObjCInterface: %s inherits from %s\n",name,x.Name) }
 				types.SetSuper(name,x.Name)
 			}
 		case *ast.ObjCTypeParamDecl:
-			//fmt.Printf("ObjCTypeParamDecl: %s = %s\n",x.Name,x.Type)
+			if Debug { fmt.Printf("ObjCTypeParamDecl: %s = %s\n",x.Name,x.Type) }
 			types.SetTypeParam(name,x.Name,x.Type)
+		case *ast.AvailabilityAttr, *ast.UnavailableAttr, *ast.DeprecatedAttr:
+			avail.Add(x)
 		case *ast.Unknown:
-			//fmt.Printf("(*ast.Unkonwn %s: %s)\n",x.Name,x.Content)
+			if Debug { fmt.Printf("(*ast.Unkonwn %s: %s)\n",x.Name,x.Content) }
+		case 	*ast.ObjCRootClassAttr, *ast.VisibilityAttr,
+			*ast.ObjCIvarDecl, *ast.ArcWeakrefUnavailableAttr,
+			*ast.ObjCExceptionAttr:
 		default:
-			//fmt.Println(reflect.TypeOf(x))
+			fmt.Printf("AST parse error: node type is %s\n",reflect.TypeOf(x).String())
 		}
 	}
+	if !avail.Available() {
+		if Debug { fmt.Printf("-- %s is not available\n",i.Name) }
+		return
+	}
+	i.ClassMethods.Methods = append(i.ClassMethods.Methods, mcc.Methods...)
+	i.InstanceMethods.Methods = append(i.InstanceMethods.Methods, mci.Methods...)
+	i.Protocols = append(i.Protocols, prots...)
+
 	//Add class methods from super class
 	var supmethods func(*Interface,string)
 	supmethods = func(i *Interface, s string) {
@@ -615,7 +635,7 @@ func (w *Wrapper) add(name string, ns []ast.Node) {
 		}
 	}
 	supmethods(i,types.Super(i.Name))
-	//fmt.Println("Add interface ",i.Name)
+	if Debug { fmt.Println("Add interface ",i.Name) }
 	Disambiguate(i.ClassMethods)
 	Disambiguate(i.InstanceMethods)
 	w.Interfaces[i.Name] = i
@@ -631,12 +651,15 @@ type Avail []AvailAttr
 func (a *Avail) Add(n ast.Node) {
 	switch x := n.(type) {
 	case *ast.AvailabilityAttr:
+		if Debug { fmt.Printf("  AvailabilityAttr: OS: %s, Version: %s, Deprecated: %t\n",x.OS,x.Version,(x.Unknown1 != "0") || x.IsUnavailable) }
+		if x.OS != "macos" { return }
 		*a = append(*a, AvailAttr{
 			OS: x.OS,
 			Version: x.Version,
 			Deprecated: (x.Unknown1 != "0") || x.IsUnavailable,
 		})
 	case *ast.UnavailableAttr, *ast.DeprecatedAttr:
+		if Debug { fmt.Printf("  DeprecatedAttr\n") }
 		*a = append(*a, AvailAttr{
 			OS: "macos", Deprecated: true })
 	}
@@ -706,10 +729,9 @@ func (w *Wrapper) GetParms(n ast.Node,class string) ([]*Parameter,bool) {
 func (w *Wrapper) AddTypedef(n,t string) {
 	tp := types.NewTypeFromString(t,"")
 	gt := tp.GoType()
-	//fmt.Printf("Typedef %s -> %s\n",n,t)
+	if Debug { fmt.Printf("Typedef %s -> %s\n",n,t) }
 	if types.ShouldWrap(gt) {
-		//fmt.Printf("  should wrap\n")
-		//fmt.Printf("  processing type for %s (%s)\n",n,gt)
+		if Debug { fmt.Printf("  processing type for %s (%s)\n",n,gt) }
 		types.Wrap(n)
 		types.SetSuper(n,gt)
 		w._processType(tp,"*" + n)
@@ -731,7 +753,7 @@ func (w *Wrapper) processType(tp *types.Type) {
 }
 
 func (w *Wrapper) _processType(bt *types.Type, gt string) {
-	//fmt.Printf("processType: gt = %s bt = %s\n",gt,bt)
+	if Debug { fmt.Printf("processType: gt = %s bt = %s\n",gt,bt) }
 	if gt == "" {
 		return
 	}
@@ -774,6 +796,10 @@ func CharWithBytes(b []byte) *Char {
 
 func (c *Char) String() string {
 	return C.GoString((*C.char)(c))
+}
+
+func (c *Char) Free() {
+	C.free(unsafe.Pointer(c))
 }
 `)
 }
@@ -863,9 +889,7 @@ func (w *Wrapper) ProcessFunction(m *Method) {
 }
 
 func (w *Wrapper) _processMethod(m *Method,fun bool) {
-	if Debug {
-		fmt.Printf("  method: %s (%s)\n", m.Name, m.Type)
-	}
+	if Debug { fmt.Printf("  method: %s (%s)\n", m.Name, m.Type) }
 	if m.HasUnsupportedType() {
 		return
 	}
@@ -881,7 +905,7 @@ func (w *Wrapper) _processMethod(m *Method,fun bool) {
 	} else {
 		cname = gname
 	}
-	//fmt.Printf("Method %s (GoClass %s)\n",cname,m.GoClass)
+	if Debug { fmt.Printf("Method %s (GoClass %s)\n",cname,m.GoClass) }
 	switch {
 	case !m.ClassMethod:
 		if types.IsGoInterface(m.GoClass) {
@@ -1004,28 +1028,38 @@ func %s%s(%s) %s {
 `	%s* arr = %s;
 `, tps[lparm].CType(), ns[lparm]))
 	}
-	if fun {
+	switch {
+	case fun:
 		w.cCode.WriteString(fmt.Sprintf(`	%s%s(%s);
 }`, cret, m.Name, cns))
-	} else {
+	case len(m.Name) >= 5 && m.Name[:5] == "alloc" && m.Class != "NSAutoreleasePool":
+		if Autorelease { w.cCode.WriteString(fmt.Sprintf(`	%s[[%s %s] autorelease];
+}`, cret, cobj, w.objcparamlist(m))) } else {
+			w.cCode.WriteString(fmt.Sprintf(`	%s[%s %s];
+}`, cret, cobj, w.objcparamlist(m)))
+		}
+	default:
 		w.cCode.WriteString(fmt.Sprintf(`	%s[%s %s];
 }`, cret, cobj, w.objcparamlist(m)))
 	}
 
 	// create GoString helper method
 	if ok,_ := regexp.MatchString("WithString$",m.Name); ok {
-		//fmt.Printf("--%s\n",gname)
+		if Debug { fmt.Printf("--%s\n",gname) }
+		cvts := ""
 		gname2 := gname[:len(gname)-6] + "GoString"
 		gps := []string{}
 		i := 0
 		if !m.ClassMethod { i = 1 }
 		for ; i < len(ns); i++ {
 			gt := tps[i].GoType()
-			//fmt.Printf("  %s\n",gt)
+			if Debug { fmt.Printf("  %s\n",gt) }
 			ns2 := ns[i]
 			if gt == "NSString" {
 				gt = "string"
-				ns[i] = gStringToNsstring(ns[i])
+				//ns[i] = gStringToNsstring(ns[i])
+				cvts = cvts + gStringToNSString(ns[i])
+				ns[i] = "NSStringWithUTF8String(" + ns[i] + "_chr)"
 			}
 			gps = append(gps,ns2 + " " + gt)
 		}
@@ -1037,19 +1071,22 @@ func %s%s(%s) %s {
 		}
 		w.goCode.WriteString(fmt.Sprintf(`
 func %s%s(%s) %s {
-	return %s%s(%s)
+	%sreturn %s%s(%s)
 }
-`,receiver,gname2,gplist,grtype,obj,gname,strings.Join(ns,", ")))
+`,receiver,gname2,gplist,grtype,cvts,obj,gname,strings.Join(ns,", ")))
 	}
 }
 
-func gStringToNsstring(s string) string {
-	return fmt.Sprintf("NSStringWithUTF8String(CharWithGoString(%s))",s)
+func gStringToNSString(s string) string {
+	return fmt.Sprintf(
+`%s_chr := CharWithGoString(%s)
+	defer %s_chr.Free()
+	`,s,s,s)
 }
 
 
 func (w *Wrapper) ProcessEnum(e *Enum) {
-	//fmt.Printf("Processing enum (%s)\n",e.Name)
+	if Debug { fmt.Printf("Processing enum (%s)\n",e.Name) }
 	w.processType(e.Type)
 	gtp := ""
 	ctp := ""
@@ -1069,7 +1106,7 @@ type %s %s
 		}
 	}
 	gtp = gtp + " "
-	//fmt.Printf("  gtp = %s; ctp = %s\n",gtp,ctp)
+	if Debug { fmt.Printf("  gtp = %s; ctp = %s\n",gtp,ctp) }
 	for _,c := range e.Constants {
 		w.goConst.WriteString(fmt.Sprintf(`const %s %s= C.%s
 `,c,gtp,c))
@@ -1180,19 +1217,23 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 				fmt.Printf("Failed to find interface %s for subclass %s\n",pname,dname)
 				os.Exit(-1)
 			}
-			//fmt.Printf("  subclass for %s\n",pname)
+			if Debug { fmt.Printf("  subclass for %s\n",pname) }
 			mc := NewMethodCollection(dname)
 			var addmeths func(s string)
 			addmeths = func(s string) {
 				if sup := types.Super(s); w.Interfaces[sup] != nil {
 					addmeths(sup)
 				}
-				//fmt.Printf("Adding methods for %s\n",s)
+				if Debug { fmt.Printf("Adding methods for interface %s\n",s) }
 				for _,m := range w.Interfaces[s].InstanceMethods.Methods {
+					if Debug { fmt.Printf("  -> %s\n",m.Name) }
 					mc.Methods = append(mc.Methods,m)
 				}
+				//mc.Methods = append(mc.Methods,w.Interfaces[s].InstanceMethods...)
 				for _,p := range w.Interfaces[s].Protocols {
+					if Debug { fmt.Printf("Adding methods for protocol %s\n",p) }
 					for _,m := range w.Protocols[p].InstanceMethods.Methods {
+						if Debug { fmt.Printf("  -> %s\n",m.Name) }
 						mc.Methods = append(mc.Methods,m)
 					}
 				}
@@ -1207,14 +1248,15 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 				fmt.Printf("Failed to find protocol %s for delegate %s\n",pname,dname)
 				os.Exit(-1)
 			}
-			//fmt.Printf("  proto %s\n",pname)
+			if Debug { fmt.Printf("  proto %s\n",pname) }
 			ms = proto.InstanceMethods.Methods
-			fmt.Printf("Protocol %s\n",pname)
+			if Debug { fmt.Printf("Protocol %s\n",pname) }
 			types.SetSuper(dname,"Id")
 			supr = "Id"
 		}
 		for _,m := range ms {
 	//note:we may have capitalized the first character to make a GoName...
+			if Debug { fmt.Printf("--Method: %s\n",m.Name) }
 			if !matches(string(m.Name[0])+m.GoName[1:],pats) {
 				continue
 			}
@@ -1260,8 +1302,10 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 		vnames[i][0] = "self"
 		getypes[i][0] = "unsafe.Pointer"
 		gtypes[i] = make([]string,len(m.Parameters)+1)
-		gtypes[i][0] = gname + "Supermethods"
-		//fmt.Printf("%s: %s\n",dname,m.Name)
+		if m.Name != "dealloc" {
+			gtypes[i][0] = gname + "Supermethods"
+		}
+		if Debug { fmt.Printf("%s: %s\n",dname,m.Name) }
 		var parms string
 		var cparms string
 		if len(m.Parameters) == 0 {
@@ -1300,22 +1344,27 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 		}
 		methprotos[i] = fmt.Sprintf(
 `- (%s)%s%s;`,m.Type.Node.CType(),m.Name,parms)
-		ct := m.Type.Node.CType()
-		if i < sms {
-			smethprotos[i] = fmt.Sprintf(
-`- (%s)super_%s%s;`,ct,m.Name,parms)
-		}
-		if ct == "instancetype" {
-			ct = gname + "*"
-		}
-		if i < sms {
-			sfunprotos[i] = fmt.Sprintf(
-`%s %s_super_%s(%s);`,ct,dname,m.Name,cparms)
-		}
 		if x := m.Type.GoType(); x == "Void" {
 			grtypes[i] = ""
 		} else {
 			grtypes[i] = " " + x
+		}
+		ct := m.Type.Node.CType()
+		if ct == "instancetype" {
+			ct = dname + "*"
+		}
+		if ct == "id" {
+			ct = "void*"
+			grtypes[i] = " Id"
+		}
+		if i < sms {
+			smethprotos[i] = fmt.Sprintf(
+`- (%s)super_%s%s;`,ct,m.Name,parms)
+		}
+		if i < sms {
+			_,cntps,_ := w.cparamlist(m)
+			sfunprotos[i] = fmt.Sprintf(
+`%s %s_super_%s(%s);`,ct,dname,m.Name,cntps)
 		}
 		crtypes[i] = m.Type.CTypeAttrib()
 		if m.Type.IsPointer() {
@@ -1339,14 +1388,27 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 { }
 %s
 `,dname,supcls,protos,strings.Join(methprotos,"\n")))
+	havesupmethods := sms > 0
 	if sub {
-		ccode.WriteString(strings.Join(smethprotos,"\n"))
+		for i,sp := range smethprotos {
+			if methods[i].Name != "dealloc" {
+				ccode.WriteString(sp + "\n")
+			} else {
+				if sms == 1 {
+					havesupmethods = false
+				}
+			}
+		}
 	}
 	ccode.WriteString(`
 @end
 `)
 	if sub {
-		ccode.WriteString(strings.Join(sfunprotos,"\n"))
+		for i,sf := range sfunprotos {
+			if methods[i].Name != "dealloc" {
+				ccode.WriteString(sf + "\n")
+			}
+		}
 	}
 
 	//2. ObjC implementation
@@ -1355,10 +1417,13 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 	sfundecls := make([]string,len(methods))
 	for i,mp := range methprotos {
 		mp := mp[:len(mp)-1]
-		var smp, sfp string
+		var smp, sfp, superdealloc string
 		if sub && i < sms {
 			smp = smethprotos[i][:len(smethprotos[i])-1]
 			sfp = sfunprotos[i][:len(sfunprotos[i])-1]
+			if methods[i].Name == "dealloc" {
+				superdealloc = "\n\t[super dealloc];"
+			}
 		}
 		var ret string
 		if crtypes[i] != "void" {
@@ -1373,9 +1438,9 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 		methdecls[i] = fmt.Sprintf(`
 %s
 {
-	%s%s(%s);
+	%s%s(%s);%s
 }
-`,mp,ret,gname + gnames[i],strings.Join(vnames[i],", "))
+`,mp,ret,gname + gnames[i],strings.Join(vnames[i],", "),superdealloc)
 		if sub && i < sms {
 			smethdecls[i] = fmt.Sprintf(`
 %s
@@ -1386,7 +1451,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 			sfundecls[i] = fmt.Sprintf(`
 %s
 {
-	%s[(%s*)self super_%s];
+	%s[(%s*)o super_%s];
 }
 `,sfp,ret,dname,strings.Join(vpnames[i]," "))
 		}
@@ -1396,22 +1461,35 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 %s
 `,dname,strings.Join(methdecls,"\n")))
 	if sub {
-		ccode.WriteString(strings.Join(smethdecls,"\n"))
+		for i,sm := range smethdecls {
+			if methods[i].Name != "dealloc" {
+				ccode.WriteString(sm + "\n")
+			}
+		}
 	}
 	ccode.WriteString(`
 @end
 `)
 	if sub {
-		ccode.WriteString(strings.Join(sfundecls,"\n"))
+		for i,sf := range sfundecls {
+			if methods[i].Name != "dealloc" {
+				ccode.WriteString(sf + "\n")
+			}
+		}
 	}
 
 	//3. ObjC constructor function
 	ccode.WriteString(fmt.Sprintf(`
 void*
 %sAlloc() {
-	return [[%s alloc] autorelease];
+`,dname))
+	if Autorelease { ccode.WriteString(fmt.Sprintf(
+`	return [[%s alloc] autorelease];
 }
-`,dname,dname))
+`,dname)) } else { ccode.WriteString(fmt.Sprintf(
+`	return [%s alloc];
+}
+`,dname)) }
 
 	//4. Go type
 	
@@ -1436,9 +1514,10 @@ func %sAlloc() %s {
 		}
 		dispitems[i] = fmt.Sprintf(
 `	%s func(%s)%s`,n,strings.Join(gtypes[i],", "),grtypes[i])
-		if sub && i < sms {
+		if sub && i < sms && methods[i].Name != "dealloc" {
 			sdispitems[i] = fmt.Sprintf(
-`	%s func(%s)%s`,n,strings.Join(gtypes[i][1:],", "),grtypes[i])
+`	%s func(%s)%s
+`,n,strings.Join(gtypes[i][1:],", "),grtypes[i])
 		}
 	}
 	gocode.WriteString(fmt.Sprintf(`
@@ -1448,12 +1527,12 @@ type %sDispatch struct {
 var %sLookup map[unsafe.Pointer]%sDispatch =
 	map[unsafe.Pointer]%sDispatch{}
 `,gname,strings.Join(dispitems,"\n"),gname,gname,gname))
-	if sub && sms > 0 {
+	if sub && sms > 0 && havesupmethods {
 		gocode.WriteString(fmt.Sprintf(`
 type %sSupermethods struct {
 %s
 }
-`,gname,strings.Join(sdispitems,"\n")))
+`,gname,strings.Join(sdispitems,"")))
 	}
 	//To create (per method):
 	cprotos.WriteString("\n\n")
@@ -1475,7 +1554,7 @@ func (d %s) %sCallback(f func(%s)%s) {
 		earglist := []string{"o unsafe.Pointer"}
 		garglist := []string{}
 		gargconv := []string{}
-		if sub && sms > 0 {
+		if sub && sms > 0 && m.Name != "dealloc" {
 			garglist = []string{"super"}
 		}
 		for j := 1; j < len(vnames[i]); j++ {
@@ -1521,17 +1600,20 @@ func (d %s) %sCallback(f func(%s)%s) {
 		}
 		sdispentries := make([]string,sms)
 		for i,_ := range sdispentries {
-			sdispentries[i] = fmt.Sprintf(
-`		self.Super%s`,gnames[i])
+			if methods[i].Name != "dealloc" {
+				sdispentries[i] = fmt.Sprintf(
+`		self.Super%s,
+`,gnames[i])
+			}
 		}
 		sper := ""
-		if sub && sms > 0 {
+		if sub && sms > 0 && m.Name != "dealloc" {
 			sper = fmt.Sprintf(
-`	self := (*%s)(o)
+`	self := %s{}
+	self.ptr = o
 	super := %sSupermethods{
-%s,
-	}
-	`,gname,gname,strings.Join(sdispentries,",\n"))
+%s	}
+`,gname,gname,strings.Join(sdispentries,""))
 		}
 		if len(gargconv) > 0 {
 			retn = "\n	" + retn
@@ -1548,6 +1630,7 @@ func %s%s(%s)%s {
 `,gname,gnames[i],gname,gnames[i],strings.Join(earglist,", "),crtype,retdecl,gname,gnames[i],retname,sper,strings.Join(gargconv,"\n"),retn,strings.Join(garglist,", "),retnparen))
 		//4. Go wrapper functions for superclass methods
 		if !sub || i >= sms { continue } // for subclasses only
+		if m.Name == "dealloc" { continue }
 		grtype := m.Type.GoType()
 		if grtype == "Void" {
 			grtype = ""
@@ -1575,7 +1658,7 @@ func (o %s) Super%s(%s) %s {
 	}
 `,vn,w.Vaargs,vn,vn))
 			}
-			gocode.WriteString(`  ` + types.GoToC(dname + "_super_"+m.Name,ns,snames,m.Type,tps,false) + "\n}\n")
+			gocode.WriteString("\t" + types.GoToC(dname + "_super_"+m.Name,ns,snames,m.Type,tps,false) + "\n}\n")
 		}
 	}
 	w.cCode.WriteString(cprotos.String())
@@ -1622,13 +1705,15 @@ func (w *Wrapper) Wrap(toproc []string) {
 		if i.Name == "NSEnumerator" {
 			w.EnumeratorHelpers()
 		}
-		gname := i.GoName
+		/*gname := i.GoName
 		if types.IsGoInterface(i.GoName) {
 			gname = "Id"
 		}
+		*/
 		fmt.Printf("Interface %s: %d properties, %d class methods, %d instance methods\n",
 			i.Name, len(i.Properties), len(i.ClassMethods.Methods), len(i.InstanceMethods.Methods))
 
+/*
 		w.goCode.WriteString(fmt.Sprintf(`
 func %sAlloc() %s {
 	ret := %s{}
@@ -1653,12 +1738,13 @@ void*
 }
 `, i.Name, i.Name))
 		}
+*/
 
 		//FIXME: sort properties
 		for _,p := range i.Properties {
-			if Debug {
-				fmt.Printf("  property: %s (%s)\n", p.Name, p.Type.CType())
-			}
+			//Properties are not supported, use getter/setter
+			//methods instead.
+			if Debug { fmt.Printf("  property: %s (%s)\n", p.Name, p.Type.CType()) }
 		}
 		for _,m := range i.ClassMethods.Methods {
 			w.ProcessMethod(m)
@@ -1682,7 +1768,7 @@ void*
 		}
 	}
 	for _,m := range w.Functions {
-		//fmt.Printf("Processing function %s %s\n",m.Type.CType(),m.Name)
+		if Debug { fmt.Printf("Processing function %s %s\n",m.Type.CType(),m.Name) }
 		w.ProcessFunction(m)
 	}
 	for _,e := range w.NamedEnums {
