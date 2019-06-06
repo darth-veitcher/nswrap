@@ -89,7 +89,7 @@ in Go types (as described below), except for methods that contain unsupported
 return types or paramater types such as blocks and function pointers.
 
 ```go
-s1 := ns.NSStringAlloc()        // allocate and autorelease an instance of NSString
+s1 := ns.NSStringAlloc()        // allocate an instance of NSString
 s2 := ns.NSStringWithSting(s1)  // call a class method of NSString
 class := ns.NSStringClass()     // class method returning the class of NSString
 fmt.Println(s2.UTF8String())    // call UTF8String, an NSString instance method
@@ -437,8 +437,9 @@ which seem to work but have not been extensively tested.
 Since everything inherits methods from `NSObject`, you can call `Retain()`,
 `Release()` and `Autorelease()` on any object.
 
-All allocation functions created by NSWrap (i.e. those ending in `Alloc`)
-call `autorelease` before they return an object.
+If the autorelease configuration directive is set to "true", all allocation functions
+created by NSWrap (i.e. those ending in `Alloc`) will call `autorelease` before they
+return an object. Alternately, objects can be manually sent an autorelease message.
 If you are not working in an environment (such as an
 Application Delegate callback) that provides an autorelease pool, you can
 create your own:
@@ -448,7 +449,9 @@ create your own:
 ```go
 swamp := ns.NSAutoreleasePoolAlloc().Init()
 del := ns.AppDelegateAlloc()
+//del.Autorelease() // if autorelease: true is not set in nswrap.yaml
 menu := ns.NSMenuAlloc().InitWithTitle(nst("Main"))
+//menu.Autorelease()
 str := ns.NSStringWithGoString("these objects will be automatically deallocated when swamp is drained.")
 ...
 swamp.Drain()
@@ -473,8 +476,19 @@ You will need to make sure `NSAutoreleasePool` is included in the `classes`
 directive in your configuration file before working with
 `NSAutoreleasePool` objects or the `AutoreleasePool` helper function.
 
-Memory management seems to work but there ought to be a comprehensive
-tests before anyone should feel confident with it.
+* Pitfalls
+
+Go concurrency does not play well with Objective-C memory management. In particular,
+an AutoreleasePool needs to be allocated and drained from the same thread, and
+only objects allocated within that thread will be drained. Objects allocated and
+autoreleased from a different goroutine in the same thread are at risk of being
+prematurely drained. Therefore, you should only work with one AutoreleasePool at
+a time, and only within a thread that is locked to the OS thread
+(by calling `runtime.LockOSThread()`). If you will be allocating Objective-C objects
+from multiple goroutines, it is best not to use the `autorelease: true` directive
+as that will cause all objects to receive an `autorelease` message even if they are
+created outside the thread where are using your autorelease pool.
+See `examples/memory` for some basic tests and read the comments to larn what to avoid.
 
 ## Delegates
 
