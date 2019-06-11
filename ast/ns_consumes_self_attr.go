@@ -12,9 +12,9 @@ func parseNSConsumesSelfAttr(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &NSConsumesSelfAttr{
 		Addr:       ParseAddress(groups["address"]),

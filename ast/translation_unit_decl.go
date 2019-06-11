@@ -8,9 +8,9 @@ type TranslationUnitDecl struct {
 
 func parseTranslationUnitDecl(line string) Node {
 	groups := groupsFromRegex("<(?P<position>.*)> <(?P<position2>.*)>", line)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &TranslationUnitDecl{
 		Addr:       ParseAddress(groups["address"]),

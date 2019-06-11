@@ -13,9 +13,9 @@ func parseTargetAttr(line string) Node {
 		"<(?P<position>.*)>(?P<content>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &TargetAttr{
 		Addr:       ParseAddress(groups["address"]),

@@ -13,9 +13,9 @@ func parseNSConsumedAttr(line string) Node {
 		"<(?P<position>.*)>(?P<content>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &NSConsumedAttr{
 		Addr:       ParseAddress(groups["address"]),

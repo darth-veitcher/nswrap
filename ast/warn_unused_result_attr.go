@@ -10,9 +10,9 @@ type WarnUnusedResultAttr struct {
 
 func parseWarnUnusedResultAttr(line string) Node {
 	groups := groupsFromRegex(`<(?P<position>.*)>( warn_unused_result)?`, line)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &WarnUnusedResultAttr{
 		Addr:       ParseAddress(groups["address"]),

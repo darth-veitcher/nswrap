@@ -2,7 +2,6 @@ package ast
 
 import (
 	"strings"
-
 	//"git.wow.st/gmp/nswrap/util"
 )
 

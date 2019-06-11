@@ -12,9 +12,9 @@ func parseObjCRequiresSuperAttr(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCRequiresSuperAttr{
 		Addr:       ParseAddress(groups["address"]),

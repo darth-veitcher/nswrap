@@ -13,9 +13,9 @@ func parseSwiftNameAttr(line string) Node {
 		"<(?P<position>.*)>(?P<content>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &SwiftNameAttr{
 		Addr:       ParseAddress(groups["address"]),

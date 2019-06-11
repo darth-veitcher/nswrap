@@ -13,9 +13,9 @@ func parseObjCBridgeAttr(line string) Node {
 		"<(?P<position>.*)>(?P<content>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCBridgeAttr{
 		Addr:       ParseAddress(groups["address"]),

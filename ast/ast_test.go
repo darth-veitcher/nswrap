@@ -10,9 +10,9 @@ import (
 )
 
 type testNode struct {
-	n Node
-	addr Address
-	pos Position
+	n        Node
+	addr     Address
+	pos      Position
 	children []Node
 }
 
@@ -30,24 +30,24 @@ func formatMultiLine(o interface{}) string {
 
 func runNodeTest(t *testing.T, actual Node, expected testNode, i *int) {
 	testName := fmt.Sprintf("Example%d", *i)
-	t.Run(testName + "a", func(t *testing.T) {
+	t.Run(testName+"a", func(t *testing.T) {
 		if !reflect.DeepEqual(expected.n, actual) {
 			t.Errorf("%s", util.ShowDiff(formatMultiLine(expected.n),
 				formatMultiLine(actual)))
 		}
 	})
 	t.Run(testName+"b", func(t *testing.T) {
-		if !reflect.DeepEqual(actual.Address(),expected.addr) {
+		if !reflect.DeepEqual(actual.Address(), expected.addr) {
 			t.Errorf("Address mismatch")
 		}
 	})
 	t.Run(testName+"c", func(t *testing.T) {
-		if !reflect.DeepEqual(actual.Position(),expected.pos) {
+		if !reflect.DeepEqual(actual.Position(), expected.pos) {
 			t.Errorf("Position mismatch")
 		}
 	})
 	t.Run(testName+"d", func(t *testing.T) {
-		if !reflect.DeepEqual(actual.Children(),expected.children) {
+		if !reflect.DeepEqual(actual.Children(), expected.children) {
 			t.Errorf("Children mismatch")
 		}
 	})
@@ -55,8 +55,8 @@ func runNodeTest(t *testing.T, actual Node, expected testNode, i *int) {
 		cs := expected.children
 		node := &Unknown{}
 		actual.AddChild(node)
-		cs = append(cs,node)
-		if !reflect.DeepEqual(actual.Children(),cs) {
+		cs = append(cs, node)
+		if !reflect.DeepEqual(actual.Children(), cs) {
 			t.Errorf("Children mismatch")
 		}
 	})
@@ -71,7 +71,7 @@ func runNodeTests(t *testing.T, tests map[string]testNode) {
 		name := reflect.TypeOf(expected.n).Elem().Name()
 		actual := Parse(name + " " + line)
 
-		runNodeTest(t,actual,expected,&i)
+		runNodeTest(t, actual, expected, &i)
 	}
 }
 
@@ -96,7 +96,7 @@ func TestPrint(t *testing.T) {
 }
 
 var lines = []string{
-// c2go ast sqlite3.c | head -5000 | sed 's/^[ |`-]*//' | sed 's/<<<NULL>>>/NullStmt/g' | gawk 'length > 0 {print "`" $0 "`,"}'
+	// c2go ast sqlite3.c | head -5000 | sed 's/^[ |`-]*//' | sed 's/<<<NULL>>>/NullStmt/g' | gawk 'length > 0 {print "`" $0 "`,"}'
 }
 
 func BenchmarkParse(b *testing.B) {
@@ -106,4 +106,3 @@ func BenchmarkParse(b *testing.B) {
 		}
 	}
 }
-

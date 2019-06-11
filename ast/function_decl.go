@@ -41,9 +41,9 @@ func parseFunctionDecl(line string) Node {
 		`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &FunctionDecl{
 		Addr:         ParseAddress(groups["address"]),

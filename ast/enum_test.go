@@ -6,15 +6,14 @@ import (
 
 func TestEnum(t *testing.T) {
 	nodes := map[string]testNode{
-		`0x7f980b858308 'foo'`:
-		testNode{&Enum{
+		`0x7f980b858308 'foo'`: testNode{&Enum{
 			Addr:       0x7f980b858308,
 			Name:       "foo",
 			ChildNodes: []Node{},
 		},
-		0x7f980b858308,
-		NewPositionFromString(""),
-		[]Node{},
+			0x7f980b858308,
+			NewPositionFromString(""),
+			[]Node{},
 		},
 	}
 

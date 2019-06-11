@@ -2,12 +2,12 @@ package ast
 
 // ObjCBoolLiteralExpr
 type ObjCBoolLiteralExpr struct {
-	Addr         Address
-	Pos          Position
-	Type         string
-	Type2        string
-	Attr         string
-	ChildNodes   []Node
+	Addr       Address
+	Pos        Position
+	Type       string
+	Type2      string
+	Attr       string
+	ChildNodes []Node
 }
 
 func parseObjCBoolLiteralExpr(line string) Node {
@@ -18,17 +18,17 @@ func parseObjCBoolLiteralExpr(line string) Node {
 		(?P<attr>.*)`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCBoolLiteralExpr{
-		Addr:         ParseAddress(groups["address"]),
-		Pos:          NewPositionFromString(groups["position"]),
-		Type:         removeQuotes(groups["type"]),
-		Type2:        groups["type2"],
-		Attr:         groups["attr"],
-		ChildNodes:   []Node{},
+		Addr:       ParseAddress(groups["address"]),
+		Pos:        NewPositionFromString(groups["position"]),
+		Type:       removeQuotes(groups["type"]),
+		Type2:      groups["type2"],
+		Attr:       groups["attr"],
+		ChildNodes: []Node{},
 	}
 }
 

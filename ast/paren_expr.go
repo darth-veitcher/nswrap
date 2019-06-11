@@ -19,9 +19,9 @@ func parseParenExpr(line string) Node {
 		`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ParenExpr{
 		Addr:       ParseAddress(groups["address"]),

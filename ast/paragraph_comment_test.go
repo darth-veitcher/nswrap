@@ -6,15 +6,14 @@ import (
 
 func TestParagraphComment(t *testing.T) {
 	nodes := map[string]testNode{
-		`0x3860920 <line:10176:4, line:10180:45>`:
-		testNode{&ParagraphComment{
+		`0x3860920 <line:10176:4, line:10180:45>`: testNode{&ParagraphComment{
 			Addr:       0x3860920,
 			Pos:        NewPositionFromString("line:10176:4, line:10180:45"),
 			ChildNodes: []Node{},
 		},
-		0x3860920,
-		NewPositionFromString("line:10176:4, line:10180:45"),
-		[]Node{},
+			0x3860920,
+			NewPositionFromString("line:10176:4, line:10180:45"),
+			[]Node{},
 		},
 	}
 

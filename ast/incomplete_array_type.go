@@ -12,9 +12,9 @@ func parseIncompleteArrayType(line string) Node {
 		"'(?P<type>.*)' ",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &IncompleteArrayType{
 		Addr:       ParseAddress(groups["address"]),

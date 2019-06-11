@@ -12,9 +12,9 @@ func parseObjCIndependentClassAttr(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCIndependentClassAttr{
 		Addr:       ParseAddress(groups["address"]),

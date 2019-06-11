@@ -13,9 +13,9 @@ func parseTextComment(line string) Node {
 		`<(?P<position>.*)> Text="(?P<text>.*)"`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &TextComment{
 		Addr:       ParseAddress(groups["address"]),

@@ -2,11 +2,11 @@ package ast
 
 // ConvertVectorExpr
 type ConvertVectorExpr struct {
-	Addr         Address
-	Pos          Position
-	Type         string
-	Type2        string
-	ChildNodes   []Node
+	Addr       Address
+	Pos        Position
+	Type       string
+	Type2      string
+	ChildNodes []Node
 }
 
 func parseConvertVectorExpr(line string) Node {
@@ -16,16 +16,16 @@ func parseConvertVectorExpr(line string) Node {
 		(?P<type2>:'.*?')?`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ConvertVectorExpr{
-		Addr:         ParseAddress(groups["address"]),
-		Pos:          NewPositionFromString(groups["position"]),
-		Type:         removeQuotes(groups["type"]),
-		Type2:        groups["type2"],
-		ChildNodes:   []Node{},
+		Addr:       ParseAddress(groups["address"]),
+		Pos:        NewPositionFromString(groups["position"]),
+		Type:       removeQuotes(groups["type"]),
+		Type2:      groups["type2"],
+		ChildNodes: []Node{},
 	}
 }
 

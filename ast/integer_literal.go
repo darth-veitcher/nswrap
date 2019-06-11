@@ -14,9 +14,9 @@ func parseIntegerLiteral(line string) Node {
 		"<(?P<position>.*)> '(?P<type>.*?)' (?P<value>\\d+)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &IntegerLiteral{
 		Addr:       ParseAddress(groups["address"]),

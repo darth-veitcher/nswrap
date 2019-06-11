@@ -6,8 +6,7 @@ import (
 
 func TestFunctionDecl(t *testing.T) {
 	nodes := map[string]testNode{
-		`0x7fb5a90e60d0 <line:231:1, col:22> col:7 clearerr 'void (FILE *)'`:
-		testNode{&FunctionDecl{
+		`0x7fb5a90e60d0 <line:231:1, col:22> col:7 clearerr 'void (FILE *)'`: testNode{&FunctionDecl{
 			Addr:         0x7fb5a90e60d0,
 			Pos:          NewPositionFromString("line:231:1, col:22"),
 			Prev:         "",
@@ -23,12 +22,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x7fb5a90e60d0,
-		NewPositionFromString("line:231:1, col:22"),
-		[]Node{},
+			0x7fb5a90e60d0,
+			NewPositionFromString("line:231:1, col:22"),
+			[]Node{},
 		},
-		`0x7fb5a90e2a50 </usr/include/sys/stdio.h:39:1, /usr/include/AvailabilityInternal.h:21697:126> /usr/include/sys/stdio.h:39:5 renameat 'int (int, const char *, int, const char *)'`:
-		testNode{&FunctionDecl{
+		`0x7fb5a90e2a50 </usr/include/sys/stdio.h:39:1, /usr/include/AvailabilityInternal.h:21697:126> /usr/include/sys/stdio.h:39:5 renameat 'int (int, const char *, int, const char *)'`: testNode{&FunctionDecl{
 			Addr:         0x7fb5a90e2a50,
 			Pos:          NewPositionFromString("/usr/include/sys/stdio.h:39:1, /usr/include/AvailabilityInternal.h:21697:126"),
 			Prev:         "",
@@ -44,12 +42,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x7fb5a90e2a50,
-		NewPositionFromString("/usr/include/sys/stdio.h:39:1, /usr/include/AvailabilityInternal.h:21697:126"),
-		[]Node{},
+			0x7fb5a90e2a50,
+			NewPositionFromString("/usr/include/sys/stdio.h:39:1, /usr/include/AvailabilityInternal.h:21697:126"),
+			[]Node{},
 		},
-		`0x7fb5a90e9b70 </usr/include/stdio.h:244:6> col:6 implicit fprintf 'int (FILE *, const char *, ...)' extern`:
-		testNode{&FunctionDecl{
+		`0x7fb5a90e9b70 </usr/include/stdio.h:244:6> col:6 implicit fprintf 'int (FILE *, const char *, ...)' extern`: testNode{&FunctionDecl{
 			Addr:         0x7fb5a90e9b70,
 			Pos:          NewPositionFromString("/usr/include/stdio.h:244:6"),
 			Prev:         "",
@@ -65,12 +62,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x7fb5a90e9b70,
-		NewPositionFromString("/usr/include/stdio.h:244:6"),
-		[]Node{},
+			0x7fb5a90e9b70,
+			NewPositionFromString("/usr/include/stdio.h:244:6"),
+			[]Node{},
 		},
-		`0x7fb5a90e9d40 prev 0x7fb5a90e9b70 <col:1, /usr/include/sys/cdefs.h:351:63> /usr/include/stdio.h:244:6 fprintf 'int (FILE *, const char *, ...)'`:
-		testNode{&FunctionDecl{
+		`0x7fb5a90e9d40 prev 0x7fb5a90e9b70 <col:1, /usr/include/sys/cdefs.h:351:63> /usr/include/stdio.h:244:6 fprintf 'int (FILE *, const char *, ...)'`: testNode{&FunctionDecl{
 			Addr:         0x7fb5a90e9d40,
 			Pos:          NewPositionFromString("col:1, /usr/include/sys/cdefs.h:351:63"),
 			Prev:         "0x7fb5a90e9b70",
@@ -86,12 +82,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x7fb5a90e9d40,
-		NewPositionFromString("col:1, /usr/include/sys/cdefs.h:351:63"),
-		[]Node{},
+			0x7fb5a90e9d40,
+			NewPositionFromString("col:1, /usr/include/sys/cdefs.h:351:63"),
+			[]Node{},
 		},
-		`0x7fb5a90ec210 <line:259:6> col:6 implicit used printf 'int (const char *, ...)' extern`:
-		testNode{&FunctionDecl{
+		`0x7fb5a90ec210 <line:259:6> col:6 implicit used printf 'int (const char *, ...)' extern`: testNode{&FunctionDecl{
 			Addr:         0x7fb5a90ec210,
 			Pos:          NewPositionFromString("line:259:6"),
 			Prev:         "",
@@ -107,12 +102,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x7fb5a90ec210,
-		NewPositionFromString("line:259:6"),
-		[]Node{},
+			0x7fb5a90ec210,
+			NewPositionFromString("line:259:6"),
+			[]Node{},
 		},
-		`0x2ae30d8 </usr/include/math.h:65:3, /usr/include/x86_64-linux-gnu/sys/cdefs.h:57:54> <scratch space>:17:1 __acos 'double (double)' extern`:
-		testNode{&FunctionDecl{
+		`0x2ae30d8 </usr/include/math.h:65:3, /usr/include/x86_64-linux-gnu/sys/cdefs.h:57:54> <scratch space>:17:1 __acos 'double (double)' extern`: testNode{&FunctionDecl{
 			Addr:         0x2ae30d8,
 			Pos:          NewPositionFromString("/usr/include/math.h:65:3, /usr/include/x86_64-linux-gnu/sys/cdefs.h:57:54"),
 			Prev:         "",
@@ -128,12 +122,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x2ae30d8,
-		NewPositionFromString("/usr/include/math.h:65:3, /usr/include/x86_64-linux-gnu/sys/cdefs.h:57:54"),
-		[]Node{},
+			0x2ae30d8,
+			NewPositionFromString("/usr/include/math.h:65:3, /usr/include/x86_64-linux-gnu/sys/cdefs.h:57:54"),
+			[]Node{},
 		},
-		`0x7fc595071500 <line:26:1, line:69:1> line:26:5 referenced main 'int (int, char **)'`:
-		testNode{&FunctionDecl{
+		`0x7fc595071500 <line:26:1, line:69:1> line:26:5 referenced main 'int (int, char **)'`: testNode{&FunctionDecl{
 			Addr:         0x7fc595071500,
 			Pos:          NewPositionFromString("line:26:1, line:69:1"),
 			Prev:         "",
@@ -149,12 +142,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x7fc595071500,
-		NewPositionFromString("line:26:1, line:69:1"),
-		[]Node{},
+			0x7fc595071500,
+			NewPositionFromString("line:26:1, line:69:1"),
+			[]Node{},
 		},
-		`0x55973a008cb0 <line:93619:1, line:93630:1> line:93619:12 used exprIsConst 'int (Expr *, int, int)' static`:
-		testNode{&FunctionDecl{
+		`0x55973a008cb0 <line:93619:1, line:93630:1> line:93619:12 used exprIsConst 'int (Expr *, int, int)' static`: testNode{&FunctionDecl{
 			Addr:         0x55973a008cb0,
 			Pos:          NewPositionFromString("line:93619:1, line:93630:1"),
 			Prev:         "",
@@ -170,12 +162,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x55973a008cb0,
-		NewPositionFromString("line:93619:1, line:93630:1"),
-		[]Node{},
+			0x55973a008cb0,
+			NewPositionFromString("line:93619:1, line:93630:1"),
+			[]Node{},
 		},
-		`0x563ade547cb8 <safe_math.h:13:1, line:25:1> line:14:2 safe_unary_minus_func_int8_t_s 'int8_t (int8_t)':'int8_t (int8_t)' static`:
-		testNode{&FunctionDecl{
+		`0x563ade547cb8 <safe_math.h:13:1, line:25:1> line:14:2 safe_unary_minus_func_int8_t_s 'int8_t (int8_t)':'int8_t (int8_t)' static`: testNode{&FunctionDecl{
 			Addr:         0x563ade547cb8,
 			Pos:          NewPositionFromString("safe_math.h:13:1, line:25:1"),
 			Prev:         "",
@@ -191,12 +182,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x563ade547cb8,
-		NewPositionFromString("safe_math.h:13:1, line:25:1"),
-		[]Node{},
+			0x563ade547cb8,
+			NewPositionFromString("safe_math.h:13:1, line:25:1"),
+			[]Node{},
 		},
-		`0x556cac571be0 <tests/asm.c:9:1, line:13:1> line:9:26 sqlite3Hwtime1 'unsigned long (void)' inline`:
-		testNode{&FunctionDecl{
+		`0x556cac571be0 <tests/asm.c:9:1, line:13:1> line:9:26 sqlite3Hwtime1 'unsigned long (void)' inline`: testNode{&FunctionDecl{
 			Addr:         0x556cac571be0,
 			Pos:          NewPositionFromString("tests/asm.c:9:1, line:13:1"),
 			Prev:         "",
@@ -212,12 +202,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     true,
 			ChildNodes:   []Node{},
 		},
-		0x556cac571be0,
-		NewPositionFromString("tests/asm.c:9:1, line:13:1"),
-		[]Node{},
+			0x556cac571be0,
+			NewPositionFromString("tests/asm.c:9:1, line:13:1"),
+			[]Node{},
 		},
-		`0x21c3da0 <line:8201:1, line:8786:1> line:8201:25 used insertvertex 'enum insertvertexresult (struct mesh *, struct behavior *, vertex, struct otri *, struct osub *, int, int)'`:
-		testNode{&FunctionDecl{
+		`0x21c3da0 <line:8201:1, line:8786:1> line:8201:25 used insertvertex 'enum insertvertexresult (struct mesh *, struct behavior *, vertex, struct otri *, struct osub *, int, int)'`: testNode{&FunctionDecl{
 			Addr:         0x21c3da0,
 			Pos:          NewPositionFromString("line:8201:1, line:8786:1"),
 			Prev:         "",
@@ -233,12 +222,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x21c3da0,
-		NewPositionFromString("line:8201:1, line:8786:1"),
-		[]Node{},
+			0x21c3da0,
+			NewPositionFromString("line:8201:1, line:8786:1"),
+			[]Node{},
 		},
-		`0x30bdba8 parent 0x304fbb0 <col:3, col:38> col:30 used getinfo 'enum countries ()'`:
-		testNode{&FunctionDecl{
+		`0x30bdba8 parent 0x304fbb0 <col:3, col:38> col:30 used getinfo 'enum countries ()'`: testNode{&FunctionDecl{
 			Addr:         0x30bdba8,
 			Pos:          NewPositionFromString("col:3, col:38"),
 			Prev:         "",
@@ -255,12 +243,11 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x30bdba8,
-		NewPositionFromString("col:3, col:38"),
-		[]Node{},
+			0x30bdba8,
+			NewPositionFromString("col:3, col:38"),
+			[]Node{},
 		},
-		`0x353d3b8 parent 0x31e9ba0 prev 0x33b0810 <col:2, col:30> col:22 used dmatrix 'double **(long, long, long, long)'`:
-		testNode{&FunctionDecl{
+		`0x353d3b8 parent 0x31e9ba0 prev 0x33b0810 <col:2, col:30> col:22 used dmatrix 'double **(long, long, long, long)'`: testNode{&FunctionDecl{
 			Addr:         0x353d3b8,
 			Pos:          NewPositionFromString("col:2, col:30"),
 			Prev:         "0x33b0810",
@@ -277,9 +264,9 @@ func TestFunctionDecl(t *testing.T) {
 			IsInline:     false,
 			ChildNodes:   []Node{},
 		},
-		0x353d3b8,
-		NewPositionFromString("col:2, col:30"),
-		[]Node{},
+			0x353d3b8,
+			NewPositionFromString("col:2, col:30"),
+			[]Node{},
 		},
 	}
 

@@ -10,9 +10,9 @@ type ParenType struct {
 
 func parseParenType(line string) Node {
 	groups := groupsFromRegex(`'(?P<type>.*?)' sugar`, line)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ParenType{
 		Addr:       ParseAddress(groups["address"]),

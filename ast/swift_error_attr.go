@@ -13,9 +13,9 @@ func parseSwiftErrorAttr(line string) Node {
 		"<(?P<position>.*)>(?P<content>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &SwiftErrorAttr{
 		Addr:       ParseAddress(groups["address"]),

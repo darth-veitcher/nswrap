@@ -12,9 +12,9 @@ func parseObjCBoxableAttr(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCBoxableAttr{
 		Addr:       ParseAddress(groups["address"]),

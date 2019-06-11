@@ -13,9 +13,9 @@ func parseCFConsumedAttr(line string) Node {
 		"<(?P<position>.*)>(?P<content>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &CFConsumedAttr{
 		Addr:       ParseAddress(groups["address"]),

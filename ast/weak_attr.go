@@ -12,9 +12,9 @@ func parseWeakAttr(line string) Node {
 		`<(?P<position>.*)>`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &WeakAttr{
 		Addr:       ParseAddress(groups["address"]),

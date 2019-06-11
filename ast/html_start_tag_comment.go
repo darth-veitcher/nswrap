@@ -13,9 +13,9 @@ func parseHTMLStartTagComment(line string) Node {
 		`<(?P<position>.*)> Name="(?P<name>.*)"`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &HTMLStartTagComment{
 		Addr:       ParseAddress(groups["address"]),

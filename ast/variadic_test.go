@@ -11,9 +11,9 @@ func TestVariadic(t *testing.T) {
 		testNode{&Variadic{
 			ChildNodes: []Node{},
 		},
-		0,
-		NewPositionFromString(""),
-		[]Node{},
+			0,
+			NewPositionFromString(""),
+			[]Node{},
 		},
 		&i,
 	)

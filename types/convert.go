@@ -24,7 +24,6 @@ func IsGoInterface(gt string) bool {
 	return goInterfaces[gt]
 }
 
-
 //TypeParameters maps, for each class, a TypedefName to a type, representing
 //the Objective-C type parameters for that class
 var TypeParameters map[string]map[string]string
@@ -37,7 +36,7 @@ func (t *Type) Typedef() *Type {
 }
 
 var (
-	r_id *regexp.Regexp
+	r_id           *regexp.Regexp
 	r_instancename *regexp.Regexp
 	r_instancetype *regexp.Regexp
 )
@@ -75,60 +74,60 @@ func AddTypedef(n string, tp *Type) {
 }
 
 type Type struct {
-	Node *Node
-	Class string
+	Node     *Node
+	Class    string
 	Variadic bool
 }
 
 func (t *Type) CloneToClass(c string) *Type {
 	return &Type{
-		Node: t.Node,
-		Class: c,
+		Node:     t.Node,
+		Class:    c,
 		Variadic: t.Variadic,
 	}
 }
 
-func clean(n *Node,c string) (*Node,bool) {
+func clean(n *Node, c string) (*Node, bool) {
 	if n == nil {
-		return nil,false
+		return nil, false
 	}
-	ret := NewNode(n.Kind,n.Content)
+	ret := NewNode(n.Kind, n.Content)
 	ret.Children = n.Children
 	//fmt.Printf("clean(%s,%s)\n",n.CType(),c)
 	recur := false
 	if TypeParameters[c] != nil {
-		for k,v := range TypeParameters[c] {
-			recur = ret.renameTypedefs(k,v)
+		for k, v := range TypeParameters[c] {
+			recur = ret.renameTypedefs(k, v)
 		}
 	}
 	if recur {
 		clean(n, c)
-		return ret,true
+		return ret, true
 	}
-	return n,false
+	return n, false
 }
 
 func NewType(n *Node, c string) *Type {
-	n2,_ := clean(n, c)
+	n2, _ := clean(n, c)
 	return &Type{
-		Node: n2,
+		Node:  n2,
 		Class: c,
 	}
 }
 
-func NewTypeFromString(t,c string) *Type {
+func NewTypeFromString(t, c string) *Type {
 	//fmt.Printf("t/c: %s/%s\n",t,c)
-	n,err := Parse(t)
+	n, err := Parse(t)
 	//fmt.Printf("%p %s",n,n.String())
 	if err != nil {
 		return &Type{}
 	}
-	if n2,ok := clean(n, c); ok {
+	if n2, ok := clean(n, c); ok {
 		//found type parameters, re-parse
-		return NewTypeFromString(n2.CType(),c)
+		return NewTypeFromString(n2.CType(), c)
 	}
 	return &Type{
-		Node: n,
+		Node:  n,
 		Class: c,
 	}
 }
@@ -156,7 +155,7 @@ func (t *Type) BaseType() *Type {
 	if t == nil {
 		return nil
 	}
-	ret := NewType( 
+	ret := NewType(
 		t.Node.BaseType(),
 		t.Class,
 	)
@@ -172,11 +171,11 @@ func swapstars(s string) string {
 
 func (t *Type) CGoType() string {
 	ct := swapstars("C." + t.CType())
-	ct = strings.ReplaceAll(ct,"unsigned ","u")
-	ct = strings.ReplaceAll(ct,"signed ","u")
-	ct = strings.ReplaceAll(ct,"long ","long")
-	ct = strings.ReplaceAll(ct,"complex ","complex")
-	ct = strings.ReplaceAll(ct," ","_")
+	ct = strings.ReplaceAll(ct, "unsigned ", "u")
+	ct = strings.ReplaceAll(ct, "signed ", "u")
+	ct = strings.ReplaceAll(ct, "long ", "long")
+	ct = strings.ReplaceAll(ct, "complex ", "complex")
+	ct = strings.ReplaceAll(ct, " ", "_")
 	return ct
 }
 
@@ -187,15 +186,15 @@ func (t *Type) GoType() string {
 func _goType(ct string) string {
 	ct = swapstars(ct)
 	ct = strings.Title(ct)
-	ct = strings.ReplaceAll(ct," ","")
-	ct = strings.ReplaceAll(ct,"Struct","")
+	ct = strings.ReplaceAll(ct, " ", "")
+	ct = strings.ReplaceAll(ct, "Struct", "")
 	if IsGoInterface(ct) {
 		return ct
 	}
 	/*
-	if ct == "Id" {
-		ct = "Id"
-	}*/
+		if ct == "Id" {
+			ct = "Id"
+		}*/
 	if len(ct) > 1 && ShouldWrap(ct[1:]) {
 		return ct[1:]
 	}
@@ -220,14 +219,14 @@ func (t *Type) _CType(attrib bool) string {
 	}
 	var ct string
 	if attrib {
-		ignore := map[string]bool { "GenericList": true }
+		ignore := map[string]bool{"GenericList": true}
 		ct = t.Node._CType(ignore)
 	} else {
 		ct = t.Node.CTypeSimplified()
 	}
-	ct = r_id.ReplaceAllString(ct,"NSObject*")
-	ct = r_instancename.ReplaceAllString(ct,t.Class)
-	ct = r_instancetype.ReplaceAllString(ct,t.Class + "*")
+	ct = r_id.ReplaceAllString(ct, "NSObject*")
+	ct = r_instancename.ReplaceAllString(ct, t.Class)
+	ct = r_instancetype.ReplaceAllString(ct, t.Class+"*")
 	return ct
 }
 
@@ -252,7 +251,7 @@ func (t *Type) GoTypeDecl() string {
 		}
 		return fmt.Sprintf(`
 type %s %s
-`,gt,cgt)
+`, gt, cgt)
 	}
 }
 
@@ -266,7 +265,7 @@ func (t *Type) GoInterfaceDecl() string {
 type %s interface {
 	Ptr() unsafe.Pointer
 }
-`,gt)
+`, gt)
 	}
 	if IsGoInterface(super) {
 		super = "Id"
@@ -279,7 +278,7 @@ func (o Id) %s() %s {
 	ret.ptr = o.ptr
 	return ret
 }
-`,gt,super,gt,gt,gt,gt)
+`, gt, super, gt, gt, gt, gt)
 }
 
 func (t *Type) IsFunctionPtr() bool {
@@ -321,7 +320,7 @@ func (t *Type) ReturnType() *Type {
 		return td.ReturnType()
 	}
 	if rt := t.Node.ReturnType(); rt != nil {
-		return NewType(rt,t.Class)
+		return NewType(rt, t.Class)
 	}
 	return nil
 }
@@ -341,11 +340,11 @@ func (t *Type) CToGo(cval string) string {
 	if t.IsPointer() {
 		cval = "unsafe.Pointer(" + cval + ")"
 	}
-	return fmt.Sprintf("(%s)(%s)",t.GoType(),cval)
+	return fmt.Sprintf("(%s)(%s)", t.GoType(), cval)
 }
 
 // Call a C function from Go with a given return type and parameter types
-func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fun bool) string {
+func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fun, gogc  bool) string {
 	if rtype == nil {
 		//fmt.Println("nil sent to GoToC")
 		return ""
@@ -360,8 +359,8 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 	if rt != "void" {
 		if sw {
 			ret.WriteString(fmt.Sprintf(
-`ret := %s{}
-	ret.ptr = `,rtgt))
+				`ret := %s{}
+	ret.ptr = `, rtgt))
 		} else {
 			if rtgt == "BOOL" {
 				ret.WriteString("ret := (")
@@ -377,7 +376,7 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 	ret.WriteString("C." + name + "(")
 	parms := []string{}
 	for i := 0; i < len(pnames); i++ {
-		pn,pt := pnames[i],ptypes[i]
+		pn, pt := pnames[i], ptypes[i]
 		p := pn
 		if (ShouldWrap(pt.GoType()) || IsGoInterface(pt.GoType())) && !pt.Variadic {
 			p = pn + ".Ptr()"
@@ -393,9 +392,9 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 				p = "(" + pt.CGoType() + ")(" + pn + ")"
 			}
 		}
-		parms = append(parms,p)
+		parms = append(parms, p)
 	}
-	ret.WriteString(strings.Join(parms,", "))
+	ret.WriteString(strings.Join(parms, ", "))
 	ret.WriteString(")")
 	if rt != "void" && !sw {
 		ret.WriteString(")")
@@ -406,8 +405,10 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 	if rt == "BOOL" {
 		ret.WriteString(" != 0")
 	}
-	for i,sname := range snames {
-		if sname == "" { continue }
+	for i, sname := range snames {
+		if sname == "" {
+			continue
+		}
 		ret.WriteString(fmt.Sprintf(`
 	(*%s) = (*%s)[:cap(*%s)]
 	for i := 0; i < len(*%s); i++ {
@@ -416,12 +417,19 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 			break
 		}
 		(*%s)[i].ptr = %s[i]
-	}`,pnames[i],pnames[i],pnames[i],pnames[i],sname,pnames[i],pnames[i],pnames[i],sname))
+	}`, pnames[i], pnames[i], pnames[i], pnames[i], sname, pnames[i], pnames[i], pnames[i], sname))
 	}
 	if rt != "void" {
+		if sw && gogc && rtgt != "NSAutoreleasePool" {
+//			if m,_ :=regexp.MatchString(`Alloc(WithZone)?`,name); m {
+				ret.WriteString(fmt.Sprintf(`
+	runtime.SetFinalizer(&ret, func(o *%s) {
+		o.Release()
+	})`,rtgt))
+//			}
+		}
 		ret.WriteString(`
 	return ret`)
 	}
 	return ret.String()
 }
-

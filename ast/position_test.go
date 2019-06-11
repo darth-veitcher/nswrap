@@ -113,7 +113,7 @@ func TestTrackPositions(t *testing.T) {
 	TrackPositions = false
 	t.Run("TrackPositions1", func(t *testing.T) {
 		pos := NewPositionFromString("line:120:1, col:16")
-		if !reflect.DeepEqual(pos,Position{}) {
+		if !reflect.DeepEqual(pos, Position{}) {
 			t.Errorf("TrackPositions = false but NewPositionFromString did not return Position{}\n")
 		}
 	})
@@ -126,4 +126,3 @@ func TestTrackPositions(t *testing.T) {
 	})
 	TrackPositions = true
 }
-

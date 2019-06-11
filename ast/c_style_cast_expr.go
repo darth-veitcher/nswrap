@@ -26,9 +26,9 @@ func parseCStyleCastExpr(line string) Node {
 	}
 
 	return &CStyleCastExpr{
-		Addr:       ParseAddress(groups["address"]),
-		Pos:        NewPositionFromString(groups["position"]),
-		Type:       groups["type1"],
+		Addr: ParseAddress(groups["address"]),
+		Pos:  NewPositionFromString(groups["position"]),
+		Type: groups["type1"],
 		//Type2:      groups["type2"],
 		Kind:       groups["kind"],
 		ChildNodes: []Node{},

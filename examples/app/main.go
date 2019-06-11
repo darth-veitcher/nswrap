@@ -1,10 +1,11 @@
 package main
+
 //go:generate nswrap
 
 import (
 	"fmt"
-	"runtime"
 	"git.wow.st/gmp/nswrap/examples/app/ns"
+	"runtime"
 )
 
 //Shortcut for literal NSStrings
@@ -21,12 +22,12 @@ func pb2() {
 
 func didFinishLaunching(n ns.NSNotification) {
 	fmt.Println("Go: did finish launching")
-	fmt.Printf("Notification: %s\n",n.Name().UTF8String())
+	fmt.Printf("Notification: %s\n", n.Name().UTF8String())
 	//Set up an NSWindow
 	win = ns.NSWindowAlloc().InitWithContentRectStyleMask(
-		ns.NSMakeRect(200,200,600,600),
-		ns.NSWindowStyleMaskTitled | ns.NSWindowStyleMaskClosable |
-		ns.NSWindowStyleMaskResizable,
+		ns.NSMakeRect(200, 200, 600, 600),
+		ns.NSWindowStyleMaskTitled|ns.NSWindowStyleMaskClosable|
+			ns.NSWindowStyleMaskResizable,
 		ns.NSBackingStoreBuffered,
 		0,
 	)
@@ -51,7 +52,7 @@ func didFinishLaunching(n ns.NSNotification) {
 
 	appMenu.AddItemWithTitle(nst("About"), nil, nst(""))
 	appMenu.AddItemWithTitle(nst("Preferences"), nil, nst(""))
-	appMenu.AddItemWithTitle(nst("Quit"),ns.Selector("terminate:"), nst("q"))
+	appMenu.AddItemWithTitle(nst("Quit"), ns.Selector("terminate:"), nst("q"))
 	a.SetMainMenu(m1)
 	fileMenu.AddItemWithTitle(nst("Open"), nil, nst(""))
 	fileMenu.AddItemWithTitle(nst("New"), nil, nst(""))
@@ -86,15 +87,15 @@ func didFinishLaunching(n ns.NSNotification) {
 	cv.AddSubview(b2.NSView)
 
 	viewmap := ns.NSDictionaryWithObjectsForKeys(
-		ns.NSArrayWithObjects(b1,b2),
-		ns.NSArrayWithObjects(nst("b1"),nst("b2")))
+		ns.NSArrayWithObjects(b1, b2),
+		ns.NSArrayWithObjects(nst("b1"), nst("b2")))
 
 	cv.AddConstraints(ns.NSLayoutConstraintsWithVisualFormat(
-		nst("V:|-[b1]"),0, ns.NSDictionary{}, viewmap))
+		nst("V:|-[b1]"), 0, ns.NSDictionary{}, viewmap))
 	cv.AddConstraints(ns.NSLayoutConstraintsWithVisualFormat(
-		nst("H:|-[b1]"),0, ns.NSDictionary{}, viewmap))
+		nst("H:|-[b1]"), 0, ns.NSDictionary{}, viewmap))
 	cv.AddConstraints(ns.NSLayoutConstraintsWithVisualFormat(
-		nst("H:[b1]-[b2]"),ns.NSLayoutFormatAlignAllBaseline,
+		nst("H:[b1]-[b2]"), ns.NSLayoutFormatAlignAllBaseline,
 		ns.NSDictionary{}, viewmap))
 
 	a.ActivateIgnoringOtherApps(1)
@@ -110,11 +111,11 @@ func willTerminate(n ns.NSNotification) {
 
 func didBecomeActive(n ns.NSNotification) {
 	fmt.Println("Go: did become active")
-	fmt.Printf("Notification: %s\n",n.Name().UTF8String())
+	fmt.Printf("Notification: %s\n", n.Name().UTF8String())
 }
 
 var (
-	a ns.NSApplication
+	a   ns.NSApplication
 	win ns.NSWindow
 )
 
@@ -140,6 +141,5 @@ func app() {
 func main() {
 	//Run our app in an autorelease pool just for fun
 	go ns.Autoreleasepool(app)
-	select { }
+	select {}
 }
-

@@ -13,9 +13,9 @@ func parseInlineCommandComment(line string) Node {
 		`<(?P<position>.*)> (?P<other>.*)`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &InlineCommandComment{
 		Addr:       ParseAddress(groups["address"]),

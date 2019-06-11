@@ -2,13 +2,13 @@ package ast
 
 // ArraySubscriptExpr is expression.
 type ArraySubscriptExpr struct {
-	Addr       Address
-	Pos        Position
-	Type       string
-	Type2      string
-	IsLvalue   bool
+	Addr              Address
+	Pos               Position
+	Type              string
+	Type2             string
+	IsLvalue          bool
 	IsVectorComponent bool
-	ChildNodes []Node
+	ChildNodes        []Node
 }
 
 func parseArraySubscriptExpr(line string) Node {
@@ -23,13 +23,13 @@ func parseArraySubscriptExpr(line string) Node {
 	}
 
 	return &ArraySubscriptExpr{
-		Addr:       ParseAddress(groups["address"]),
-		Pos:        NewPositionFromString(groups["position"]),
-		Type:       groups["type"],
-		Type2:      groups["type2"],
-		IsLvalue:   len(groups["lvalue"]) > 0,
+		Addr:              ParseAddress(groups["address"]),
+		Pos:               NewPositionFromString(groups["position"]),
+		Type:              groups["type"],
+		Type2:             groups["type2"],
+		IsLvalue:          len(groups["lvalue"]) > 0,
 		IsVectorComponent: len(groups["vcomp"]) > 0,
-		ChildNodes: []Node{},
+		ChildNodes:        []Node{},
 	}
 }
 

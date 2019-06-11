@@ -16,9 +16,9 @@ func parseVerbatimBlockComment(line string) Node {
 		 CloseName="(?P<close_name>.*?)"`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &VerbatimBlockComment{
 		Addr:       ParseAddress(groups["address"]),

@@ -18,14 +18,14 @@ func init() {
 	//memoize the TypeName function for performance
 	cache := map[string]*Node{}
 	TypeName = func(s string, n *Node) (string, *Node) {
-		if n2,ok := cache[s]; ok {
-			return "",n2
+		if n2, ok := cache[s]; ok {
+			return "", n2
 		}
-		s2,n2 := _TypeName(s,n)
+		s2, n2 := _TypeName(s, n)
 		if s2 == "" && cacheable(s) {
 			cache[s] = n2
 		}
-		return s2,n2
+		return s2, n2
 	}
 	//for debug purposes, the following line can be uncommented, which will
 	//memoization memoization
@@ -33,57 +33,57 @@ func init() {
 }
 
 func MethodSignature(s string, n *Node) (string, *Node) {
-	return ChildOf(NewNode("MethodSignature"),Seq(
+	return ChildOf(NewNode("MethodSignature"), Seq(
 		Parenthesized(TypeName),
 		Identifier,
 		Opt(MethodParameterList),
-	))(s,n)
+	))(s, n)
 }
 
 func MethodParameterList(s string, n *Node) (string, *Node) {
 	return Seq(
 		FirstMethodParameter,
 		ZeroOrMore(MethodParameter),
-	)(s,n)
+	)(s, n)
 }
 
 func FirstMethodParameter(s string, n *Node) (string, *Node) {
-	return ChildOf(NewNode("MethodParameter"),Seq(
+	return ChildOf(NewNode("MethodParameter"), Seq(
 		Lit(":"),
 		Parenthesized(TypeName),
 		Identifier,
-	))(s,n)
+	))(s, n)
 }
 
 func MethodParameter(s string, n *Node) (string, *Node) {
-	return ChildOf(NewNode("MethodParameter"),Seq(
+	return ChildOf(NewNode("MethodParameter"), Seq(
 		Identifier,
 		Lit(":"),
 		Parenthesized(TypeName),
 		Identifier,
-	))(s,n)
+	))(s, n)
 }
 
 func _TypeName(s string, n *Node) (string, *Node) {
-	return ChildOf(NewNode("TypeName"),Seq(
+	return ChildOf(NewNode("TypeName"), Seq(
 		SpecifierQualifierList,
 		Opt(AbstractDeclarator),
-	))(s,n)
+	))(s, n)
 }
 
 func AbstractDeclarator(s string, n *Node) (string, *Node) {
 	return OneOf(Seq(
-			Opt(Pointer),
-			OneOrMore(DirectAbstractDeclarator)),
+		Opt(Pointer),
+		OneOrMore(DirectAbstractDeclarator)),
 		Pointer,
 		Block,
-	)(s,n)
+	)(s, n)
 }
 
 func ParenAbstractDeclarator(s string, n *Node) (string, *Node) {
 	return ChildOf(NewNode("Parenthesized"),
-			Parenthesized(AbstractDeclarator),
-	)(s,n)
+		Parenthesized(AbstractDeclarator),
+	)(s, n)
 }
 
 func ArrayDeclarator(s string, n *Node) (string, *Node) {
@@ -95,26 +95,26 @@ func ArrayDeclarator(s string, n *Node) (string, *Node) {
 		ChildOf(NewNode("Array"),
 			Bracketed(Seq(
 				Opt(TypeQualifierList),
-				NodeNamed("Length",Regexp(`[\d]+|\*`))))),
+				NodeNamed("Length", Regexp(`[\d]+|\*`))))),
 
 		ChildOf(NewNode("Array"),
 			Bracketed(Seq(
 				Word("static"),
 				Opt(TypeQualifierList),
-				NodeNamed("Length",Regexp(`[\d]+`))))),
+				NodeNamed("Length", Regexp(`[\d]+`))))),
 
 		ChildOf(NewNode("Array"),
 			Bracketed(Seq(
 				Opt(TypeQualifierList),
 				Word("static"),
-				NodeNamed("Length",Regexp(`[\d]+`))))),
-	)(s,n)
+				NodeNamed("Length", Regexp(`[\d]+`))))),
+	)(s, n)
 }
 
 func FunctionDeclarator(s string, n *Node) (string, *Node) {
 	return ChildOf(NewNode("Function"),
-			Parenthesized(Opt(ParameterList)),
-	)(s,n)
+		Parenthesized(Opt(ParameterList)),
+	)(s, n)
 }
 
 func DirectAbstractDeclarator(s string, n *Node) (string, *Node) {
@@ -122,100 +122,100 @@ func DirectAbstractDeclarator(s string, n *Node) (string, *Node) {
 		ParenAbstractDeclarator,
 		ArrayDeclarator,
 		FunctionDeclarator,
-	)(s,n)
+	)(s, n)
 }
 
 func ParameterList(s string, n *Node) (string, *Node) {
 	return Seq(
-		Opt(OneOrMore(Seq(ParameterDeclaration,Lit(",")))),
+		Opt(OneOrMore(Seq(ParameterDeclaration, Lit(",")))),
 		ParameterDeclaration,
-	)(s,n)
+	)(s, n)
 }
 
 func ParameterDeclaration(s string, n *Node) (string, *Node) {
-	return ChildOf(NewNode("ParameterDeclaration"),OneOf(
-		NodeNamed("Ellipsis",Lit("...")),
-		Seq(DeclarationSpecifiers,Declarator),
-		Seq(DeclarationSpecifiers,Opt(AbstractDeclarator)),
-	))(s,n)
+	return ChildOf(NewNode("ParameterDeclaration"), OneOf(
+		NodeNamed("Ellipsis", Lit("...")),
+		Seq(DeclarationSpecifiers, Declarator),
+		Seq(DeclarationSpecifiers, Opt(AbstractDeclarator)),
+	))(s, n)
 }
 
 func DeclarationSpecifiers(s string, n *Node) (string, *Node) {
 	return OneOf(
-		Seq(StorageClassSpecifier,Opt(DeclarationSpecifiers)),
-		Seq(TypeSpecifier,Opt(DeclarationSpecifiers)),
-		Seq(StructOrUnionSpecifier,Opt(DeclarationSpecifiers)),
-		Seq(TypeQualifier,Opt(DeclarationSpecifiers)),
-		Seq(TypedefName,Opt(DeclarationSpecifiers)),
+		Seq(StorageClassSpecifier, Opt(DeclarationSpecifiers)),
+		Seq(TypeSpecifier, Opt(DeclarationSpecifiers)),
+		Seq(StructOrUnionSpecifier, Opt(DeclarationSpecifiers)),
+		Seq(TypeQualifier, Opt(DeclarationSpecifiers)),
+		Seq(TypedefName, Opt(DeclarationSpecifiers)),
 	//	Seq(FunctionSpecifier,Opt(DeclarationSpecifiers)),
-	)(s,n)
+	)(s, n)
 }
 
 func StorageClassSpecifier(s string, n *Node) (string, *Node) {
-	return NodeNamed("StorageClassSpecifier",OneOf(
+	return NodeNamed("StorageClassSpecifier", OneOf(
 		Word("typedef"),
 		Word("extern"),
 		Word("static"),
 		Word("auto"),
 		Word("register"),
-	))(s,n)
+	))(s, n)
 }
 
 func Declarator(s string, n *Node) (string, *Node) {
 	return ChildOf(NewNode("Declarator"),
-		Seq(ZeroOrMore(Pointer), DirectDeclarator))(s,n)
+		Seq(ZeroOrMore(Pointer), DirectDeclarator))(s, n)
 }
 
 func DirectDeclarator(s string, n *Node) (string, *Node) {
 	return OneOf(
-			Identifier,
-			Parenthesized(Declarator),
-			// INCOMPLETE
-	)(s,n)
+		Identifier,
+		Parenthesized(Declarator),
+		// INCOMPLETE
+	)(s, n)
 }
 
 func NullableAnnotation(s string, n *Node) (string, *Node) {
-	return NodeNamed("NullableAnnotation",OneOf(
+	return NodeNamed("NullableAnnotation", OneOf(
 		Word("_Nullable"),
 		Word("_Nonnull"),
 		Word("_Null_unspecified"),
-	))(s,n)
+	))(s, n)
 }
 
 func Pointer(s string, n *Node) (string, *Node) {
 	return Seq(
-		NodeNamed("Pointer",Lit("*")),
+		NodeNamed("Pointer", Lit("*")),
 		Opt(TypeQualifierList),
 		Opt(NullableAnnotation),
 		Opt(Pointer),
-	)(s,n)
+	)(s, n)
 }
 
 //FIXME: not sure how correct this is...
 func Block(s string, n *Node) (string, *Node) {
 	return Seq(
-		NodeNamed("Block",Lit("^")),
+		NodeNamed("Block", Lit("^")),
 		Opt(NullableAnnotation),
-	)(s,n)
+	)(s, n)
 }
 
 func TypeQualifierList(s string, n *Node) (string, *Node) {
-	return OneOrMore(TypeQualifier)(s,n)
+	return OneOrMore(TypeQualifier)(s, n)
 }
 
 func SpecifierQualifierList(s string, n *Node) (string, *Node) {
 	return NodeNamed("SpecifierQualifierList",
 		OneOf(
-			Seq(TypeSpecifier,Opt(SpecifierQualifierList)),
-			Seq(StructOrUnionSpecifier,Opt(SpecifierQualifierList)),
-			Seq(TypedefName,Opt(SpecifierQualifierList)),
-			Seq(TypeQualifier,Opt(SpecifierQualifierList)),
+			Seq(TypeSpecifier, Opt(SpecifierQualifierList)),
+			Seq(StructOrUnionSpecifier, Opt(SpecifierQualifierList)),
+			Seq(TypedefName, Opt(SpecifierQualifierList)),
+			Seq(TypeQualifier, Opt(SpecifierQualifierList)),
 		),
-	)(s,n)
+	)(s, n)
 }
 
 func TypeSpecifier(s string, n *Node) (string, *Node) {
-	return NodeNamed("TypeSpecifier",OneOf(
+	return NodeNamed("TypeSpecifier", OneOf(
 		Word("void"),
 		Word("char"),
 		Word("short"),
@@ -228,69 +228,68 @@ func TypeSpecifier(s string, n *Node) (string, *Node) {
 		Word("_Bool"),
 		Word("_Complex"),
 		EnumSpecifier,
-	))(s,n)
+	))(s, n)
 }
 
 func TypeQualifier(s string, n *Node) (string, *Node) {
-	return NodeNamed("TypeQualifier",OneOf(
+	return NodeNamed("TypeQualifier", OneOf(
 		Word("const"),
 		Word("restrict"),
 		Word("volatile"),
-	))(s,n)
+	))(s, n)
 }
 
 func StructOrUnionSpecifier(s string, n *Node) (string, *Node) {
 	return OneOf(
-//		Seq(StructOrUnion,Opt(Identifier),StructDeclarationList),
-		Nest(StructOrUnion,Identifier),
-	)(s,n)
+		//		Seq(StructOrUnion,Opt(Identifier),StructDeclarationList),
+		Nest(StructOrUnion, Identifier),
+	)(s, n)
 }
 
 func StructOrUnion(s string, n *Node) (string, *Node) {
 	return OneOf(
-		NodeNamed("Struct",Word("struct")),
-		NodeNamed("Union",Word("union")))(s,n)
+		NodeNamed("Struct", Word("struct")),
+		NodeNamed("Union", Word("union")))(s, n)
 }
 
 func EnumSpecifier(s string, n *Node) (string, *Node) {
 	return Nest(
-		NodeNamed("Enum",Word("enum")),Identifier)(s,n)
+		NodeNamed("Enum", Word("enum")), Identifier)(s, n)
 }
 
 func Generic(s string, n *Node) (string, *Node) {
-	return NodeNamed("Generic",TypeName)(s,n)
+	return NodeNamed("Generic", TypeName)(s, n)
 }
 
 func GenericList(s string, n *Node) (string, *Node) {
-	return ChildOf(NewNode("GenericList"),Seq(
+	return ChildOf(NewNode("GenericList"), Seq(
 		Generic,
-		ZeroOrMore(Seq(Lit(","),Generic)),
-	))(s,n)
+		ZeroOrMore(Seq(Lit(","), Generic)),
+	))(s, n)
 }
 
 func BareTypedefName(s string, n *Node) (string, *Node) {
-	return NodeNamed("TypedefName",Identifier)(s,n)
+	return NodeNamed("TypedefName", Identifier)(s, n)
 }
 
 func TypedefName(s string, n *Node) (string, *Node) {
 	return Seq(
-		Opt(NodeNamed("KindQualifier",Lit("__kindof"))),
+		Opt(NodeNamed("KindQualifier", Lit("__kindof"))),
 		BareTypedefName,
 		Opt(AngBracketed(GenericList)),
 		Opt(NullableAnnotation),
-	)(s,n)
+	)(s, n)
 }
 
 func Identifier(s string, n *Node) (string, *Node) {
-	s2,n2 := NodeNamed("Identifier",
-		Regexp(`[_a-zA-Z][_0-9a-zA-Z]*`))(s,n)
+	s2, n2 := NodeNamed("Identifier",
+		Regexp(`[_a-zA-Z][_0-9a-zA-Z]*`))(s, n)
 	if n2 == nil {
-		return s,nil
+		return s, nil
 	}
 	if reservedwords.MatchString(n2.Content) {
-		dbg("Identifier '%s' contains reserved word\n",n2.Content)
-		return s,nil
+		dbg("Identifier '%s' contains reserved word\n", n2.Content)
+		return s, nil
 	}
-	return s2,n2
+	return s2, n2
 }
-

@@ -29,9 +29,9 @@ func parseTypedefDecl(line string) Node {
 		(?P<type2>:'.*?')?`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	type2 := groups["type2"]
 	if type2 != "" {

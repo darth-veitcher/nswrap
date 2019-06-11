@@ -6,8 +6,7 @@ import (
 
 func TestDeclRefExpr(t *testing.T) {
 	nodes := map[string]testNode{
-		`0x7fc972064460 <col:8> 'FILE *' lvalue ParmVar 0x7fc9720642d0 '_p' 'FILE *'`:
-		testNode{&DeclRefExpr{
+		`0x7fc972064460 <col:8> 'FILE *' lvalue ParmVar 0x7fc9720642d0 '_p' 'FILE *'`: testNode{&DeclRefExpr{
 			Addr:       0x7fc972064460,
 			Pos:        NewPositionFromString("col:8"),
 			Type:       "FILE *",
@@ -20,12 +19,11 @@ func TestDeclRefExpr(t *testing.T) {
 			Type3:      "",
 			ChildNodes: []Node{},
 		},
-		0x7fc972064460,
-		NewPositionFromString("col:8"),
-		[]Node{},
+			0x7fc972064460,
+			NewPositionFromString("col:8"),
+			[]Node{},
 		},
-		`0x7fc97206a958 <col:11> 'int (int, FILE *)' Function 0x7fc972064198 '__swbuf' 'int (int, FILE *)'`:
-		testNode{&DeclRefExpr{
+		`0x7fc97206a958 <col:11> 'int (int, FILE *)' Function 0x7fc972064198 '__swbuf' 'int (int, FILE *)'`: testNode{&DeclRefExpr{
 			Addr:       0x7fc97206a958,
 			Pos:        NewPositionFromString("col:11"),
 			Type:       "int (int, FILE *)",
@@ -38,12 +36,11 @@ func TestDeclRefExpr(t *testing.T) {
 			Type3:      "",
 			ChildNodes: []Node{},
 		},
-		0x7fc97206a958,
-		NewPositionFromString("col:11"),
-		[]Node{},
+			0x7fc97206a958,
+			NewPositionFromString("col:11"),
+			[]Node{},
 		},
-		`0x7fa36680f170 <col:19> 'struct programming':'struct programming' lvalue Var 0x7fa36680dc20 'variable' 'struct programming':'struct programming'`:
-		testNode{&DeclRefExpr{
+		`0x7fa36680f170 <col:19> 'struct programming':'struct programming' lvalue Var 0x7fa36680dc20 'variable' 'struct programming':'struct programming'`: testNode{&DeclRefExpr{
 			Addr:       0x7fa36680f170,
 			Pos:        NewPositionFromString("col:19"),
 			Type:       "struct programming",
@@ -56,12 +53,11 @@ func TestDeclRefExpr(t *testing.T) {
 			Type3:      "struct programming",
 			ChildNodes: []Node{},
 		},
-		0x7fa36680f170,
-		NewPositionFromString("col:19"),
-		[]Node{},
+			0x7fa36680f170,
+			NewPositionFromString("col:19"),
+			[]Node{},
 		},
-		`0x35cb438 <col:13> 'int' EnumConstant 0x35ca300 'Jan' 'int'`:
-		testNode{&DeclRefExpr{
+		`0x35cb438 <col:13> 'int' EnumConstant 0x35ca300 'Jan' 'int'`: testNode{&DeclRefExpr{
 			Addr:       0x35cb438,
 			Pos:        NewPositionFromString("col:13"),
 			Type:       "int",
@@ -74,12 +70,11 @@ func TestDeclRefExpr(t *testing.T) {
 			Type3:      "",
 			ChildNodes: []Node{},
 		},
-		0x35cb438,
-		NewPositionFromString("col:13"),
-		[]Node{},
+			0x35cb438,
+			NewPositionFromString("col:13"),
+			[]Node{},
 		},
-		`0x1ff8770 <col:33> 'T_ENUM':'T_ENUM' lvalue Var 0x1ff8600 'cc' 'T_ENUM':'T_ENUM'`:
-		testNode{&DeclRefExpr{
+		`0x1ff8770 <col:33> 'T_ENUM':'T_ENUM' lvalue Var 0x1ff8600 'cc' 'T_ENUM':'T_ENUM'`: testNode{&DeclRefExpr{
 			Addr:       0x1ff8770,
 			Pos:        NewPositionFromString("col:33"),
 			Type:       "T_ENUM",
@@ -92,9 +87,9 @@ func TestDeclRefExpr(t *testing.T) {
 			Type3:      "T_ENUM",
 			ChildNodes: []Node{},
 		},
-		0x1ff8770,
-		NewPositionFromString("col:33"),
-		[]Node{},
+			0x1ff8770,
+			NewPositionFromString("col:33"),
+			[]Node{},
 		},
 	}
 

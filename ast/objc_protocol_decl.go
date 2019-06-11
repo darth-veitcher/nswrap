@@ -6,16 +6,16 @@ import (
 
 // ObjCProtocolDecl is node represents an Objective-C property declaration
 type ObjCProtocolDecl struct {
-	Addr         Address
-	Pos          Position
-	Position2    string
-	Name         string
-	ChildNodes   []Node
+	Addr       Address
+	Pos        Position
+	Position2  string
+	Name       string
+	ChildNodes []Node
 }
 
 func parseObjCProtocolDecl(line string) Node {
 	groups := groupsFromRegex(
-                `(?:prev (?P<prev>0x[0-9a-f]+) )?
+		`(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position>.*<scratch space>.*?|.*<built-in>.*?|.*<invalid sloc>|.*?)>
 		(?P<position2> <invalid sloc>| col:\d+| line:\d+:\d+)?
 		(?P<name>.*?)`,
@@ -26,11 +26,11 @@ func parseObjCProtocolDecl(line string) Node {
 	}
 
 	return &ObjCProtocolDecl{
-		Addr:         ParseAddress(groups["address"]),
-		Pos:          NewPositionFromString(groups["position"]),
+		Addr: ParseAddress(groups["address"]),
+		Pos:  NewPositionFromString(groups["position"]),
 		//Position2:    strings.TrimSpace(groups["position2"]),
-		Name:         strings.TrimSpace(groups["name"]),
-		ChildNodes:   []Node{},
+		Name:       strings.TrimSpace(groups["name"]),
+		ChildNodes: []Node{},
 	}
 }
 

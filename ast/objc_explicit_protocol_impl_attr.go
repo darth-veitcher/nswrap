@@ -12,9 +12,9 @@ func parseObjCExplicitProtocolImplAttr(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCExplicitProtocolImplAttr{
 		Addr:       ParseAddress(groups["address"]),

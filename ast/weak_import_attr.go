@@ -12,9 +12,9 @@ func parseWeakImportAttr(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &WeakImportAttr{
 		Addr:       ParseAddress(groups["address"]),

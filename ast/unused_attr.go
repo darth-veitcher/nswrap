@@ -14,9 +14,9 @@ func parseUnusedAttr(line string) Node {
 		"<(?P<position>.*)>(?P<unused> unused)?",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &UnusedAttr{
 		Addr:       ParseAddress(groups["address"]),

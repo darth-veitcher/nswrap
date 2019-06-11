@@ -6,8 +6,7 @@ import (
 
 func TestParmVarDecl(t *testing.T) {
 	nodes := map[string]testNode{
-		`0x7f973380f000 <col:14> col:17 'int'`:
-		testNode{&ParmVarDecl{
+		`0x7f973380f000 <col:14> col:17 'int'`: testNode{&ParmVarDecl{
 			Addr:         0x7f973380f000,
 			Pos:          NewPositionFromString("col:14"),
 			Position2:    "col:17",
@@ -19,12 +18,11 @@ func TestParmVarDecl(t *testing.T) {
 			IsRegister:   false,
 			ChildNodes:   []Node{},
 		},
-		0x7f973380f000,
-		NewPositionFromString("col:14"),
-		[]Node{},
+			0x7f973380f000,
+			NewPositionFromString("col:14"),
+			[]Node{},
 		},
-		`0x7f973380f070 <col:19, col:30> col:31 'const char *'`:
-		testNode{&ParmVarDecl{
+		`0x7f973380f070 <col:19, col:30> col:31 'const char *'`: testNode{&ParmVarDecl{
 			Addr:         0x7f973380f070,
 			Pos:          NewPositionFromString("col:19, col:30"),
 			Position2:    "col:31",
@@ -35,12 +33,11 @@ func TestParmVarDecl(t *testing.T) {
 			IsReferenced: false,
 			ChildNodes:   []Node{},
 		},
-		0x7f973380f070,
-		NewPositionFromString("col:19, col:30"),
-		[]Node{},
+			0x7f973380f070,
+			NewPositionFromString("col:19, col:30"),
+			[]Node{},
 		},
-		`0x7f9733816e50 <col:13, col:37> col:37 __filename 'const char *__restrict'`:
-		testNode{&ParmVarDecl{
+		`0x7f9733816e50 <col:13, col:37> col:37 __filename 'const char *__restrict'`: testNode{&ParmVarDecl{
 			Addr:         0x7f9733816e50,
 			Pos:          NewPositionFromString("col:13, col:37"),
 			Position2:    "col:37",
@@ -52,12 +49,11 @@ func TestParmVarDecl(t *testing.T) {
 			IsRegister:   false,
 			ChildNodes:   []Node{},
 		},
-		0x7f9733816e50,
-		NewPositionFromString("col:13, col:37"),
-		[]Node{},
+			0x7f9733816e50,
+			NewPositionFromString("col:13, col:37"),
+			[]Node{},
 		},
-		`0x7f9733817418 <<invalid sloc>> <invalid sloc> 'FILE *'`:
-		testNode{&ParmVarDecl{
+		`0x7f9733817418 <<invalid sloc>> <invalid sloc> 'FILE *'`: testNode{&ParmVarDecl{
 			Addr:         0x7f9733817418,
 			Pos:          NewPositionFromString("<invalid sloc>"),
 			Position2:    "<invalid sloc>",
@@ -69,12 +65,11 @@ func TestParmVarDecl(t *testing.T) {
 			IsRegister:   false,
 			ChildNodes:   []Node{},
 		},
-		0x7f9733817418,
-		NewPositionFromString("<invalid sloc>"),
-		[]Node{},
+			0x7f9733817418,
+			NewPositionFromString("<invalid sloc>"),
+			[]Node{},
 		},
-		`0x7f9733817c30 <col:40, col:47> col:47 __size 'size_t':'unsigned long'`:
-		testNode{&ParmVarDecl{
+		`0x7f9733817c30 <col:40, col:47> col:47 __size 'size_t':'unsigned long'`: testNode{&ParmVarDecl{
 			Addr:         0x7f9733817c30,
 			Pos:          NewPositionFromString("col:40, col:47"),
 			Position2:    "col:47",
@@ -86,12 +81,11 @@ func TestParmVarDecl(t *testing.T) {
 			IsRegister:   false,
 			ChildNodes:   []Node{},
 		},
-		0x7f9733817c30,
-		NewPositionFromString("col:40, col:47"),
-		[]Node{},
+			0x7f9733817c30,
+			NewPositionFromString("col:40, col:47"),
+			[]Node{},
 		},
-		`0x7f973382fa10 <line:476:18, col:25> col:34 'int (* _Nullable)(void *, char *, int)':'int (*)(void *, char *, int)'`:
-		testNode{&ParmVarDecl{
+		`0x7f973382fa10 <line:476:18, col:25> col:34 'int (* _Nullable)(void *, char *, int)':'int (*)(void *, char *, int)'`: testNode{&ParmVarDecl{
 			Addr:         0x7f973382fa10,
 			Pos:          NewPositionFromString("line:476:18, col:25"),
 			Position2:    "col:34",
@@ -103,12 +97,11 @@ func TestParmVarDecl(t *testing.T) {
 			IsRegister:   false,
 			ChildNodes:   []Node{},
 		},
-		0x7f973382fa10,
-		NewPositionFromString("line:476:18, col:25"),
-		[]Node{},
+			0x7f973382fa10,
+			NewPositionFromString("line:476:18, col:25"),
+			[]Node{},
 		},
-		`0x7f97338355b8 <col:10, col:14> col:14 used argc 'int'`:
-		testNode{&ParmVarDecl{
+		`0x7f97338355b8 <col:10, col:14> col:14 used argc 'int'`: testNode{&ParmVarDecl{
 			Addr:         0x7f97338355b8,
 			Pos:          NewPositionFromString("col:10, col:14"),
 			Position2:    "col:14",
@@ -120,12 +113,11 @@ func TestParmVarDecl(t *testing.T) {
 			IsRegister:   false,
 			ChildNodes:   []Node{},
 		},
-		0x7f97338355b8,
-		NewPositionFromString("col:10, col:14"),
-		[]Node{},
+			0x7f97338355b8,
+			NewPositionFromString("col:10, col:14"),
+			[]Node{},
 		},
-		`0x1d82850 <col:11, col:22> col:16 referenced foo 'char *':'char *'`:
-		testNode{&ParmVarDecl{
+		`0x1d82850 <col:11, col:22> col:16 referenced foo 'char *':'char *'`: testNode{&ParmVarDecl{
 			Addr:         0x1d82850,
 			Pos:          NewPositionFromString("col:11, col:22"),
 			Position2:    "col:16",
@@ -137,12 +129,11 @@ func TestParmVarDecl(t *testing.T) {
 			IsRegister:   false,
 			ChildNodes:   []Node{},
 		},
-		0x1d82850,
-		NewPositionFromString("col:11, col:22"),
-		[]Node{},
+			0x1d82850,
+			NewPositionFromString("col:11, col:22"),
+			[]Node{},
 		},
-		`0x7f95f30ed9d0 <col:23, col:51> col:51 used eptr 'const char *' register`:
-		testNode{&ParmVarDecl{
+		`0x7f95f30ed9d0 <col:23, col:51> col:51 used eptr 'const char *' register`: testNode{&ParmVarDecl{
 			Addr:         0x7f95f30ed9d0,
 			Pos:          NewPositionFromString("col:23, col:51"),
 			Position2:    "col:51",
@@ -154,9 +145,9 @@ func TestParmVarDecl(t *testing.T) {
 			IsRegister:   true,
 			ChildNodes:   []Node{},
 		},
-		0x7f95f30ed9d0,
-		NewPositionFromString("col:23, col:51"),
-		[]Node{},
+			0x7f95f30ed9d0,
+			NewPositionFromString("col:23, col:51"),
+			[]Node{},
 		},
 	}
 

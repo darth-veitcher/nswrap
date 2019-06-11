@@ -18,9 +18,9 @@ func parseReturnsTwiceAttr(line string) Node {
 		`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ReturnsTwiceAttr{
 		Addr:       ParseAddress(groups["address"]),

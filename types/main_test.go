@@ -8,64 +8,64 @@ import (
 
 func TestParse(t *testing.T) {
 	i := 1
-	chk := func(input string,n *Node,expected string) {
-		t.Run(fmt.Sprintf("Parse%d",i), func(t *testing.T) {
+	chk := func(input string, n *Node, expected string) {
+		t.Run(fmt.Sprintf("Parse%d", i), func(t *testing.T) {
 			if n.String() != expected {
-				t.Errorf("Mismatch parsing %s -- Got:\n%s\nExpected:\n%s\n",input,n.String(),expected)
+				t.Errorf("Mismatch parsing %s -- Got:\n%s\nExpected:\n%s\n", input, n.String(), expected)
 			}
 		})
 		i++
 	}
 
 	runParseTest := func(input, expected string) {
-		n,err := Parse(input)
+		n, err := Parse(input)
 		if err != nil {
-			t.Errorf("Parse error parsing %s\n",input)
+			t.Errorf("Parse error parsing %s\n", input)
 		}
-		chk(input,n,expected)
+		chk(input, n, expected)
 	}
 
 	runSigTest := func(input, expected string) {
-		rem,n := MethodSignature(input,NewNode("AST"))
+		rem, n := MethodSignature(input, NewNode("AST"))
 		if rem != "" {
-			t.Errorf("Parse error parsing %s. Remainder = %s\n",input,rem)
+			t.Errorf("Parse error parsing %s. Remainder = %s\n", input, rem)
 		}
-		chk(input,n,expected)
+		chk(input, n, expected)
 	}
 
 	runParseTest(`int`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 `)
 	runParseTest(`int`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 `)
 	runParseTest(`char*`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'char'
 -<Pointer> '*'
 `)
 	runParseTest(`struct Str`,
-`<TypeName> ''
+		`<TypeName> ''
 -<Struct> 'struct'
 --<Identifier> 'Str'
 `)
 	runParseTest(`uint`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'uint'
 `)
 	runParseTest(`uind`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'uind'
 `)
 	runParseTest(`void ()`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'void'
 -<Function> ''
 `)
 	runParseTest(`void (*)(struct NSRange)`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'void'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -75,7 +75,7 @@ func TestParse(t *testing.T) {
 ----<Identifier> 'NSRange'
 `)
 	runParseTest(`void (* _Nullable)(int)`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'void'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -85,20 +85,20 @@ func TestParse(t *testing.T) {
 ---<TypeSpecifier> 'int'
 `)
 	runParseTest(`NSRange[3]`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'NSRange'
 -<Array> ''
 --<Length> '3'
 `)
 	runParseTest(`struct _NSRange[3]`,
-`<TypeName> ''
+		`<TypeName> ''
 -<Struct> 'struct'
 --<Identifier> '_NSRange'
 -<Array> ''
 --<Length> '3'
 `)
 	runParseTest(`struct _NSRange (*)(int, char[])`,
-`<TypeName> ''
+		`<TypeName> ''
 -<Struct> 'struct'
 --<Identifier> '_NSRange'
 -<Parenthesized> ''
@@ -111,7 +111,7 @@ func TestParse(t *testing.T) {
 ---<Array> ''
 `)
 	runParseTest(`struct _NSRange (*)(int, char[],NSRange)`,
-`<TypeName> ''
+		`<TypeName> ''
 -<Struct> 'struct'
 --<Identifier> '_NSRange'
 -<Parenthesized> ''
@@ -126,7 +126,7 @@ func TestParse(t *testing.T) {
 ---<TypedefName> 'NSRange'
 `)
 	runParseTest(`struct _NSRange (*)(int, char[],struct _NSRange)`,
-`<TypeName> ''
+		`<TypeName> ''
 -<Struct> 'struct'
 --<Identifier> '_NSRange'
 -<Parenthesized> ''
@@ -142,22 +142,22 @@ func TestParse(t *testing.T) {
 ----<Identifier> '_NSRange'
 `)
 	runParseTest(`mytype`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'mytype'
 `)
 	runParseTest(`const int`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeQualifier> 'const'
 -<TypeSpecifier> 'int'
 `)
 	runParseTest(`int[*]`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Array> ''
 --<Length> '*'
 `)
 	runParseTest(`int[3][5]`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Array> ''
 --<Length> '3'
@@ -165,31 +165,31 @@ func TestParse(t *testing.T) {
 --<Length> '5'
 `)
 	runParseTest(`int *`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Pointer> '*'
 `)
 	runParseTest(`int * _Nonnull`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Pointer> '*'
 -<NullableAnnotation> '_Nonnull'
 `)
 	runParseTest(`int **`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Pointer> '*'
 -<Pointer> '*'
 `)
 	runParseTest(`int *[3]`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Pointer> '*'
 -<Array> ''
 --<Length> '3'
 `)
 	runParseTest(`int (*)[3]`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -197,7 +197,7 @@ func TestParse(t *testing.T) {
 --<Length> '3'
 `)
 	runParseTest(`int (*)[*]`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -205,13 +205,13 @@ func TestParse(t *testing.T) {
 --<Length> '*'
 `)
 	runParseTest(`int *()`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Pointer> '*'
 -<Function> ''
 `)
 	runParseTest(`int (*)(void)`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -220,7 +220,7 @@ func TestParse(t *testing.T) {
 ---<TypeSpecifier> 'void'
 `)
 	runParseTest(`int (*)(int, unsigned int)`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -232,7 +232,7 @@ func TestParse(t *testing.T) {
 ---<TypeSpecifier> 'int'
 `)
 	runParseTest(`int (* _Nullable)(int, unsigned int)`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -245,7 +245,7 @@ func TestParse(t *testing.T) {
 ---<TypeSpecifier> 'int'
 `)
 	runParseTest(`int (*const [])(unsigned int, ...)`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypeSpecifier> 'int'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -259,7 +259,7 @@ func TestParse(t *testing.T) {
 ---<Ellipsis> '...'
 `)
 	runParseTest(`BOOL (* _Nullable)()`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'BOOL'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -267,7 +267,7 @@ func TestParse(t *testing.T) {
 -<Function> ''
 `)
 	runParseTest(`BOOL (* _Nullable)(const void * _Nonnull, const void * _Nonnull)`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'BOOL'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -285,7 +285,7 @@ func TestParse(t *testing.T) {
 ---<NullableAnnotation> '_Nonnull'
 `)
 	runParseTest(`BOOL (* _Nullable)(const void * _Nonnull, const void * _Nonnull, int (* _Nullable)(const void * _Nonnull))`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'BOOL'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -314,7 +314,7 @@ func TestParse(t *testing.T) {
 -----<NullableAnnotation> '_Nonnull'
 `)
 	runParseTest(`BOOL (* _Nullable)(const void * _Nonnull, const void * _Nonnull, NSUInteger (* _Nullable)(const void * _Nonnull))`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'BOOL'
 -<Parenthesized> ''
 --<Pointer> '*'
@@ -343,7 +343,7 @@ func TestParse(t *testing.T) {
 -----<NullableAnnotation> '_Nonnull'
 `)
 	runParseTest(`NSEnumerator<ObjectType> * _Nonnull`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'NSEnumerator'
 -<GenericList> ''
 --<Generic> ''
@@ -352,7 +352,7 @@ func TestParse(t *testing.T) {
 -<NullableAnnotation> '_Nonnull'
 `)
 	runParseTest(`NSArray<NSString *> * _Nonnull`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'NSArray'
 -<GenericList> ''
 --<Generic> ''
@@ -362,7 +362,7 @@ func TestParse(t *testing.T) {
 -<NullableAnnotation> '_Nonnull'
 `)
 	runParseTest(`id  _Nonnull (^ _Nonnull)(id _Nullable, NSArray<NSExpression *> * _Nonnull, NSMutableDictionary * _Nullable)`,
-`<TypeName> ''
+		`<TypeName> ''
 -<TypedefName> 'id'
 -<NullableAnnotation> '_Nonnull'
 -<Parenthesized> ''
@@ -386,13 +386,13 @@ func TestParse(t *testing.T) {
 ---<NullableAnnotation> '_Nullable'
 `)
 	runSigTest(`(void)pressed`,
-`<MethodSignature> ''
+		`<MethodSignature> ''
 -<TypeName> ''
 --<TypeSpecifier> 'void'
 -<Identifier> 'pressed'
 `)
 	runSigTest(`(void)performSelector:(SEL)aSelector target:(id)target argument:(id)arg order:(NSUInteger)order modes:(NSArray<NSRunLoopMode> *)modes`,
-`<MethodSignature> ''
+		`<MethodSignature> ''
 -<TypeName> ''
 --<TypeSpecifier> 'void'
 -<Identifier> 'performSelector'
@@ -432,30 +432,32 @@ func TestFuncs(t *testing.T) {
 	var n *Node
 	var err error
 	f := func(input string, actual, expected interface{}) {
-		t.Run(fmt.Sprintf("TestFunc%d",i),func (t *testing.T) {
+		t.Run(fmt.Sprintf("TestFunc%d", i), func(t *testing.T) {
 			if err != nil {
-				t.Errorf("Error parsing %s\n",input)
+				t.Errorf("Error parsing %s\n", input)
 			}
-			if actual == nil && expected == nil { return }
-			if !reflect.DeepEqual(actual,expected) {
-				t.Errorf("Test failed for %s\n",input)
+			if actual == nil && expected == nil {
+				return
+			}
+			if !reflect.DeepEqual(actual, expected) {
+				t.Errorf("Test failed for %s\n", input)
 			}
 		})
 		i++
 	}
 	str := "int*"
-	n,err = Parse(str)
-	f(str,n.HasFunc(),false)
+	n, err = Parse(str)
+	f(str, n.HasFunc(), false)
 	str = "int (*)(void)"
-	n,err = Parse(str)
-	f(str,n.HasFunc(),true)
-	n,err = nil,nil
-	f("",n.HasFunc(),false)
-	f("",n.IsId(),false)
-	f("",n.IsFunction(),false)
-	f("",n.IsInstancetype(),false)
-	f("",n.IsArray(),false)
-	f("",n.IsStruct(),false)
+	n, err = Parse(str)
+	f(str, n.HasFunc(), true)
+	n, err = nil, nil
+	f("", n.HasFunc(), false)
+	f("", n.IsId(), false)
+	f("", n.IsFunction(), false)
+	f("", n.IsInstancetype(), false)
+	f("", n.IsArray(), false)
+	f("", n.IsStruct(), false)
 	if n.BaseType() != nil {
 		t.Errorf("BaseType() for nil node is not nil\n")
 	}
@@ -465,123 +467,122 @@ func TestFuncs(t *testing.T) {
 	if n.ReturnType() != nil {
 		t.Errorf("ReturnType() for nil node is not nil\n")
 	}
-	f("",n.String(),"")
-	f("",n.Qualifiers(),"")
-	f("",n.Annotations(),"")
+	f("", n.String(), "")
+	f("", n.Qualifiers(), "")
+	f("", n.Annotations(), "")
 
 	str = "int"
-	n,err = Parse(str)
-	f(str,n.isIndirect("Pointer"),false)
+	n, err = Parse(str)
+	f(str, n.isIndirect("Pointer"), false)
 	if n.ReturnType() != nil {
 		t.Errorf("Return type for non-function is not nil\n")
 	}
 
 	str = "int*"
-	n,err = Parse(str)
-	f(str,n.isIndirect("Pointer"),true)
-	f(str,n.isIndirect("Array"),false)
+	n, err = Parse(str)
+	f(str, n.isIndirect("Pointer"), true)
+	f(str, n.isIndirect("Array"), false)
 
 	str = "int* _Nullable"
-	n,err = Parse(str)
-	f(str,n.isIndirect("Pointer"),true)
+	n, err = Parse(str)
+	f(str, n.isIndirect("Pointer"), true)
 
 	str = "int* _Nonnull"
-	n,err = Parse(str)
-	f(str,n.isIndirect("Pointer"),true)
-	f(str,n.CType(),"int* _Nonnull")
-	f(str,n.CTypeSimplified(),"int*")
-	f(str,n.Annotations(),"_Nonnull")
+	n, err = Parse(str)
+	f(str, n.isIndirect("Pointer"), true)
+	f(str, n.CType(), "int* _Nonnull")
+	f(str, n.CTypeSimplified(), "int*")
+	f(str, n.Annotations(), "_Nonnull")
 
-	n,err = Parse("int[]")
-	n2,err2 := Parse("int")
+	n, err = Parse("int[]")
+	n2, err2 := Parse("int")
 	if err2 != nil {
 		t.Errorf("Cannot parse int")
 	}
-	f(str,n.isIndirect("Pointer"),false)
-	f(str,n.isIndirect("Array"),true)
-	f(str,n.ArrayOf(),n2)
-	f(str,n.CType(),"int[]")
-	f(str,n.CTypeSimplified(),"int[]")
+	f(str, n.isIndirect("Pointer"), false)
+	f(str, n.isIndirect("Array"), true)
+	f(str, n.ArrayOf(), n2)
+	f(str, n.CType(), "int[]")
+	f(str, n.CTypeSimplified(), "int[]")
 
 	str = "const int*[]"
-	n,err = Parse(str)
-	f(str,n.isIndirect("Array"),true)
-	f(str,n.Qualifiers(),"const")
+	n, err = Parse(str)
+	f(str, n.isIndirect("Array"), true)
+	f(str, n.Qualifiers(), "const")
 
 	str = "int (*)[]"
-	n,err = Parse(str)
-	f(str,n.isIndirect("Array"),true)
-	f(str,n.isIndirect("Pointer"),true)
+	n, err = Parse(str)
+	f(str, n.isIndirect("Array"), true)
+	f(str, n.isIndirect("Pointer"), true)
 
 	str = "int (* _Nullable * _Nonnull)[]"
-	n,err = Parse(str)
-	f(str,n.isIndirect("Pointer"),true)
+	n, err = Parse(str)
+	f(str, n.isIndirect("Pointer"), true)
 
 	str = "int (*)(void)"
-	n,err = Parse(str)
-	n2,err2 = Parse("int(void)")
+	n, err = Parse(str)
+	n2, err2 = Parse("int(void)")
 	if err2 != nil {
 		t.Errorf("Failed to parse int(void)")
 	}
-	f(str,n.PointsTo(),n2)
-	f(str,n.IsPointer(),true)
-	f(str,n.IsFunction(),false)
-	f(str,n.CType(),"int (*)(void)")
+	f(str, n.PointsTo(), n2)
+	f(str, n.IsPointer(), true)
+	f(str, n.IsFunction(), false)
+	f(str, n.CType(), "int (*)(void)")
 
 	str = "int *(void)"
-	n,err = Parse(str)
-	f(str,n.IsFunction(),true)
-	n2,_ = Parse("int*")
-	f(str,n.ReturnType(),n2)
+	n, err = Parse(str)
+	f(str, n.IsFunction(), true)
+	n2, _ = Parse("int*")
+	f(str, n.ReturnType(), n2)
 
 	str = "__kindof NSRange"
-	n,err = Parse(str)
-	f(str,n.IsStruct(),false)
-	f(str,n.IsInstancetype(),false)
+	n, err = Parse(str)
+	f(str, n.IsStruct(), false)
+	f(str, n.IsInstancetype(), false)
 
 	str = "struct NSRange"
-	n,err = Parse(str)
-	f(str,n.IsStruct(),true)
-	f(str,n.IsFunction(),false)
+	n, err = Parse(str)
+	f(str, n.IsStruct(), true)
+	f(str, n.IsFunction(), false)
 
 	str = "id"
-	n,err = Parse(str)
-	f(str,n.IsId(),true)
-	f(str,n.IsPointer(),true)
+	n, err = Parse(str)
+	f(str, n.IsId(), true)
+	f(str, n.IsPointer(), true)
 
 	str = "int * _Nullable * _Nonnull"
-	n,err = Parse(str)
-	n2,_ = Parse("int")
-	f(str,n.BaseType(),n2)
+	n, err = Parse(str)
+	n2, _ = Parse("int")
+	f(str, n.BaseType(), n2)
 
 	str = "__kindof id"
-	n,err = Parse(str)
-	f(str,n.IsId(),true)
-	f(str,n.IsPointer(),true)
-
+	n, err = Parse(str)
+	f(str, n.IsId(), true)
+	f(str, n.IsPointer(), true)
 
 	str = "NSArray<ObjectType> *"
-	n,err = Parse(str)
-	f(str,n.CType(),"NSArray <ObjectType>*")
-	f(str,n.CTypeSimplified(),"NSArray*")
+	n, err = Parse(str)
+	f(str, n.CType(), "NSArray <ObjectType>*")
+	f(str, n.CTypeSimplified(), "NSArray*")
 
 	str = "NSRange *(int, NSRange *)"
-	n,err = Parse(str)
-	f(str,n.renameTypedefs("NSRange","struct NSRange"),true)
-	f(str,n.CType(),"struct NSRange* (int, struct NSRange*)")
+	n, err = Parse(str)
+	f(str, n.renameTypedefs("NSRange", "struct NSRange"), true)
+	f(str, n.CType(), "struct NSRange* (int, struct NSRange*)")
 
 	str = "int*%&#$"
-	n,err = Parse(str)
+	n, err = Parse(str)
 	if err == nil {
-		fmt.Printf("%s\n",n.String())
-		t.Errorf("Parse should have failed for %s\n",str)
+		fmt.Printf("%s\n", n.String())
+		t.Errorf("Parse should have failed for %s\n", str)
 	}
 
 	var r func(i int) *Node
 	r = func(i int) *Node {
 		n := &Node{}
 		if i > 0 {
-			n.Children = []*Node{ r(i-1) }
+			n.Children = []*Node{r(i - 1)}
 		}
 		return n
 	}
@@ -595,7 +596,7 @@ func TestFuncs(t *testing.T) {
 
 func ExampleDebug() {
 	Debug = true
-	dbg("one %s two %d","string",15)
+	dbg("one %s two %d", "string", 15)
 	// Output: one string two 15
 	Debug = false
 }

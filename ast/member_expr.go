@@ -26,9 +26,9 @@ func parseMemberExpr(line string) Node {
 		 (?P<address2>[0-9a-fx]+)`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	type2 := groups["type2"]
 	if type2 != "" {

@@ -10,7 +10,7 @@ var (
 
 func dbg(f string, xs ...interface{}) {
 	if Debug {
-		fmt.Printf(f,xs...)
+		fmt.Printf(f, xs...)
 	}
 }
 
@@ -18,7 +18,7 @@ func (n *Node) HasFunc() bool {
 	if n == nil {
 		return false
 	}
-	for _,c := range n.Children {
+	for _, c := range n.Children {
 		if c.Kind == "Function" || c.HasFunc() {
 			return true
 		}
@@ -27,10 +27,10 @@ func (n *Node) HasFunc() bool {
 }
 
 func Parse(s string) (*Node, error) {
-	s2, n := TypeName(s,NewNode("AST"))
+	s2, n := TypeName(s, NewNode("AST"))
 	//fmt.Printf("%p Parsed %s\n",n,s)
 	if s2 != "" {
-		return n,fmt.Errorf("Parse failed or incomplete. Remainder: %s",s2)
+		return n, fmt.Errorf("Parse failed or incomplete. Remainder: %s", s2)
 	}
 	return n, nil
 }
@@ -53,25 +53,26 @@ func (n *Node) stripIndirect(k string) *Node {
 		return nil
 	}
 	ret := NewNode(n.Kind)
-	cs := append([]*Node{},n.Children...)
+	cs := append([]*Node{}, n.Children...)
 
-	dbg("stripIndirect(): i = %d\n",i)
+	dbg("stripIndirect(): i = %d\n", i)
 	//Scan backwords skipping TypeQualifier and NullableAnnotation tags
-	for ;i > 0 &&
+	for ; i > 0 &&
 		(cs[i].Kind == "TypeQualifier" ||
-		 cs[i].Kind == "NullableAnnotation") ; i-- { }
+			cs[i].Kind == "NullableAnnotation"); i-- {
+	}
 
 	if cs[i].Kind == k {
-		dbg("stripIndirect(): last node is %s\n",k)
+		dbg("stripIndirect(): last node is %s\n", k)
 		ret.Children = cs[:i]
 		return ret
 	}
 	if i > 1 && cs[i-1].Kind == "Parenthesized" {
 		j := len(cs[i-1].Children) - 1
-		for ;j > 0 &&
+		for ; j > 0 &&
 			(cs[i-1].Children[j].Kind == "TypeQualifier" ||
-			 cs[i-1].Children[j].Kind == "NullableAnnotation");
-		     j-- { }
+				cs[i-1].Children[j].Kind == "NullableAnnotation"); j-- {
+		}
 		if cs[i-1].Children[j].Kind != k {
 			return nil
 		}
@@ -121,8 +122,9 @@ func (n *Node) IsStruct() bool {
 		return false
 	}
 	i := 0
-	for ;	i<len(n.Children) &&
-		n.Children[i].Kind == "KindQualifier"; i++ {}
+	for ; i < len(n.Children) &&
+		n.Children[i].Kind == "KindQualifier"; i++ {
+	}
 	return n.Children[i].Kind == "Struct"
 }
 
@@ -150,8 +152,9 @@ func (n *Node) IsId() bool {
 		return false
 	}
 	i := 0
-	for ;	i < len(n.Children) &&
-		n.Children[i].Kind == "KindQualifier"; i++ {}
+	for ; i < len(n.Children) &&
+		n.Children[i].Kind == "KindQualifier"; i++ {
+	}
 	return !n.IsFunction() &&
 		n.Children[i].Kind == "TypedefName" &&
 		n.Children[i].Content == "id"
@@ -162,8 +165,9 @@ func (n *Node) IsInstancetype() bool {
 		return false
 	}
 	i := 0
-	for ;	i < len(n.Children) &&
-		n.Children[i].Kind == "KindQualifier"; i++ {}
+	for ; i < len(n.Children) &&
+		n.Children[i].Kind == "KindQualifier"; i++ {
+	}
 	return n.Children[i].Kind == "TypedefName" &&
 		n.Children[i].Content == "instancetype"
 }

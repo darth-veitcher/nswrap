@@ -18,9 +18,9 @@ func parseNoThrowAttr(line string) Node {
 		`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &NoThrowAttr{
 		Addr:       ParseAddress(groups["address"]),

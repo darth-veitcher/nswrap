@@ -46,11 +46,11 @@ func parseParmVarDecl(line string) Node {
 	}
 
 	return &ParmVarDecl{
-		Addr:         ParseAddress(groups["address"]),
-	        Pos:          NewPositionFromString(groups["position"]),
-		Position2:    strings.TrimSpace(groups["position2"]),
-		Name:         strings.TrimSpace(groups["name"]),
-		Type:         groups["type"],
+		Addr:      ParseAddress(groups["address"]),
+		Pos:       NewPositionFromString(groups["position"]),
+		Position2: strings.TrimSpace(groups["position2"]),
+		Name:      strings.TrimSpace(groups["name"]),
+		Type:      groups["type"],
 		//Type2:        type2,
 		IsUsed:       len(groups["used"]) > 0,
 		IsReferenced: len(groups["referenced"]) > 0,

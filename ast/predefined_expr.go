@@ -15,9 +15,9 @@ func parsePredefinedExpr(line string) Node {
 		"<(?P<position>.*)> '(?P<type>.*)' lvalue (?P<name>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &PredefinedExpr{
 		Addr:       ParseAddress(groups["address"]),

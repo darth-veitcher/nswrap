@@ -1,4 +1,5 @@
 package main
+
 //go:generate nswrap
 
 import (
@@ -13,8 +14,8 @@ func cb(super ns.ClassThreeSupermethods) ns.Int {
 
 func main() {
 	o := ns.ClassOneAlloc().Init()
-	fmt.Println("i1 = ",o.Geti1())
-	fmt.Println("p1 = ",o.Getp1())
+	fmt.Println("i1 = ", o.Geti1())
+	fmt.Println("p1 = ", o.Getp1())
 	p1 := o.Getp1()
 	fmt.Println("*p1 = ", *p1)
 	*p1 = 17
@@ -31,4 +32,3 @@ func main() {
 	fmt.Println(o3.Hi2(np))
 	fmt.Println(o3.Geti1())
 }
-

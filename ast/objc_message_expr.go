@@ -13,9 +13,9 @@ func parseObjCMessageExpr(line string) Node {
 		"<(?P<position>.*)>(?P<content>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &ObjCMessageExpr{
 		Addr:       ParseAddress(groups["address"]),

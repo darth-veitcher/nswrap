@@ -13,9 +13,9 @@ func parseTypedefType(line string) Node {
 		"'(?P<type>.*)' (?P<tags>.+)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &TypedefType{
 		Addr:       ParseAddress(groups["address"]),

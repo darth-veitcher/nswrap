@@ -20,9 +20,9 @@ func parseStringLiteral(line string) Node {
 		`<(?P<position>.*)> '(?P<type>.*)' lvalue (?P<value>".*")`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	s, err := strconv.Unquote(groups["value"])
 	if err != nil {

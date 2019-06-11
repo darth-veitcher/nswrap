@@ -1,17 +1,17 @@
 package ast
 
 import (
-//	"fmt"
+	//	"fmt"
 	"strings"
 )
 
 // ObjCCategoryDecl is node represents a category declaration.
 type ObjCCategoryDecl struct {
-	Addr         Address
-	Pos          Position
-	Position2    string
-	Name         string
-	ChildNodes   []Node
+	Addr       Address
+	Pos        Position
+	Position2  string
+	Name       string
+	ChildNodes []Node
 }
 
 func parseObjCCategoryDecl(line string) Node {
@@ -27,11 +27,11 @@ func parseObjCCategoryDecl(line string) Node {
 	}
 
 	return &ObjCCategoryDecl{
-		Addr:         ParseAddress(groups["address"]),
-		Pos:          NewPositionFromString(groups["position"]),
+		Addr: ParseAddress(groups["address"]),
+		Pos:  NewPositionFromString(groups["position"]),
 		//Position2:    strings.TrimSpace(groups["position2"]),
-		Name:         strings.TrimSpace(groups["name"]),
-		ChildNodes:   []Node{},
+		Name:       strings.TrimSpace(groups["name"]),
+		ChildNodes: []Node{},
 	}
 }
 

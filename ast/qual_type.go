@@ -13,9 +13,9 @@ func parseQualType(line string) Node {
 		"'(?P<type>.*)' (?P<kind>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &QualType{
 		Addr:       ParseAddress(groups["address"]),

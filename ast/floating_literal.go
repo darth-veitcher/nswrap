@@ -1,11 +1,11 @@
 package ast
 
 import (
-	//"errors"
-	//"fmt"
-	//"reflect"
+//"errors"
+//"fmt"
+//"reflect"
 
-	//"github.com/elliotchance/c2go/cc"
+//"github.com/elliotchance/c2go/cc"
 )
 
 // FloatingLiteral is type of float literal

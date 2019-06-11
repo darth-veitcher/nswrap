@@ -12,9 +12,9 @@ func parseWhileStmt(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &WhileStmt{
 		Addr:       ParseAddress(groups["address"]),

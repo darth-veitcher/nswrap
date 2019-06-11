@@ -6,22 +6,22 @@ import (
 
 // ObjCMethodDecl is node represents an Objective-C method declaration
 type ObjCMethodDecl struct {
-	Addr         Address
-	Pos          Position
-	Position2    string
-	Implicit     bool
-	ClassMethod  bool
-	Name         string
-	Parameters   []string
-	Type         string
-	Type2        string
-        Attr         string
-	ChildNodes   []Node
+	Addr        Address
+	Pos         Position
+	Position2   string
+	Implicit    bool
+	ClassMethod bool
+	Name        string
+	Parameters  []string
+	Type        string
+	Type2       string
+	Attr        string
+	ChildNodes  []Node
 }
 
 func parseObjCMethodDecl(line string) Node {
 	groups := groupsFromRegex(
-                `(?:prev (?P<prev>0x[0-9a-f]+) )?
+		`(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position>.*<scratch space>.*?|.*<built-in>.*?|.*<invalid sloc>|.*?)>
 		(?P<position2> <invalid sloc>| col:\d+| line:\d+:\d+)?
 		(?P<implicit> implicit)?
@@ -37,24 +37,24 @@ func parseObjCMethodDecl(line string) Node {
 	}
 
 	names := strings.TrimSpace(groups["names"])
-	parts := strings.Split(strings.TrimSpace(groups["names"]),":")
+	parts := strings.Split(strings.TrimSpace(groups["names"]), ":")
 	params := []string{}
 	if names[len(names)-1] == ':' {
 		params = parts[:len(parts)-1]
 	}
 
 	return &ObjCMethodDecl{
-		Addr:         ParseAddress(groups["address"]),
-		Pos:          NewPositionFromString(groups["position"]),
+		Addr: ParseAddress(groups["address"]),
+		Pos:  NewPositionFromString(groups["position"]),
 		//Position2:    strings.TrimSpace(groups["position2"]),
-		Implicit:     len(groups["implicit"]) > 0,
-		ClassMethod:  groups["methodtype"] == " +",
-		Name:         parts[0],
-		Parameters:   params,
-		Type:         strings.TrimSpace(groups["type"]),
+		Implicit:    len(groups["implicit"]) > 0,
+		ClassMethod: groups["methodtype"] == " +",
+		Name:        parts[0],
+		Parameters:  params,
+		Type:        strings.TrimSpace(groups["type"]),
 		//Type2:        strings.TrimSpace(groups["type2"]),
-		Attr:         strings.TrimSpace(groups["attr"]),
-		ChildNodes:   []Node{},
+		Attr:       strings.TrimSpace(groups["attr"]),
+		ChildNodes: []Node{},
 	}
 }
 

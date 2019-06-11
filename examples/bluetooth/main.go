@@ -23,7 +23,7 @@ func updateState(c ns.CBCentralManager) {
 		fmt.Printf("  powered off\n")
 	case ns.CBManagerStatePoweredOn:
 		fmt.Printf("  powered on\n")
-		cm.ScanForPeripheralsWithServices(ns.NSArrayWithObjects(hrm_uuid),ns.NSDictionary{})
+		cm.ScanForPeripheralsWithServices(ns.NSArrayWithObjects(hrm_uuid), ns.NSDictionary{})
 	}
 }
 
@@ -35,7 +35,7 @@ func discoverPeripheral(c ns.CBCentralManager, p ns.CBPeripheral, d ns.NSDiction
 	}
 	peripheral = p
 	peripheral.Retain()
-	c.ConnectPeripheral(peripheral,ns.NSDictionary{})
+	c.ConnectPeripheral(peripheral, ns.NSDictionary{})
 }
 
 func connectPeripheral(c ns.CBCentralManager, p ns.CBPeripheral) {
@@ -51,10 +51,10 @@ func discoverServices(p ns.CBPeripheral, e ns.NSError) {
 		switch {
 		case serv.UUID().IsEqualTo(hrm_uuid):
 			fmt.Printf("--heart rate monitor service\n")
-			p.DiscoverCharacteristics(ns.NSArray{},serv)
+			p.DiscoverCharacteristics(ns.NSArray{}, serv)
 		case serv.UUID().IsEqualTo(ns.CBUUIDWithGoString("180A")):
 			fmt.Printf("--device information service\n")
-			p.DiscoverCharacteristics(ns.NSArray{},serv)
+			p.DiscoverCharacteristics(ns.NSArray{}, serv)
 		}
 		return true
 	})
@@ -64,9 +64,9 @@ func hr(d ns.NSData) int {
 	if l := int(d.Length()); l < 4 {
 		return 0
 	}
-	x := C.GoBytes(d.Bytes(),4)
+	x := C.GoBytes(d.Bytes(), 4)
 	flags := x[0]
-	if flags & 0x80 != 0 { // uint16 format
+	if flags&0x80 != 0 { // uint16 format
 		return int(binary.BigEndian.Uint16(x[1:2]))
 	} else {
 		return int(x[1])
@@ -75,13 +75,13 @@ func hr(d ns.NSData) int {
 
 func discoverCharacteristics(p ns.CBPeripheral, s ns.CBService, e ns.NSError) {
 	fmt.Printf("Did discover characteristics\n")
-	fmt.Printf("----%s\n",s.UUID().UUIDString().UTF8String())
+	fmt.Printf("----%s\n", s.UUID().UUIDString().UTF8String())
 	if s.UUID().IsEqualTo(hrm_uuid) {
 		s.Characteristics().ObjectEnumerator().ForIn(func(o ns.Id) bool {
 			chr := o.CBCharacteristic()
-			fmt.Printf("------%s\n",chr.UUID().UUIDString().UTF8String())
+			fmt.Printf("------%s\n", chr.UUID().UUIDString().UTF8String())
 			if chr.UUID().IsEqualTo(hrv_uuid) {
-				p.SetNotifyValue(1,chr)
+				p.SetNotifyValue(1, chr)
 				v := chr.Value()
 				fmt.Println(hr(v))
 			}
@@ -93,20 +93,20 @@ func discoverCharacteristics(p ns.CBPeripheral, s ns.CBService, e ns.NSError) {
 func updateValue(p ns.CBPeripheral, chr ns.CBCharacteristic, e ns.NSError) {
 	if chr.UUID().IsEqualTo(hrv_uuid) {
 		v := chr.Value()
-		fmt.Printf("Heart rate: %d\n",hr(v))
+		fmt.Printf("Heart rate: %d\n", hr(v))
 	}
 }
 
 var (
-	hrm_uuid ns.CBUUID
-	hrv_uuid ns.CBUUID
-	cd ns.CBDelegate
-	cm ns.CBCentralManager
+	hrm_uuid   ns.CBUUID
+	hrv_uuid   ns.CBUUID
+	cd         ns.CBDelegate
+	cm         ns.CBCentralManager
 	peripheral ns.CBPeripheral
 )
 
 func main() {
-	queue := ns.DispatchQueueCreate(ns.CharWithGoString("my_new_queue"),nil)
+	queue := ns.DispatchQueueCreate(ns.CharWithGoString("my_new_queue"), nil)
 
 	cd = ns.CBDelegateAlloc()
 
@@ -121,7 +121,7 @@ func main() {
 	hrv_uuid = ns.CBUUIDWithGoString("2A37")
 
 	//We defined our own queue because this won't work on the main queue.
-	cm = ns.CBCentralManagerAlloc().InitWithDelegateQueue(cd,queue)
+	cm = ns.CBCentralManagerAlloc().InitWithDelegateQueue(cd, queue)
 
-	select { }
+	select {}
 }

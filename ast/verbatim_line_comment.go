@@ -13,9 +13,9 @@ func parseVerbatimLineComment(line string) Node {
 		`<(?P<position>.*)> Text="(?P<text>.*)"`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &VerbatimLineComment{
 		Addr:       ParseAddress(groups["address"]),

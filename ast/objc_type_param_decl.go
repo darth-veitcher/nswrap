@@ -41,15 +41,15 @@ func parseObjCTypeParamDecl(line string) Node {
 	}*/
 
 	return &ObjCTypeParamDecl{
-		Addr:         ParseAddress(groups["address"]),
-	        Pos:          NewPositionFromString(groups["position"]),
+		Addr: ParseAddress(groups["address"]),
+		Pos:  NewPositionFromString(groups["position"]),
 		//Position2:    strings.TrimSpace(groups["position2"]),
-		Name:         strings.TrimSpace(groups["name"]),
-		Type:         groups["type"],
+		Name: strings.TrimSpace(groups["name"]),
+		Type: groups["type"],
 		//Type2:        type2,
 		IsReferenced: len(groups["referenced"]) > 0,
 		IsCovariant:  len(groups["covariant"]) > 0,
-		IsBounded  :  len(groups["bounded"]) > 0,
+		IsBounded:    len(groups["bounded"]) > 0,
 		ChildNodes:   []Node{},
 	}
 }

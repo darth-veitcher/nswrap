@@ -13,9 +13,9 @@ func parseNSErrorDomainAttr(line string) Node {
 		"<(?P<position>.*)>(?P<content>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &NSErrorDomainAttr{
 		Addr:       ParseAddress(groups["address"]),

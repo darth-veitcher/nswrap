@@ -11,7 +11,7 @@ import (
 
 var (
 	TrackPositions bool = false
-	Debug = false
+	Debug               = false
 )
 
 // Node represents any node in the AST.
@@ -252,9 +252,9 @@ func Parse(fullline string) Node {
 	case "ObjCIndependentClassAttr":
 		return parseObjCIndependentClassAttr(line)
 	case "ObjCInterface":
-		return parseObjCInterface(line,false)
+		return parseObjCInterface(line, false)
 	case "super ObjCInterface":
-		return parseObjCInterface(line,true)
+		return parseObjCInterface(line, true)
 	case "ObjCInterfaceDecl":
 		return parseObjCInterfaceDecl(line)
 	case "ObjCInterfaceType":
@@ -394,7 +394,7 @@ func Parse(fullline string) Node {
 	case "NullStmt":
 		return nil
 	default:
-		return parseUnknown(nodeName,line)
+		return parseUnknown(nodeName, line)
 	}
 }
 

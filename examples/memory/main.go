@@ -17,7 +17,6 @@ func dealloc() {
 
 func release(super ns.MyClassSupermethods) {
 	fmt.Println("--release called")
-
 	super.Release() // comment out for leak
 }
 
@@ -39,8 +38,8 @@ func memtest1() {
 	for {
 		pool := ns.NSAutoreleasePoolAlloc().Init()
 		o1 := ns.MyClassAlloc()
-	//If autorelease: true is set in nswrap.yaml, the manual calls to
-	//autorelease are not necessary.
+		//If autorelease: true is set in nswrap.yaml, the manual calls to
+		//autorelease are not necessary.
 		o1.Autorelease()
 		o1.DeallocCallback(dealloc)
 		o1.ReleaseCallback(release)
@@ -55,7 +54,7 @@ func memtest1() {
 		_ = o3
 		_ = o4
 		pool.Drain()
-		time.Sleep(time.Second/2)
+		time.Sleep(time.Second / 2)
 	}
 	fmt.Println("memtest1: done")
 }
@@ -71,11 +70,12 @@ func memtest2() {
 		ns.Autoreleasepool(func() {
 			o1 := ns.NSObjectAlloc()
 			o1.Autorelease()
-			s1 := ns.NSStringWithGoString(fmt.Sprintf("string-%d",i))
+			//Does not leak strings within an autorelease pool
+			s1 := ns.NSStringWithGoString(fmt.Sprintf("string-%d", i))
 			_ = s1
 			//o1.Retain() // uncomment for leak
 		})
-		time.Sleep(time.Second/3)
+		time.Sleep(time.Second / 3)
 	}
 	fmt.Println("memtest2: done")
 }
@@ -87,18 +87,26 @@ func memtest3() {
 	runtime.LockOSThread() // comment out for crash
 
 	fmt.Println("memtest3: started")
-	for { ns.Autoreleasepool(func() {
-		arr := ns.NSMutableArrayAlloc().Init()
-		arr.Autorelease()
-		arr.AddObject(ns.NSStringWithGoString("my string"))
+	i := 0
+	for {
+		ns.Autoreleasepool(func() {
+			arr := ns.NSMutableArrayAlloc().Init()
+			arr.Autorelease()
+			arr.AddObject(ns.NSStringWithGoString(fmt.Sprintf("my string %d",i)))
+			s1 := ns.NSStringWithGoString(fmt.Sprintf("my other string %d",i))
+			_ = s1
+			i++
 
-		for { ns.Autoreleasepool(func() {
-			str := arr.ObjectAtIndex(0).NSString()
-			fmt.Println(str) // does not leak in an autorelease pool
-			time.Sleep(time.Second / 2)
-		})}
-		time.Sleep(time.Second)
-	})}
+			for {
+				ns.Autoreleasepool(func() {
+					str := arr.ObjectAtIndex(0).NSString()
+					fmt.Println(str) // does not leak in an autorelease pool
+					time.Sleep(time.Second / 2)
+				})
+			}
+			time.Sleep(time.Second)
+		})
+	}
 	fmt.Println("memtest3: done")
 }
 
@@ -117,34 +125,39 @@ func memtest4() {
 	// Exactly one goroutine (locked to an OS thread) can use an
 	// autorelease pool (?)
 	go memtest1()
+	go memtest2()
 }
 
 func memtest4a() {
 	for {
 		o1 := ns.NSObjectAlloc()
 		o1.Init()
-		time.Sleep(time.Second/50)
+		time.Sleep(time.Second / 50)
 		o1.Release()
 	}
 }
 func memtest4b() {
+	i := 0
 	for {
 		o1 := ns.NSObjectAlloc() // need to Release
+		//s1 := ns.NSStringWithGoString(fmt.Sprintf("a string %d",i)) // uncomment for leak
 		s1 := ns.NSStringWithGoString("a string")
-		arr := ns.NSArrayAlloc().InitWithObjects(s1) // need to Release
+		i++
+		arr := ns.NSArrayAlloc().InitWithObjects(s1) // need to Release arr
 		s2 := arr.ObjectAtIndex(0).NSString()
 
-	//If you try to convert an NSString to UTF8String, CString (*Char),
-	//or GoString, Objective-C runtime will leak an
-	//NSTaggedPointerCStringContainer. Don't know why or how to fix it.
-	//There would be no leak if we were using an autorelease pool.
+		//If you try to convert an NSString to UTF8String, CString (*Char),
+		//or GoString, Objective-C runtime will leak an
+		//NSTaggedPointerCStringContainer. Don't know why or how to fix it.
+		//There would be no leak if we were using an autorelease pool.
 		//u := str.UTF8String() // uncomment for leak
 		//fmt.Println(s1) // uncomment for leak
 
-		time.Sleep(time.Second/50)
+		time.Sleep(time.Second / 50)
 
 		o1.Release()
 		arr.Release()
+		//s1.Release() // does not work
 		_ = o1
 		_ = s2
 	}
@@ -154,12 +167,22 @@ func memtest4c() {
 		o1 := ns.NSArrayAlloc()
 		o2 := ns.NSStringAlloc()
 
-		time.Sleep(time.Second/50)
+		time.Sleep(time.Second / 50)
 		o1.Release()
 		o2.Release()
 	}
 }
 
+func fin(o *ns.MyClass) {
+	o.Release()
+}
+
+func releaseX(x int) func (ns.MyClassSupermethods) {
+	return func(super ns.MyClassSupermethods) {
+		fmt.Printf("--release %d\n", x)
+		super.Release() // comment out for leak
+	}
+}
 
 func main() {
 	//Uncomment more than one test at a time for a crash.
@@ -169,7 +192,7 @@ func main() {
 
 	//go memtest1()
 	//go memtest2()
-	go memtest3()
-	//go memtest4()
-	select { }
+	//go memtest3()
+	go memtest4()
+	select {}
 }

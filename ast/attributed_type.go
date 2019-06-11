@@ -21,7 +21,7 @@ func parseAttributedType(line string) Node {
 	return &AttributedType{
 		Addr:       ParseAddress(groups["address"]),
 		Type:       groups["type"],
-		Sugar:      len(groups["sugar"])>0,
+		Sugar:      len(groups["sugar"]) > 0,
 		ChildNodes: []Node{},
 	}
 }

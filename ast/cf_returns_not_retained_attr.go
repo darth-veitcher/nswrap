@@ -12,9 +12,9 @@ func parseCFReturnsNotRetainedAttr(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &CFReturnsNotRetainedAttr{
 		Addr:       ParseAddress(groups["address"]),

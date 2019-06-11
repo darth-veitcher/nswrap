@@ -12,9 +12,9 @@ func parseIBActionAttr(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &IBActionAttr{
 		Addr:       ParseAddress(groups["address"]),

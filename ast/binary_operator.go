@@ -20,9 +20,9 @@ func parseBinaryOperator(line string) Node {
 	}
 
 	return &BinaryOperator{
-		Addr:       ParseAddress(groups["address"]),
-		Pos:        NewPositionFromString(groups["position"]),
-		Type:       groups["type1"],
+		Addr: ParseAddress(groups["address"]),
+		Pos:  NewPositionFromString(groups["position"]),
+		Type: groups["type1"],
 		//Type2:      groups["type2"],
 		Operator:   groups["operator"],
 		ChildNodes: []Node{},

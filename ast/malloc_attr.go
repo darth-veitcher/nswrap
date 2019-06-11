@@ -13,9 +13,9 @@ func parseMallocAttr(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &MallocAttr{
 		Addr:       ParseAddress(groups["address"]),

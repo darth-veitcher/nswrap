@@ -14,9 +14,9 @@ func parseRestrictAttr(line string) Node {
 		"<(?P<position>.*)> (?P<name>.+)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &RestrictAttr{
 		Addr:       ParseAddress(groups["address"]),

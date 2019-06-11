@@ -14,9 +14,9 @@ func parseGotoStmt(line string) Node {
 		"<(?P<position>.*)> '(?P<name>.*)' (?P<position2>.*)",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &GotoStmt{
 		Addr:       ParseAddress(groups["address"]),

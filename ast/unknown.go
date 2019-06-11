@@ -1,32 +1,32 @@
 package ast
 
 import (
-	//"strings"
+//"strings"
 )
 
 // Unknown is node represents an unknown node.
 type Unknown struct {
-	Name         string
-	Addr         Address
-	Pos          Position
-	Content      string
-	ChildNodes   []Node
+	Name       string
+	Addr       Address
+	Pos        Position
+	Content    string
+	ChildNodes []Node
 }
 
 func parseUnknown(name, line string) *Unknown {
 	groups := groupsFromRegex(
-                `(?:prev (?P<prev>0x[0-9a-f]+) )?
+		`(?:prev (?P<prev>0x[0-9a-f]+) )?
 		<(?P<position>.*<scratch space>.*?|.*<built-in>.*?|.*<invalid sloc>|.*?)>
 		(?P<content>.*)`,
 		line,
 	)
 
 	return &Unknown{
-		Name:         name,
-		Addr:         ParseAddress(groups["address"]),
-		Pos:          NewPositionFromString(groups["position"]),
-		Content:      groups["content"],
-		ChildNodes:   []Node{},
+		Name:       name,
+		Addr:       ParseAddress(groups["address"]),
+		Pos:        NewPositionFromString(groups["position"]),
+		Content:    groups["content"],
+		ChildNodes: []Node{},
 	}
 }
 

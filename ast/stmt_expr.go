@@ -13,9 +13,9 @@ func parseStmtExpr(line string) Node {
 		"<(?P<position>.*)> '(?P<type>.*)'",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &StmtExpr{
 		Addr:       ParseAddress(groups["address"]),

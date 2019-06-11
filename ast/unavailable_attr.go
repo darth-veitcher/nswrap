@@ -6,11 +6,11 @@ import (
 
 // UnavailableAttr is node represents an unavailable attribute.
 type UnavailableAttr struct {
-	Addr         Address
-	Pos          Position
-	Position2    string
-	Content      string
-	ChildNodes   []Node
+	Addr       Address
+	Pos        Position
+	Position2  string
+	Content    string
+	ChildNodes []Node
 }
 
 func parseUnavailableAttr(line string) Node {
@@ -26,11 +26,11 @@ func parseUnavailableAttr(line string) Node {
 	}
 
 	return &UnavailableAttr{
-		Addr:         ParseAddress(groups["address"]),
-		Pos:          NewPositionFromString(groups["position"]),
+		Addr: ParseAddress(groups["address"]),
+		Pos:  NewPositionFromString(groups["position"]),
 		//Position2:    strings.TrimSpace(groups["position2"]),
-		Content:      strings.TrimSpace(groups["content"]),
-		ChildNodes:   []Node{},
+		Content:    strings.TrimSpace(groups["content"]),
+		ChildNodes: []Node{},
 	}
 }
 

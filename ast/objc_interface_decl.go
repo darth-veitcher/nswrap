@@ -1,18 +1,18 @@
 package ast
 
 import (
-//	"fmt"
+	//	"fmt"
 	"strings"
 )
 
 // ObjCInterfaceDecl
 type ObjCInterfaceDecl struct {
-	Addr         Address
-	Pos          Position
-	Position2    string
-	Name         string
-	Implicit     bool
-	ChildNodes   []Node
+	Addr       Address
+	Pos        Position
+	Position2  string
+	Name       string
+	Implicit   bool
+	ChildNodes []Node
 }
 
 func parseObjCInterfaceDecl(line string) Node {
@@ -29,12 +29,12 @@ func parseObjCInterfaceDecl(line string) Node {
 	}
 
 	return &ObjCInterfaceDecl{
-		Addr:         ParseAddress(groups["address"]),
-		Pos:          NewPositionFromString(groups["position"]),
+		Addr: ParseAddress(groups["address"]),
+		Pos:  NewPositionFromString(groups["position"]),
 		//Position2:    strings.TrimSpace(groups["position2"]),
-		Name:         strings.TrimSpace(groups["name"]),
-		Implicit:     len(groups["implicit"])>0,
-		ChildNodes:   []Node{},
+		Name:       strings.TrimSpace(groups["name"]),
+		Implicit:   len(groups["implicit"]) > 0,
+		ChildNodes: []Node{},
 	}
 }
 

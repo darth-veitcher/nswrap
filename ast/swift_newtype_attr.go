@@ -14,9 +14,9 @@ func parseSwiftNewtypeAttr(line string) Node {
 		(?P<content>.*)`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &SwiftNewtypeAttr{
 		Addr:       ParseAddress(groups["address"]),

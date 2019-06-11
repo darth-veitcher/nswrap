@@ -11,34 +11,35 @@ import (
 	"runtime/pprof"
 	"strings"
 
-	"gopkg.in/yaml.v2"
 	"git.wow.st/gmp/nswrap/ast"
 	"git.wow.st/gmp/nswrap/wrap"
+	"gopkg.in/yaml.v2"
 )
 
 var Debug = false
 var Profile = false
 
 type conf struct {
-	Positions bool
-	Package string
-	Inputfiles []string
-	Astfile string
-	Debugast bool
-	Classes []string
-	Functions []string
-	Enums []string
-	Delegates map[string]map[string][]string
-	Subclasses map[string]map[string][]string
-	Frameworks []string
+	Positions     bool
+	Package       string
+	Inputfiles    []string
+	Astfile       string
+	Debugast      bool
+	Classes       []string
+	Functions     []string
+	Enums         []string
+	Delegates     map[string]map[string][]string
+	Subclasses    map[string]map[string][]string
+	Frameworks    []string
 	Frameworkdirs []string
-	Imports []string
-	Sysimports []string
-	Pragma []string
-	Vaargs int
+	Imports       []string
+	Sysimports    []string
+	Pragma        []string
+	Vaargs        int
 	//Arc flag for debugging only, builds will break
-	Arc bool
+	Arc         bool
 	Autorelease bool
+	Gogc        bool
 }
 
 var Config conf
@@ -52,17 +53,19 @@ type treeNode struct {
 	node   ast.Node
 }
 
-func printLinesWithContext(lines []string,i int) {
+func printLinesWithContext(lines []string, i int) {
 	b := i - 3
-	if b < 0 { b = 0 }
+	if b < 0 {
+		b = 0
+	}
 	var flag string
-	for x := b; (x < b + 6) && (x < len(lines)); x++ {
+	for x := b; (x < b+6) && (x < len(lines)); x++ {
 		if x == i {
 			flag = "--> "
 		} else {
 			flag = "    "
 		}
-		fmt.Printf("%s%s\n",flag,lines[x])
+		fmt.Printf("%s%s\n", flag, lines[x])
 	}
 }
 
@@ -90,7 +93,7 @@ func convertLinesToNodes(lines []string) []treeNode {
 		switch node.(type) {
 		case *ast.Unknown:
 			fmt.Printf("Unrecognized node:\n")
-			printLinesWithContext(lines,i)
+			printLinesWithContext(lines, i)
 			fmt.Printf("\n")
 			unknowns++
 			if unknowns > 5 {
@@ -184,8 +187,8 @@ func buildTree(nodes []treeNode, depth int) []ast.Node {
 }
 
 func matches(x string, rs []string) bool {
-	for _,r := range rs {
-		if m, _ := regexp.MatchString("^" + r + "$",x); m {
+	for _, r := range rs {
+		if m, _ := regexp.MatchString("^"+r+"$", x); m {
 			return true
 		}
 	}
@@ -196,10 +199,10 @@ func matches(x string, rs []string) bool {
 func Start() (err error) {
 	astPP := []byte{}
 	if Config.Astfile != "" {
-		fmt.Printf("Reading ast file %s\n",Config.Astfile)
+		fmt.Printf("Reading ast file %s\n", Config.Astfile)
 		_, err = os.Stat(Config.Astfile)
 		if err != nil {
-			return fmt.Errorf("Input AST file %s not found",Config.Astfile)
+			return fmt.Errorf("Input AST file %s not found", Config.Astfile)
 		}
 		astPP, err = ioutil.ReadFile(Config.Astfile)
 		if err != nil {
@@ -215,16 +218,16 @@ func Start() (err error) {
 
 		// Generate AST
 		cargs := []string{"-xobjective-c", "-Xclang", "-ast-dump",
-				"-fsyntax-only","-fno-color-diagnostics"}
+			"-fsyntax-only", "-fno-color-diagnostics"}
 		if Config.Arc {
-			cargs = append(cargs,"-fobjc-arc")
+			cargs = append(cargs, "-fobjc-arc")
 		}
-		for _,f := range Config.Frameworkdirs {
-			cargs = append(cargs,"-F" + f)
+		for _, f := range Config.Frameworkdirs {
+			cargs = append(cargs, "-F"+f)
 		}
-		cargs = append(cargs,Config.Inputfiles...)
+		cargs = append(cargs, Config.Inputfiles...)
 		fmt.Printf("Generating AST\n")
-		astPP, err = exec.Command("clang",cargs...).Output()
+		astPP, err = exec.Command("clang", cargs...).Output()
 		if err != nil {
 			// If clang fails it still prints out the AST, so we have to run it
 			// again to get the real error.
@@ -248,11 +251,18 @@ func Start() (err error) {
 	if Config.Positions {
 		ast.TrackPositions = true
 	}
+	if Config.Gogc && Config.Autorelease {
+		fmt.Printf("Cannot use Autorelease and Gogc directives at the same time\n")
+		os.Exit(-1)
+	}
 	if Config.Arc {
 		wrap.Arc = true
 	}
 	if Config.Autorelease {
 		wrap.Autorelease = true
+	}
+	if Config.Gogc {
+		wrap.Gogc = true
 	}
 	//NOTE: converting in parallel is slower on my system
 	//nodes := convertLinesToNodesParallel(lines)
@@ -276,29 +286,29 @@ func Start() (err error) {
 	w.Vaargs = Config.Vaargs
 	for _, u := range tree {
 		fmt.Printf("--processing translation unit\n")
-		for _, n := range(u.Children()) {
+		for _, n := range u.Children() {
 			switch x := n.(type) {
 			case *ast.ObjCInterfaceDecl:
 				w.AddInterface(x)
-				for _,ss := range Config.Subclasses {
-					if sc,ok := ss["superclass"]; ok {
-						if matches(x.Name,sc) {
-							Config.Classes = append(Config.Classes,x.Name)
+				for _, ss := range Config.Subclasses {
+					if sc, ok := ss["superclass"]; ok {
+						if matches(x.Name, sc) {
+							Config.Classes = append(Config.Classes, x.Name)
 						}
 					}
 				}
 			case *ast.ObjCCategoryDecl:
 				w.AddCategory(x)
 			case *ast.TypedefDecl:
-				w.AddTypedef(x.Name,x.Type)
+				w.AddTypedef(x.Name, x.Type)
 			case *ast.FunctionDecl:
-				if matches(x.Name,Config.Functions) {
+				if matches(x.Name, Config.Functions) {
 					w.AddFunction(x)
 				}
 			case *ast.ObjCProtocolDecl:
 				w.AddProtocol(x)
 			case *ast.EnumDecl:
-				w.AddEnum(x,Config.Enums)
+				w.AddEnum(x, Config.Enums)
 			}
 		}
 	}
@@ -321,11 +331,11 @@ func main() {
 
 	confbytes, err := ioutil.ReadFile("nswrap.yaml")
 	if err != nil {
-		fmt.Printf("%s\n\nFATAL ERROR: Configuration file must be present in directory where nswrap\nis invoked.\n",err)
+		fmt.Printf("%s\n\nFATAL ERROR: Configuration file must be present in directory where nswrap\nis invoked.\n", err)
 		os.Exit(-1)
 	}
-	if err = yaml.UnmarshalStrict(confbytes,&Config); err != nil {
-		fmt.Printf("Cannot decode config file nswrap.yaml. %s\n",err)
+	if err = yaml.UnmarshalStrict(confbytes, &Config); err != nil {
+		fmt.Printf("Cannot decode config file nswrap.yaml. %s\n", err)
 		os.Exit(-1)
 	}
 	ast.Debug = Config.Debugast

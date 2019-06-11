@@ -12,9 +12,9 @@ func parseNSReturnsRetainedAttr(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &NSReturnsRetainedAttr{
 		Addr:       ParseAddress(groups["address"]),

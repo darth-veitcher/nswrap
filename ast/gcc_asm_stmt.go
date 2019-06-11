@@ -12,9 +12,9 @@ func parseGCCAsmStmt(line string) Node {
 		"<(?P<position>.*)>",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &GCCAsmStmt{
 		Addr:       ParseAddress(groups["address"]),

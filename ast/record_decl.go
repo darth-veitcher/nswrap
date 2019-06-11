@@ -26,9 +26,9 @@ func parseRecordDecl(line string) Node {
 		(?P<name>.*)`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	definition := false
 	name := strings.TrimSpace(groups["name"])

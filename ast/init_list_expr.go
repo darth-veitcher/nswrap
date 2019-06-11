@@ -14,9 +14,9 @@ func parseInitListExpr(line string) Node {
 		"<(?P<position>.*)> '(?P<type1>.*?)'(:'(?P<type2>.*)')?",
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &InitListExpr{
 		Addr:       ParseAddress(groups["address"]),

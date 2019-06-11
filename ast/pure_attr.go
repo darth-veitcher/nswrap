@@ -17,9 +17,9 @@ func parsePureAttr(line string) Node {
 		(?P<implicit> Implicit)?`,
 		line,
 	)
-        if groups == nil {
-                return &Unknown{}
-        }
+	if groups == nil {
+		return &Unknown{}
+	}
 
 	return &PureAttr{
 		Addr:       ParseAddress(groups["address"]),

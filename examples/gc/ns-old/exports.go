@@ -16,16 +16,11 @@ import (
 	"unsafe"
 )
 
-//export MyClassDealloc
-func MyClassDealloc(o unsafe.Pointer) {
-	cb := MyClassLookup[o].Dealloc
-	if cb == nil { return }
-	cb()
-}
-
 //export MyClassRelease
 func MyClassRelease(o unsafe.Pointer) {
+	MyClassMux.RLock()
 	cb := MyClassLookup[o].Release
+	MyClassMux.RUnlock()
 	if cb == nil { return }
 	self := MyClass{}
 	self.ptr = o
@@ -33,4 +28,13 @@ func MyClassRelease(o unsafe.Pointer) {
 		self.SuperRelease,
 	}
 	cb(super)
+}
+
+//export MyClassDealloc
+func MyClassDealloc(o unsafe.Pointer) {
+	MyClassMux.RLock()
+	cb := MyClassLookup[o].Dealloc
+	MyClassMux.RUnlock()
+	if cb == nil { return }
+	cb()
 }
