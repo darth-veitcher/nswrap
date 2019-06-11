@@ -55,6 +55,8 @@ func discoverServices(p ns.CBPeripheral, e ns.NSError) {
 		case serv.UUID().IsEqualTo(ns.CBUUIDWithGoString("180A")):
 			fmt.Printf("--device information service\n")
 			p.DiscoverCharacteristics(ns.NSArray{}, serv)
+		default:
+			fmt.Printf("--unknown service\n")
 		}
 		return true
 	})

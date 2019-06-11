@@ -38,4 +38,4 @@ delegates:
             - peripheralDidUpdateValueForCharacteristic
 
 pragma: [ clang diagnostic ignored "-Wformat-security" ]
-autorelease: true
+gogc: true

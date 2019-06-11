@@ -50,7 +50,7 @@ func memtest2() {
 
 		o2 := ns.NSStringWithGoString("two string") // does not leak
 
-		arr := ns.NSArrayWithObjects(o1,o2)
+		arr := ns.NSArrayAlloc().InitWithObjects(o1,o2)
 		_ = arr
 
 		runtime.GC()

@@ -147,6 +147,7 @@ type Method struct {
 	Type                         *types.Type
 	ClassMethod                  bool
 	Parameters                   []*Parameter
+	Unavailable                  bool
 }
 
 //Fully disambiguated method name (m.GoName + all parameter names)
@@ -360,6 +361,7 @@ func (w *Wrapper) AddInterface(n *ast.ObjCInterfaceDecl) {
 	if Debug {
 		fmt.Printf("ast.ObjCInterfaceDecl: %s\n", n.Name)
 	}
+	//fmt.Printf("AddInterface(%s)\n",n.Name)
 	w.addIntCat(n.Name, n.Children())
 }
 
@@ -371,6 +373,7 @@ func (w *Wrapper) AddCategory(n *ast.ObjCCategoryDecl) {
 	if len(ns) > 0 {
 		switch x := ns[0].(type) {
 		case *ast.ObjCInterface:
+			//fmt.Printf("AddCategory(%s) -> %s\n",n.Name, x.Name)
 			w.addIntCat(x.Name, ns[1:])
 			return
 		}
@@ -466,12 +469,13 @@ func (w *Wrapper) AddMethod(p *MethodCollection, x *ast.ObjCMethodDecl) {
 		Class:       p.Class,
 		GoClass:     strings.Title(p.Class),
 		ClassMethod: x.ClassMethod,
+		Unavailable: false,
 	}
 	if Debug {
 		fmt.Printf("  -- Method %s\n", m.Name)
 	}
 	var avail bool
-	m.Parameters, avail = w.GetParms(x, p.Class)
+	m.Parameters, avail, m.Unavailable = w.GetParms(x, p.Class)
 	if avail {
 		if Debug {
 			fmt.Printf("%s: Adding %s (%d)\n", p.Class, m.Name, len(m.Parameters))
@@ -556,18 +560,6 @@ func (w *Wrapper) addIntCat(name string, ns []ast.Node) {
 		i.ClassMethods = NewMethodCollection(name)
 		i.Protocols = []string{}
 		i.ProcessedInstanceMethods = map[string]bool{}
-		/*
-			m := &Method{
-				Name: "class",
-				GoName: "Class",
-				Class: i.Name,
-				GoClass: i.Name,
-				Type: types.NewTypeFromString("Class",i.Name),
-				ClassMethod: true,
-				Parameters: []*Parameter{},
-			}
-			i.ClassMethods.Methods = []*Method{m}
-		*/
 	}
 	avail := (*Avail)(&[]AvailAttr{})
 	mcc := NewMethodCollection(name)
@@ -641,52 +633,13 @@ func (w *Wrapper) addIntCat(name string, ns []ast.Node) {
 	i.InstanceMethods.Methods = append(i.InstanceMethods.Methods, mci.Methods...)
 	i.Protocols = append(i.Protocols, prots...)
 
-	//Add class methods from super class
-	var supmethods func(*Interface, string)
-	supmethods = func(i *Interface, s string) {
-		if sup, ok := w.Interfaces[s]; !ok {
-			return
-		} else {
-			//depth first
-			supmethods(i, types.Super(s))
-			for _, m := range sup.ClassMethods.Methods {
-				m2 := &Method{
-					Name:        m.Name,
-					GoName:      m.GoName,
-					Class:       i.Name,
-					GoClass:     i.GoName,
-					Type:        m.Type.CloneToClass(i.Name),
-					ClassMethod: true,
-					Parameters:  []*Parameter{},
-				}
-				for _, p := range m.Parameters {
-					p2 := &Parameter{
-						Pname: p.Pname,
-						Vname: p.Vname,
-						Type:  p.Type.CloneToClass(i.Name),
-					}
-					m2.Parameters = append(m2.Parameters, p2)
-				}
-				found := false
-				longname := m2.LongName()
-				for n, x := range i.ClassMethods.Methods {
-					if x.LongName() == longname {
-						i.ClassMethods.Methods[n] = m2
-						found = true
-					}
-				}
-				if !found {
-					i.ClassMethods.Methods = append(i.ClassMethods.Methods, m2)
-				}
-			}
-		}
-	}
-	supmethods(i, types.Super(i.Name))
 	if Debug {
 		fmt.Println("Add interface ", i.Name)
 	}
+	//fmt.Printf("Interface = %s %d class methods, %d instance methods\n", i.Name, len(i.ClassMethods.Methods), len(i.InstanceMethods.Methods))
 	Disambiguate(i.ClassMethods)
 	Disambiguate(i.InstanceMethods)
+	//fmt.Printf("Interface = %s (disambiguated) %d class methods, %d instance methods\n", i.Name, len(i.ClassMethods.Methods), len(i.InstanceMethods.Methods))
 	w.Interfaces[i.Name] = i
 }
 
@@ -735,8 +688,9 @@ func (a *Avail) Available() bool {
 //GetParms returns the parameters of a method declaration and a bool
 //indicating whether the given method is available on MacOS and not
 //deprecated.
-func (w *Wrapper) GetParms(n ast.Node, class string) ([]*Parameter, bool) {
+func (w *Wrapper) GetParms(n ast.Node, class string) ([]*Parameter, bool, bool) {
 	ret := make([]*Parameter, 0)
+	unavail := false
 	avail := (*Avail)(&[]AvailAttr{})
 	var parms []string
 	switch x := n.(type) {
@@ -768,7 +722,9 @@ func (w *Wrapper) GetParms(n ast.Node, class string) ([]*Parameter, bool) {
 			p.Type.Variadic = true
 			ret = append(ret, p)
 			j++
-		case *ast.AvailabilityAttr, *ast.UnavailableAttr, *ast.DeprecatedAttr:
+		case *ast.UnavailableAttr:
+			unavail = true
+		case *ast.AvailabilityAttr, *ast.DeprecatedAttr:
 			avail.Add(x)
 		case *ast.Unknown:
 			if Debug {
@@ -778,9 +734,9 @@ func (w *Wrapper) GetParms(n ast.Node, class string) ([]*Parameter, bool) {
 	}
 	// check that the method is available for this OS and not deprecated
 	if !avail.Available() {
-		return nil, false
+		return nil, false, unavail
 	}
-	return ret, true
+	return ret, true, unavail
 }
 
 func (w *Wrapper) AddTypedef(n, t string) {
@@ -888,20 +844,7 @@ func (e NSEnumerator) ForIn(f func(Id) bool) {
 }
 
 func (w *Wrapper) AutoreleaseHelpers() {
-	//not sure why this is not coming up automatically...
-	w.cCode.WriteString(`
-void* _Nonnull
-NSAutoreleasePool_init(void* o) {
-	return [(NSAutoreleasePool*)o init];
-}
-`)
 	w.goHelpers.WriteString(`
-func (o NSAutoreleasePool) Init() NSAutoreleasePool {
-	ret := NSAutoreleasePool{}
-	ret.ptr = C.NSAutoreleasePool_init(o.Ptr())
-	return ret
-}
-
 func Autoreleasepool(f func()) {
 	pool := NSAutoreleasePoolAlloc().Init()
 	f()
@@ -958,6 +901,9 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 		fmt.Printf("  method: %s (%s)\n", m.Name, m.Type)
 	}
 	if m.HasUnsupportedType() {
+		return
+	}
+	if m.Unavailable {
 		return
 	}
 	w.processType(m.Type)
@@ -1809,6 +1755,74 @@ func (o %s) Super%s(%s) %s {
 	w.goExports.WriteString(goexports.String())
 }
 
+//Add class and instance methods from super class
+func (w *Wrapper) AddSupermethods(i *Interface) {
+	var supmethods func(string)
+	procsups := func(mc, smc *MethodCollection) {
+		for _, m := range smc.Methods {
+			m2 := &Method{
+				Name:        m.Name,
+				GoName:      m.GoName,
+				Class:       i.Name,
+				GoClass:     i.GoName,
+				Type:        m.Type.CloneToClass(i.Name),
+				ClassMethod: m.ClassMethod,
+				Parameters:  []*Parameter{},
+				Unavailable: m.Unavailable,
+			}
+			for _, p := range m.Parameters {
+				p2 := &Parameter{
+					Pname: p.Pname,
+					Vname: p.Vname,
+					Type:  p.Type.CloneToClass(i.Name),
+				}
+				m2.Parameters = append(m2.Parameters, p2)
+			}
+			mc.Methods = append(mc.Methods, m2)
+		}
+	}
+	supmethods = func(s string) {
+		if sup, ok := w.Interfaces[s]; !ok {
+			return
+		} else {
+			procsups(i.ClassMethods, sup.ClassMethods)
+			procsups(i.InstanceMethods, sup.InstanceMethods)
+			// depth last
+			supmethods(types.Super(s))
+		}
+	}
+	supmethods(types.Super(i.Name))
+}
+
+//Add methods from a Protocol
+func (w *Wrapper) AddProtocolMethods(i *Interface, p *Protocol) {
+	procmeths := func(mc, pmc *MethodCollection) {
+		for _, m := range pmc.Methods {
+			m2 := &Method{
+				Name: m.Name,
+				GoName: m.GoName,
+				Class: i.Name,
+				GoClass: i.GoName,
+				Type: m.Type.CloneToClass(i.Name),
+				ClassMethod: m.ClassMethod,
+				Parameters: []*Parameter{},
+				Unavailable: m.Unavailable,
+			}
+			for _, p := range m.Parameters {
+				p2 := &Parameter{
+					Pname: p.Pname,
+					Vname: p.Vname,
+					Type: p.Type.CloneToClass(i.Name),
+				}
+				m2.Parameters = append(m2.Parameters,p2)
+			}
+			mc.Methods = append(mc.Methods, m2)
+		}
+	}
+	procmeths(i.ClassMethods, p.ClassMethods)
+	procmeths(i.InstanceMethods, p.InstanceMethods)
+}
+
 func (w *Wrapper) Wrap(toproc []string) {
 	if w.Package == "" {
 		w.Package = "ns"
@@ -1847,13 +1861,7 @@ func (w *Wrapper) Wrap(toproc []string) {
 		if i.Name == "NSEnumerator" {
 			w.EnumeratorHelpers()
 		}
-		/*gname := i.GoName
-		if types.IsGoInterface(i.GoName) {
-			gname = "Id"
-		}
-		*/
-		fmt.Printf("Interface %s: %d properties, %d class methods, %d instance methods\n",
-			i.Name, len(i.Properties), len(i.ClassMethods.Methods), len(i.InstanceMethods.Methods))
+		w.AddSupermethods(i)
 
 		//FIXME: sort properties
 		for _, p := range i.Properties {
@@ -1863,12 +1871,6 @@ func (w *Wrapper) Wrap(toproc []string) {
 				fmt.Printf("  property: %s (%s)\n", p.Name, p.Type.CType())
 			}
 		}
-		for _, m := range i.ClassMethods.Methods {
-			w.ProcessMethod(m)
-		}
-		for _, m := range i.InstanceMethods.Methods {
-			w.ProcessMethod(m)
-		}
 		// add methods for Protocols that this interface implements
 		for _, p := range i.Protocols {
 			prot, ok := w.Protocols[p]
@@ -1876,12 +1878,22 @@ func (w *Wrapper) Wrap(toproc []string) {
 				fmt.Printf("Failed to find protocol %s for interface %s\n", p, i.Name)
 				os.Exit(-1)
 			}
-			for _, m := range prot.ClassMethods.Methods {
-				w.ProcessMethodForClass(m, i.Name)
-			}
-			for _, m := range prot.InstanceMethods.Methods {
-				w.ProcessMethodForClass(m, i.Name)
-			}
+			w.AddProtocolMethods(i,prot)
+//			for _, m := range prot.ClassMethods.Methods {
+//				w.ProcessMethodForClass(m, i.Name)
+//			}
+//			for _, m := range prot.InstanceMethods.Methods {
+//				w.ProcessMethodForClass(m, i.Name)
+//			}
+		}
+		Disambiguate(i.ClassMethods)
+		Disambiguate(i.InstanceMethods)
+		fmt.Printf("Interface %s: %d properties, %d class methods, %d instance methods\n", i.Name, len(i.Properties), len(i.ClassMethods.Methods), len(i.InstanceMethods.Methods))
+		for _, m := range i.ClassMethods.Methods {
+			w.ProcessMethod(m)
+		}
+		for _, m := range i.InstanceMethods.Methods {
+			w.ProcessMethod(m)
 		}
 	}
 	for _, m := range w.Functions {
