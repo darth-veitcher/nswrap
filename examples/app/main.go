@@ -20,8 +20,12 @@ func pb2() {
 	a.Terminate(a)
 }
 
-func didFinishLaunching(n ns.NSNotification) {
+func didFinishLaunching(n *ns.NSNotification) {
 	fmt.Println("Go: did finish launching")
+	fmt.Printf("Notification n = %p\n",n)
+	fmt.Printf("Notification n.Ptr() = %p\n",n.Ptr())
+	fmt.Printf("Notification n.Name() = %p\n",n.Name())
+	fmt.Printf("Notification n.Name().Ptr() = %p\n",n.Name().Ptr())
 	fmt.Printf("Notification: %s\n", n.Name().UTF8String())
 	//Set up an NSWindow
 	win = ns.NSWindowAlloc().InitWithContentRectStyleMask(
@@ -83,40 +87,39 @@ func didFinishLaunching(n ns.NSNotification) {
 
 	cv := win.ContentView()
 
-	cv.AddSubview(b1.NSView)
-	cv.AddSubview(b2.NSView)
+	cv.AddSubview(&b1.NSView)
+	cv.AddSubview(&b2.NSView)
 
 	viewmap := ns.NSDictionaryWithObjectsForKeys(
 		ns.NSArrayWithObjects(b1, b2),
 		ns.NSArrayWithObjects(nst("b1"), nst("b2")))
 
 	cv.AddConstraints(ns.NSLayoutConstraintsWithVisualFormat(
-		nst("V:|-[b1]"), 0, ns.NSDictionary{}, viewmap))
+		nst("V:|-[b1]"), 0, nil, viewmap))
 	cv.AddConstraints(ns.NSLayoutConstraintsWithVisualFormat(
-		nst("H:|-[b1]"), 0, ns.NSDictionary{}, viewmap))
+		nst("H:|-[b1]"), 0, nil, viewmap))
 	cv.AddConstraints(ns.NSLayoutConstraintsWithVisualFormat(
-		nst("H:[b1]-[b2]"), ns.NSLayoutFormatAlignAllBaseline,
-		ns.NSDictionary{}, viewmap))
+		nst("H:[b1]-[b2]"), ns.NSLayoutFormatAlignAllBaseline, nil, viewmap))
 
 	a.ActivateIgnoringOtherApps(1)
 }
 
-func shouldTerminateAfterLastWindowClosed(s ns.NSApplication) ns.BOOL {
+func shouldTerminateAfterLastWindowClosed(s *ns.NSApplication) ns.BOOL {
 	return 1
 }
 
-func willTerminate(n ns.NSNotification) {
+func willTerminate(n *ns.NSNotification) {
 	fmt.Println("Go: will terminate")
 }
 
-func didBecomeActive(n ns.NSNotification) {
+func didBecomeActive(n *ns.NSNotification) {
 	fmt.Println("Go: did become active")
 	fmt.Printf("Notification: %s\n", n.Name().UTF8String())
 }
 
 var (
-	a   ns.NSApplication
-	win ns.NSWindow
+	a   *ns.NSApplication
+	win *ns.NSWindow
 )
 
 func app() {

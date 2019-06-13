@@ -18,7 +18,7 @@ func releaseX(x int) func (ns.MyClassSupermethods) {
 func memtest1() {
 	fmt.Println("memtest1 started")
 	for {
-		arr := make([]ns.MyClass,1000)
+		arr := make([]*ns.MyClass,1000)
 		for i := 0; i < 1000; i++ {
 			// Alloc methods set a finalizer that causes the Go GC to
 			// Release these objects.
@@ -27,8 +27,6 @@ func memtest1() {
 
 			// You can still manually retain objects, but that will cause
 			// them to stick around after their Go pointers are collected.
-			// This may be necessary if you are adding objects to an
-			// Objective-C collection?
 			//arr[i].Retain() // uncomment for leak
 		}
 		// Manually run the Go GC at every loop iteration. May not be needed
@@ -41,24 +39,31 @@ func memtest1() {
 
 func memtest2() {
 	fmt.Println("memtest2 started")
+	i := 0
 	for {
-		o1 := ns.NSStringAlloc().InitWithGoString("one string")
+		o1 := ns.NSStringAlloc().InitWithGoString(fmt.Sprintf("two string %d",i))
+		o2 := ns.NSStringWithGoString(fmt.Sprintf("two string %d",i))
 
 		// NSWrap runs object constructors inside an @autoreleasepool block,
 		// and then calls "retain" on them before returning to Go. A Go
 		// finalizer is set allowing the Go GC to call Release().
 
-		o2 := ns.NSStringWithGoString("two string") // does not leak
+		o3 := ns.NSStringWithString(o1)
+		o4 := ns.NSStringAlloc()
+		_ = o4
 
-		arr := ns.NSArrayAlloc().InitWithObjects(o1,o2)
+		//arr := ns.NSArrayAlloc().InitWithObjects(o1,o1)
+		arr := ns.NSArrayWithObjects(o1,o2,o3,o4)
 		_ = arr
 
+		//o1.Release()
+		//o1.Release()
 		runtime.GC()
 		time.Sleep(time.Second/50)
 	}
 }
 
-func addStr(arr ns.NSMutableArray) {
+func addStr(arr *ns.NSMutableArray) {
 	s1 := ns.NSStringAlloc().InitWithGoString("a string")
 	arr.AddObject(s1)
 
@@ -86,7 +91,23 @@ func memtest4() {
 		c1 := o1.UTF8String()
 		_ = o1
 		_ = c1
+		runtime.GC()
 		time.Sleep(time.Second/10)
+	}
+}
+
+func memtest5() {
+	fmt.Println("memtest5 started")
+	i := 0
+	for {
+		str := ns.NSStringWithGoString(fmt.Sprintf("five string %d",i))
+		_ = str
+		sub := str.SubstringFromIndex(5)
+		_ = sub
+		fmt.Printf("sub = %s\n",sub)
+		time.Sleep(time.Second/10)
+		runtime.GC()
+		i++
 	}
 }
 
@@ -95,5 +116,6 @@ func main() {
 	go memtest2()
 	go memtest3()
 	go memtest4()
+	go memtest5()
 	select {}
 }

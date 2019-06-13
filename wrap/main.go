@@ -75,7 +75,7 @@ func NewWrapper(debug bool) *Wrapper {
 type Id struct {
 	ptr unsafe.Pointer
 }
-func (o Id) Ptr() unsafe.Pointer { return o.ptr }
+func (o *Id) Ptr() unsafe.Pointer { if o == nil { return nil }; return o.ptr }
 `)
 	return ret
 }
@@ -148,6 +148,14 @@ type Method struct {
 	ClassMethod                  bool
 	Parameters                   []*Parameter
 	Unavailable                  bool
+}
+
+func (m *Method) ShouldFinalize() bool {
+	return shouldFinalize(m.Type.GoType(), m.Name)
+}
+
+func shouldFinalize (grtype, name string) bool {
+	return Gogc && grtype != "NSAutoreleasePool" && (types.ShouldWrap(grtype) || grtype == "Id") && (len(name) < 4 || name[:4] != "init")
 }
 
 //Fully disambiguated method name (m.GoName + all parameter names)
@@ -331,14 +339,17 @@ func (w *Wrapper) gpntp(m *Method) ([]string, []string, []*types.Type, string) {
 		if gt == "*Void" {
 			gt = "unsafe.Pointer"
 		}
+		if types.PtrIsGoInterface(gt) {
+			gt = gt[1:]
+		}
 		if tps[i].Variadic {
 			gt = "..." + gt
 			ns[i] = ns[i] + "s"
 		}
-		if len(gt) > 2 && gt[:2] == "**" && types.ShouldWrap(gt[2:]) {
-			x := gt[2:]
-			if types.IsGoInterface(x) {
-				x = "Id"
+		if len(gt) > 2 && gt[:1] == "*" && types.PtrShouldWrap(gt[1:]) {
+			x := gt[1:]
+			if types.PtrIsGoInterface(x) {
+				x = "*Id"
 			}
 			gt = "*[]" + x
 			snames[i] = "goSlice" + strconv.Itoa(i)
@@ -747,13 +758,19 @@ func (w *Wrapper) AddTypedef(n, t string) {
 	}
 	if types.ShouldWrap(gt) {
 		if Debug {
-			fmt.Printf("  processing type for %s (%s)\n", n, gt)
+			fmt.Printf("  processing wrapped type for %s (%s)\n", n, gt)
 		}
 		types.Wrap(n)
 		types.SetSuper(n, gt)
-		w._processType(tp, "*"+n)
+		//w._processType(tp, n)
+		w._processType(tp)
 	} else {
+		cgt := tp.CGoType()
+		if Debug {
+			fmt.Printf("  processing un-wrapped type for %s -> %s\n", n, cgt)
+		}
 		types.AddTypedef(n, tp)
+		
 	}
 }
 
@@ -765,11 +782,14 @@ func (w *Wrapper) processTypes(tps []*types.Type) {
 
 func (w *Wrapper) processType(tp *types.Type) {
 	bt := tp.BaseType()
-	gt := bt.GoType()
-	w._processType(bt, gt)
+	//gt := bt.GoType()
+	//w._processType(bt, gt)
+	w._processType(bt)
 }
 
-func (w *Wrapper) _processType(bt *types.Type, gt string) {
+//func (w *Wrapper) _processType(bt *types.Type, gt string) {
+func (w *Wrapper) _processType(bt *types.Type) {
+	gt := bt.GoType()
 	if Debug {
 		fmt.Printf("processType: gt = %s bt = %s\n", gt, bt)
 	}
@@ -802,6 +822,9 @@ func (w *Wrapper) _processType(bt *types.Type, gt string) {
 		types.Wrap(tp.GoType())
 		w.processType(tp)
 	}
+	if Debug {
+		fmt.Printf("Writing go type for %s -> %s\n",bt.CType(),gt)
+	}
 	w.goTypes.WriteString(bt.GoTypeDecl())
 }
 
@@ -827,7 +850,7 @@ func (c *Char) Free() {
 
 func (w *Wrapper) StringHelpers() {
 	w.goHelpers.WriteString(`
-func (o NSString) String() string {
+func (o *NSString) String() string {
 	return o.UTF8String().String()
 }
 `)
@@ -835,7 +858,7 @@ func (o NSString) String() string {
 
 func (w *Wrapper) EnumeratorHelpers() {
 	w.goHelpers.WriteString(`
-func (e NSEnumerator) ForIn(f func(Id) bool) {
+func (e *NSEnumerator) ForIn(f func(*Id) bool) {
 	for o := e.NextObject(); o.Ptr() != nil; o = e.NextObject() {
 		if !f(o) { break }
 	}
@@ -924,9 +947,9 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 	switch {
 	case !m.ClassMethod:
 		if types.IsGoInterface(m.GoClass) {
-			receiver = "(o Id) "
+			receiver = "(o *Id) "
 		} else {
-			receiver = "(o " + m.GoClass + ") "
+			receiver = "(o *" + m.GoClass + ") "
 		}
 		//Disambiguate instance methods with same name as a class method
 		cname = "inst_" + cname
@@ -969,8 +992,8 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 	if grtype == "Void" {
 		grtype = ""
 	}
-	if types.IsGoInterface(grtype) {
-		grtype = "Id"
+	if types.PtrIsGoInterface(grtype) {
+		grtype = "*Id"
 	}
 	if grtype == "BOOL" { // convert objective-c bools to Go bools
 		grtype = "bool"
@@ -1022,7 +1045,7 @@ func %s%s(%s) %s {
 `, snames[i], n, n, snames[i], n))
 	}
 	w.goCode.WriteString(`	` +
-		types.GoToC(cname, ns, snames, m.Type, tps, fun, Gogc) + "\n}\n")
+		types.GoToC(cname, ns, snames, m.Type, tps, fun, m.ShouldFinalize()) + "\n}\n")
 
 	cret := ""
 	if !m.isVoid() {
@@ -1062,9 +1085,15 @@ func %s%s(%s) %s {
 	default:
 		if Gogc && !m.isVoid() {
 			rtn := ""
+			//if m.ClassMethod && types.ShouldWrap(m.Type.GoType()) {
 			if types.ShouldWrap(m.Type.GoType()) {
+				if m.ClassMethod {
 				rtn = `
 		[ret retain];`
+				} else {
+				rtn = `
+		if (o != ret) { [ret retain]; }`
+				}
 			}
 			w.cCode.WriteString(fmt.Sprintf(
 `	%s ret;
@@ -1097,10 +1126,10 @@ func %s%s(%s) %s {
 				fmt.Printf("  %s\n", gt)
 			}
 			ns2 := ns[i]
-			if gt == "NSString" {
+			if gt == "*NSString" {
 				gt = "string"
 				//ns[i] = gStringToNsstring(ns[i])
-				cvts = cvts + gStringToNSString(ns[i])
+				cvts = gStringToNSString(ns[i])
 				ns[i] = "NSStringWithUTF8String(" + ns[i] + "_chr)"
 			}
 			gps = append(gps, ns2+" "+gt)
@@ -1111,11 +1140,21 @@ func %s%s(%s) %s {
 			obj = "o."
 			ns = ns[1:]
 		}
+		finalizer := ""
+		if m.ShouldFinalize() && false {
+			w.goImports["runtime"] = true
+			finalizer = fmt.Sprintf(
+	`runtime.SetFinalizer(ret, func(o *%s) {
+		o.Release()
+	})
+	`, grtype)
+		}
 		w.goCode.WriteString(fmt.Sprintf(`
 func %s%s(%s) %s {
-	%sreturn %s%s(%s)
+	%sret := %s%s(%s)
+	%sreturn ret
 }
-`, receiver, gname2, gplist, grtype, cvts, obj, gname, strings.Join(ns, ", ")))
+`, receiver, gname2, gplist, grtype, cvts, obj, gname, strings.Join(ns, ", "), finalizer))
 	}
 }
 
@@ -1213,6 +1252,9 @@ func (w *Wrapper) ProcessSubclass(sname string, sc *Subclass) {
 	nms := make([]*Method, len(sc.NewMethods))
 	for i, sig := range sc.NewMethods {
 		nms[i] = w.MethodFromSig(sig, sname)
+	}
+	if Debug {
+		fmt.Println("ProcessSubclass(%s)\n",sname)
 	}
 	w._ProcessDelSub(sname, ps, nms, true)
 }
@@ -1567,17 +1609,17 @@ void*
 
 	//5. Go constructor
 	var finalizer string
-	if Gogc {
+	if shouldFinalize(gname,"") {
 		w.goImports["runtime"] = true
 		finalizer = fmt.Sprintf(
-`runtime.SetFinalizer(&ret,func(o *%s) {
+`runtime.SetFinalizer(ret,func(o *%s) {
 		o.Release()
 	})
 	`,gname)
 	}
 	gocode.WriteString(fmt.Sprintf(`
-func %sAlloc() %s {
-	ret := %s{}
+func %sAlloc() *%s {
+	ret := &%s{}
 	ret.ptr = unsafe.Pointer(C.%sAlloc())
 	%sreturn ret
 }
@@ -1646,10 +1688,10 @@ func (d %s) %sCallback(f func(%s)%s) {
 			} else {
 				gt2 = gtypes[i][j-1]
 			}
-			if types.IsGoInterface(gt2) {
-				gt2 = "Id"
+			if types.IsGoInterface(gt2) || types.ShouldWrap(gt2) {
+				gt2 = "*Id"
 			}
-			if types.ShouldWrap(gt2) || gt2 == "Id" {
+			if gt2 == "*Id" {
 				garglist = append(garglist, fmt.Sprintf(
 					`a%d`, j))
 				gargconv = append(gargconv, fmt.Sprintf(
@@ -1723,14 +1765,14 @@ func %s%s(%s)%s {
 			grtype = ""
 		}
 		if types.IsGoInterface(grtype) {
-			grtype = "Id"
+			grtype = "*Id"
 		}
 		if grtype == "BOOL" {
 			grtype = "bool"
 		}
 		if sub {
 			gocode.WriteString(fmt.Sprintf(`
-func (o %s) Super%s(%s) %s {
+func (o *%s) Super%s(%s) %s {
 `, gname, gnames[i], strings.Join(earglist[1:], ", "), grtype))
 			ns, snames, tps, _ := w.gpntp(m)
 			lparm := len(tps) - 1
@@ -1745,7 +1787,7 @@ func (o %s) Super%s(%s) %s {
 	}
 `, vn, w.Vaargs, vn, vn))
 			}
-			gocode.WriteString("\t" + types.GoToC(dname+"_super_"+m.Name, ns, snames, m.Type, tps, false, Gogc) + "\n}\n")
+			gocode.WriteString("\t" + types.GoToC(dname+"_super_"+m.Name, ns, snames, m.Type, tps, false, m.ShouldFinalize()) + "\n}\n")
 		}
 	}
 	w.cCode.WriteString(cprotos.String())
@@ -1823,6 +1865,27 @@ func (w *Wrapper) AddProtocolMethods(i *Interface, p *Protocol) {
 	procmeths(i.InstanceMethods, p.InstanceMethods)
 }
 
+func printDebug() {
+	fmt.Printf("ShouldWrap(NSString) = %t\n",types.ShouldWrap("NSString"))
+	fmt.Printf("ShouldWrap(*NSString) = %t\n",types.ShouldWrap("*NSString"))
+	fmt.Printf("IsGoInterface(NSObject) = %t\n",types.IsGoInterface("NSObject"))
+	fmt.Printf("IsGoInterface(*NSObject) = %t\n",types.IsGoInterface("*NSObject"))
+	fmt.Printf("IsGoInterface(NSString) = %t\n",types.IsGoInterface("NSString"))
+	fmt.Printf("IsGoInterface(*NSString) = %t\n",types.IsGoInterface("*NSString"))
+	fmt.Printf("PtrShouldWrap(NSString) = %t\n",types.PtrShouldWrap("NSString"))
+	fmt.Printf("PtrShouldWrap(*NSString) = %t\n",types.PtrShouldWrap("*NSString"))
+	fmt.Printf("PtrIsGoInterface(NSObject) = %t\n",types.PtrIsGoInterface("NSObject"))
+	fmt.Printf("PtrIsGoInterface(*NSObject) = %t\n",types.PtrIsGoInterface("*NSObject"))
+	fmt.Printf("PtrIsGoInterface(NSString) = %t\n",types.PtrIsGoInterface("NSString"))
+	fmt.Printf("PtrIsGoInterface(*NSString) = %t\n",types.PtrIsGoInterface("*NSString"))
+	fmt.Printf("Super(NSString) = %s\n",types.Super("NSString"))
+	fmt.Printf("Super(*NSString) = %s\n",types.Super("*NSString"))
+	fmt.Printf("Super(NSObject) = %s\n",types.Super("NSObject"))
+	fmt.Printf("Super(*NSObject) = %s\n",types.Super("*NSObject"))
+	fmt.Printf("Super(NSString*) = %s\n",types.Super("NSString*"))
+	fmt.Printf("Super(NSObject*) = %s\n",types.Super("NSObject*"))
+}
+
 func (w *Wrapper) Wrap(toproc []string) {
 	if w.Package == "" {
 		w.Package = "ns"
@@ -1879,12 +1942,6 @@ func (w *Wrapper) Wrap(toproc []string) {
 				os.Exit(-1)
 			}
 			w.AddProtocolMethods(i,prot)
-//			for _, m := range prot.ClassMethods.Methods {
-//				w.ProcessMethodForClass(m, i.Name)
-//			}
-//			for _, m := range prot.InstanceMethods.Methods {
-//				w.ProcessMethodForClass(m, i.Name)
-//			}
 		}
 		Disambiguate(i.ClassMethods)
 		Disambiguate(i.InstanceMethods)

@@ -74,6 +74,7 @@ func memtest2() {
 			s1 := ns.NSStringWithGoString(fmt.Sprintf("string-%d", i))
 			_ = s1
 			//o1.Retain() // uncomment for leak
+			i++
 		})
 		time.Sleep(time.Second / 3)
 	}
@@ -94,24 +95,24 @@ func memtest3() {
 			arr.Autorelease()
 			arr.AddObject(ns.NSStringWithGoString(fmt.Sprintf("my string %d",i)))
 			s1 := ns.NSStringWithGoString(fmt.Sprintf("my other string %d",i))
+			fmt.Printf("%s\n",arr.ObjectAtIndex(0).NSString())
 			_ = s1
-			i++
 
-			for {
+			for x := 0; x < 3; x++ {
 				ns.Autoreleasepool(func() {
 					str := arr.ObjectAtIndex(0).NSString()
-					fmt.Println(str) // does not leak in an autorelease pool
-					time.Sleep(time.Second / 2)
+					fmt.Printf("%d->%s\n",x,str) // does not leak in an autorelease pool
+					time.Sleep(time.Second / 5)
 				})
 			}
-			time.Sleep(time.Second)
+			time.Sleep(time.Second/2)
+			i++
 		})
 	}
 	fmt.Println("memtest3: done")
 }
 
-//Test of manual memory management. Lets run multiple goroutines here to
-//confirm we can use multiple threads if autorelease pools are not in play.
+//Test of manual memory management.
 func memtest4() {
 	go memtest4a()
 	go memtest4a()
@@ -122,10 +123,16 @@ func memtest4() {
 	go memtest4c()
 	go memtest4c()
 	go memtest4c()
-	// Exactly one goroutine (locked to an OS thread) can use an
-	// autorelease pool (?)
+	// running multiple separate threads with autorelease pools...
 	go memtest1()
 	go memtest2()
+	go memtest3()
+	go memtest1()
+	go memtest2()
+	go memtest3()
+	go memtest1()
+	go memtest2()
+	go memtest3()
 }
 
 func memtest4a() {
@@ -140,24 +147,34 @@ func memtest4b() {
 	i := 0
 	for {
 		o1 := ns.NSObjectAlloc() // need to Release
+
+		// These object constructors will always leak. In the case of an
+		// immutable string, it is not an issue unless a large number of different
+		// strings are going to be made.
 		//s1 := ns.NSStringWithGoString(fmt.Sprintf("a string %d",i)) // uncomment for leak
 		s1 := ns.NSStringWithGoString("a string")
 		i++
 		arr := ns.NSArrayAlloc().InitWithObjects(s1) // need to Release arr
 		s2 := arr.ObjectAtIndex(0).NSString()
 
-		//If you try to convert an NSString to UTF8String, CString (*Char),
-		//or GoString, Objective-C runtime will leak an
-		//NSTaggedPointerCStringContainer. Don't know why or how to fix it.
-		//There would be no leak if we were using an autorelease pool.
-		//u := str.UTF8String() // uncomment for leak
+		// If you try to convert an NSString to UTF8String, CString (*Char),
+		// or GoString, Objective-C runtime creates an autoreleased
+		// NSTaggedPointerCStringContainer internally and there is no way to
+		// release it unless you called your method from within an autorelease
+		// pool. The following two calls cause a leak.
+		//u := s1.UTF8String() // uncomment for leak
 		//fmt.Println(s1) // uncomment for leak
 
 		time.Sleep(time.Second / 50)
 
 		o1.Release()
 		arr.Release()
-		//s1.Release() // does not work
+
+		//s1.Release() // does not prevent the leak caused by
+		// NSStringWithGoString: s1 is autoreleased by the Objective-C
+		// runtime, these methods will always leak without autorelease
+		// pools.
+
 		_ = o1
 		_ = s2
 	}
@@ -170,17 +187,6 @@ func memtest4c() {
 		time.Sleep(time.Second / 50)
 		o1.Release()
 		o2.Release()
-	}
-}
-
-func fin(o *ns.MyClass) {
-	o.Release()
-}
-
-func releaseX(x int) func (ns.MyClassSupermethods) {
-	return func(super ns.MyClassSupermethods) {
-		fmt.Printf("--release %d\n", x)
-		super.Release() // comment out for leak
 	}
 }
 

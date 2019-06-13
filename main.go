@@ -300,7 +300,9 @@ func Start() (err error) {
 			case *ast.ObjCCategoryDecl:
 				w.AddCategory(x)
 			case *ast.TypedefDecl:
-				w.AddTypedef(x.Name, x.Type)
+				if !x.IsImplicit {
+					w.AddTypedef(x.Name, x.Type)
+				}
 			case *ast.FunctionDecl:
 				if matches(x.Name, Config.Functions) {
 					w.AddFunction(x)

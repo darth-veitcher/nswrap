@@ -38,21 +38,21 @@ func main() {
 	fmt.Printf("i1 = %@\n", i1)
 	fmt.Printf("i1.Ptr() = %p\n", i1.Ptr())
 	fmt.Printf("\nNSArray.ObjectEnumerator().ForIn():\n")
-	a.ObjectEnumerator().ForIn(func(o ns.Id) bool {
+	a.ObjectEnumerator().ForIn(func(o *ns.Id) bool {
 		fmt.Println(o.NSString())
 		return true
 	})
 	fmt.Printf("\nNSSetWithObjectsCount():\n")
-	s1 := ns.NSSetWithObjectsCount(&[]ns.Id{n1.Id, n2.Id}, 2)
+	s1 := ns.NSSetWithObjectsCount(&[]*ns.Id{&n1.Id, &n2.Id}, 2)
 	fmt.Printf("\nNSSet.ObjectEnumerator().ForIn():\n")
-	s1.ObjectEnumerator().ForIn(func(o ns.Id) bool {
+	s1.ObjectEnumerator().ForIn(func(o *ns.Id) bool {
 		fmt.Println(o.NSString())
 		return true
 	})
 	fmt.Printf("\nNSMutableArrayWithObjects()\n")
 	a = ns.NSMutableArrayWithObjects(n1, s1)
 	fmt.Printf("\nNSArray.ObjectEnumerator().ForIn():\n")
-	a.ObjectEnumerator().ForIn(func(o ns.Id) bool {
+	a.ObjectEnumerator().ForIn(func(o *ns.Id) bool {
 		fmt.Printf("%s -- ", o.ClassName().UTF8String())
 		switch {
 		case o.IsKindOfClass(ns.NSStringClass()):
@@ -67,7 +67,7 @@ func main() {
 	fmt.Printf("\nNSArrayWithObjects()\n")
 	a2 = ns.NSArrayWithObjects(n1, n2, n3, s1)
 	fmt.Printf("\nNSArray.ObjectEnumerator().ForIn():\n")
-	a2.ObjectEnumerator().ForIn(func(o ns.Id) bool {
+	a2.ObjectEnumerator().ForIn(func(o *ns.Id) bool {
 		switch {
 		case o.IsKindOfClass(ns.NSStringClass()):
 			fmt.Println(o.NSString().UTF8String())
@@ -84,9 +84,9 @@ func main() {
 		ns.NSArrayWithObjects(nst("obj1"), nst("obj2")),
 		ns.NSArrayWithObjects(nst("key1"), nst("key2")),
 	)
-	os := make([]ns.Id, 0, 5)
+	os := make([]*ns.Id, 0, 5)
 	fmt.Printf("Length of os is %d\n", len(os))
-	ks := make([]ns.Id, 0, 5)
+	ks := make([]*ns.Id, 0, 5)
 	fmt.Printf("\nGetObjects()\n")
 	d.GetObjects(&os, &ks, 4)
 	fmt.Printf("Length of os is now %d\n", len(os))
@@ -94,7 +94,7 @@ func main() {
 		fmt.Printf("-- %s -> %s\n", k.NSString(), os[i].NSString())
 	}
 	fmt.Printf("\nNSStringWithContentsOfURLEncoding()\n")
-	err := make([]ns.NSError, 1)
+	err := make([]*ns.NSError, 1)
 	n1 = ns.NSStringWithContentsOfURLEncoding(ns.NSURLWithGoString("htttypo://example.com"), 0, &err)
 	fmt.Printf("err: %s\n", err[0].LocalizedDescription())
 

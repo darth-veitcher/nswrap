@@ -11,6 +11,8 @@ subclasses:
         NSObject:
             - dealloc
             - release
+functions:
+    - NSMakeRange
 frameworks:
     - Foundation
 pragma: [ clang diagnostic ignored "-Wformat-security" ]

@@ -13,3 +13,4 @@ examples/memory/memory
 examples/memory/ns
 examples/gc/gc
 examples/gc/ns
+ns-old
