@@ -236,6 +236,7 @@ func TypeQualifier(s string, n *Node) (string, *Node) {
 		Word("const"),
 		Word("restrict"),
 		Word("volatile"),
+		Word("__restrict"),
 	))(s, n)
 }
 

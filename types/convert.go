@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -12,6 +13,7 @@ var super map[string]string
 //wrapped is a map recording whether a given GoType is to be "wrapped" in a
 //go struct.
 var wrapped map[string]bool
+var tdptr map[string]bool
 
 func ShouldWrap(gt string) bool {
 	return wrapped[gt]
@@ -19,6 +21,10 @@ func ShouldWrap(gt string) bool {
 
 func PtrShouldWrap(gt string) bool {
 	return gt != "" && gt[0] == '*' && wrapped[gt[1:]]
+}
+
+func TypedefShouldWrap(gt string) bool {
+	return tdptr[gt]
 }
 
 //goInterfaces records the names of top level Go interfaces.
@@ -52,6 +58,7 @@ var (
 func init() {
 	super = make(map[string]string)
 	wrapped = make(map[string]bool)
+	tdptr = make(map[string]bool)
 	goInterfaces = make(map[string]bool)
 	TypeParameters = make(map[string]map[string]string)
 	typedefs = make(map[string]*Type)
@@ -164,9 +171,6 @@ func (t *Type) BaseType() *Type {
 	if t == nil {
 		return nil
 	}
-//	if td := t.Typedef(); td != nil {
-//		return td.BaseType()
-//	}
 	ret := NewType(
 		t.Node.BaseType(),
 		t.Class,
@@ -201,14 +205,12 @@ func _goType(ct string) string {
 	ct = strings.TrimPrefix(ct, "Struct")
 	ct = swapstars(ct)
 	if len(ct) > 0 && ct[0] == '*' && IsGoInterface(ct[1:]) {
-		//return ct[1:]
-		return ct // ??
+		return ct
 	}
 	
 	if ct == "Id" {
 		ct = "*Id"
 	}
-	//if len(ct) > 1 && ShouldWrap(ct[1:]) {
 	if ShouldWrap(ct) {
 		return ct
 	}
@@ -245,13 +247,32 @@ func (t *Type) _CType(attrib bool) string {
 }
 
 func (t *Type) GoTypeDecl() string {
-	if wrapped[t.GoType()] {
+	gt := t.GoType()
+	if wrapped[gt] {
 		return t.GoInterfaceDecl()
 	}
 	if t.Node.IsId() {
 		return ""
 	}
-	gt := t.GoType()
+	if td := t.Typedef(); td != nil {
+		tdgt := td.GoType()
+		if ShouldWrap(tdgt) || PtrShouldWrap(tdgt) { // type alias
+			if PtrIsGoInterface(tdgt) {
+				tdgt = "*Id"
+			}
+			if IsGoInterface(tdgt) {
+				tdgt = "Id"
+			}
+			Wrap(gt)
+			tdptr[gt] = true
+			return fmt.Sprintf(`
+type %s = %s
+`, gt, tdgt)
+		}
+		return fmt.Sprintf(`
+type %s %s
+`, gt, td.CGoType())
+	}
 	if Debug {
 		fmt.Printf("  writing GoTypeDecl for %s\n",gt)
 	}
@@ -376,20 +397,35 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 		//fmt.Printf("  PtrIsGoInterface(%s) = true\n",rtgt)
 		rtgt = "*Id"
 	}
-	sw := PtrShouldWrap(rtgt) || rtgt == "*Id"
+	sw := PtrShouldWrap(rtgt) || rtgt == "*Id" || TypedefShouldWrap(rtgt)
+	isptr := rtype.IsPointer()
 	if rt != "void" {
-		if sw {
+		switch {
+		case PtrShouldWrap(rtgt), rtgt == "*Id":
+			isptr = true
+			if PtrIsGoInterface(rtgt) {
+				rtgt = "*Id"
+			}
 			ret.WriteString(fmt.Sprintf(
-				`ret := &%s{}
-	ret.ptr = `, rtgt[1:]))
-		} else {
+	`ret := &%s{}
+	ret.ptr = unsafe.Pointer(`, rtgt[1:]))
+		case TypedefShouldWrap(rtgt):
+			isptr = true
+			rtgt := rtype.Typedef().GoType()
+			if PtrIsGoInterface(rtgt) {
+				rtgt = "*Id"
+			}
+			ret.WriteString(fmt.Sprintf(
+	`ret := &%s{}
+	ret.ptr = unsafe.Pointer(`, rtgt[1:]))
+		default:
 			if rtgt == "BOOL" {
 				ret.WriteString("ret := (")
 				rtgt = "bool"
 			} else {
 				ret.WriteString("ret := (" + rtgt + ")(")
 			}
-			if rtype.IsPointer() {
+			if isptr {
 				ret.WriteString("unsafe.Pointer(")
 			}
 		}
@@ -398,20 +434,25 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 	parms := []string{}
 	for i := 0; i < len(pnames); i++ {
 		pn, pt := pnames[i], ptypes[i]
+		ptgt := pt.GoType()
 		p := pn
-		if (PtrShouldWrap(pt.GoType()) || PtrIsGoInterface(pt.GoType())) && !pt.Variadic {
+		switch {
+		case (PtrShouldWrap(ptgt) || PtrIsGoInterface(ptgt)) && !pt.Variadic:
 			p = pn + ".Ptr()"
-		} else {
-			switch {
-			case snames[i] != "":
-				p = "unsafe.Pointer(&" + snames[i] + "[0])"
-			case pt.Variadic:
-				p = "unsafe.Pointer(&" + p + ")"
-			case pt.IsPointer() && !fun:
-				p = "unsafe.Pointer(" + pn + ")"
-			default:
-				p = "(" + pt.CGoType() + ")(" + pn + ")"
-			}
+		case TypedefShouldWrap(ptgt) && !pt.Variadic && fun:
+			p = "(" + pt.CGoType() + ")(" + pn + ".Ptr())"
+		case TypedefShouldWrap(ptgt) && !pt.Variadic && !fun:
+			p = pn + ".Ptr()"
+		case snames[i] != "":
+			p = "unsafe.Pointer(&" + snames[i] + "[0])"
+		case pt.Variadic:
+			p = "unsafe.Pointer(&" + p + ")"
+		case pt.IsPointer() && !fun:
+			p = "unsafe.Pointer(" + pn + ")"
+		case pt.IsPointer() && fun && pt.BaseType().CType() == "void":
+			p = pn
+		default:
+			p = "(" + pt.CGoType() + ")(" + pn + ")"
 		}
 		parms = append(parms, p)
 	}
@@ -419,9 +460,9 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 	ret.WriteString(")")
 	if rt != "void" && !sw {
 		ret.WriteString(")")
-		if rtype.IsPointer() {
-			ret.WriteString(")")
-		}
+	}
+	if isptr {
+		ret.WriteString(")")
 	}
 	if rt == "BOOL" {
 		ret.WriteString(" != 0")
@@ -430,7 +471,12 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 		if sname == "" {
 			continue
 		}
-		ptgt := (ptypes[i].GoType())[2:]
+		ptgt := ptypes[i].GoType()
+		if len(ptgt) < 2 {
+			fmt.Printf("Error in function translation -- argument %s to %s should be pointer to pointer\n",pnames[i],name)
+			os.Exit(-1)
+		}
+		ptgt = ptgt[2:]
 		if IsGoInterface(ptgt) {
 			ptgt = "Id"
 		}
@@ -450,7 +496,7 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 	if rt != "void" {
 		if fin {
 			ret.WriteString(fmt.Sprintf(`
-	runtime.SetFinalizer(ret, func(o *%s) {
+	runtime.SetFinalizer(ret, func(o %s) {
 		o.Release()
 	})`,rtgt))
 		}

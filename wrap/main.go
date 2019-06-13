@@ -319,10 +319,13 @@ func (w *Wrapper) gpntp(m *Method) ([]string, []string, []*types.Type, string) {
 		ns = append(ns, "o")
 		tps = append(tps, types.NewTypeFromString(m.Class+"*", ""))
 	}
-	for _, p := range m.Parameters {
+	for i, p := range m.Parameters {
 		gname := p.Vname
 		if goreserved[gname] {
 			gname = gname + "_"
+		}
+		if gname == "" {
+			gname = fmt.Sprintf("p%d",i)
 		}
 		ns = append(ns, gname)
 		tps = append(tps, p.Type)
@@ -1688,14 +1691,14 @@ func (d %s) %sCallback(f func(%s)%s) {
 			} else {
 				gt2 = gtypes[i][j-1]
 			}
-			if types.IsGoInterface(gt2) || types.ShouldWrap(gt2) {
+			if types.PtrIsGoInterface(gt2) {
 				gt2 = "*Id"
 			}
-			if gt2 == "*Id" {
+			if gt2 == "*Id" || types.PtrShouldWrap(gt2) {
 				garglist = append(garglist, fmt.Sprintf(
 					`a%d`, j))
 				gargconv = append(gargconv, fmt.Sprintf(
-					`	a%d := %s{}; a%d.ptr = %s`, j, gt2, j, vnames[i][j]))
+					`	a%d := &%s{}; a%d.ptr = %s`, j, gt2[1:], j, vnames[i][j]))
 			} else {
 				garglist = append(garglist, fmt.Sprintf(
 					`(%s)(%s)`, gt2, vnames[i][j]))

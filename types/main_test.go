@@ -210,6 +210,24 @@ func TestParse(t *testing.T) {
 -<Pointer> '*'
 -<Function> ''
 `)
+	runParseTest(`int *(char*)`,
+		`<TypeName> ''
+-<TypeSpecifier> 'int'
+-<Pointer> '*'
+-<Function> ''
+--<ParameterDeclaration> ''
+---<TypeSpecifier> 'char'
+---<Pointer> '*'
+`)
+	runParseTest(`RANGE *(char*)`,
+		`<TypeName> ''
+-<TypedefName> 'RANGE'
+-<Pointer> '*'
+-<Function> ''
+--<ParameterDeclaration> ''
+---<TypeSpecifier> 'char'
+---<Pointer> '*'
+`)
 	runParseTest(`int (*)(void)`,
 		`<TypeName> ''
 -<TypeSpecifier> 'int'

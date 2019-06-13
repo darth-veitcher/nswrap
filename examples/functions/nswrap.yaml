@@ -1,0 +1,17 @@
+inputfiles:
+  - /usr/include/stdio.h
+  - /usr/include/stdlib.h
+  - /usr/include/sys/stat.h
+sysimports:
+  - stdio.h
+  - stdlib.h
+  - sys/stat.h
+functions:
+  - sranddev
+  - cgetclose
+  - cgetset
+  - devname
+  - puts
+  - fstat
+  - fopen
+  - fread

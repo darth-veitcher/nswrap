@@ -22,10 +22,6 @@ func pb2() {
 
 func didFinishLaunching(n *ns.NSNotification) {
 	fmt.Println("Go: did finish launching")
-	fmt.Printf("Notification n = %p\n",n)
-	fmt.Printf("Notification n.Ptr() = %p\n",n.Ptr())
-	fmt.Printf("Notification n.Name() = %p\n",n.Name())
-	fmt.Printf("Notification n.Name().Ptr() = %p\n",n.Name().Ptr())
 	fmt.Printf("Notification: %s\n", n.Name().UTF8String())
 	//Set up an NSWindow
 	win = ns.NSWindowAlloc().InitWithContentRectStyleMask(

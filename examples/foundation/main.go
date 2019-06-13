@@ -8,6 +8,11 @@ import (
 	"git.wow.st/gmp/nswrap/examples/foundation/ns"
 )
 
+var (
+	gs1 *ns.NSString
+	gs2 *ns.NSString
+)
+
 func main() {
 	fmt.Printf("Creating some strings:\n")
 	n1 := ns.NSStringWithUTF8String(ns.CharWithGoString("hi there"))
@@ -64,6 +69,19 @@ func main() {
 		}
 		return true
 	})
+	fmt.Printf("\nNSArrayWithObjects() (length 1)\n")
+	a2 = ns.NSArrayWithObjects(n1)
+	a2.ObjectEnumerator().ForIn(func(o *ns.Id) bool {
+		switch {
+		case o.IsKindOfClass(ns.NSStringClass()):
+			fmt.Println(o.NSString().UTF8String())
+			return true // continue enumeration
+		default:
+			fmt.Println("Unknown class")
+			return false // terminate enumeration
+		}
+	})
+
 	fmt.Printf("\nNSArrayWithObjects()\n")
 	a2 = ns.NSArrayWithObjects(n1, n2, n3, s1)
 	fmt.Printf("\nNSArray.ObjectEnumerator().ForIn():\n")
@@ -101,4 +119,14 @@ func main() {
 	fmt.Printf("\nNSStringWithFormat()\n")
 	str := ns.NSStringWithFormat(nst("(%@) (%@)\n(%@)\n"), n2, n3, s1)
 	fmt.Printf("%s\n", str)
+
+	fmt.Printf("\nGlobal strings\n")
+	gs1 = ns.NSStringWithGoString("global string 1")
+	gs2 = ns.NSStringWithGoString("global string 2")
+	fmt.Printf("\nArrayWithObjects\n")
+	a2 = ns.NSArrayWithObjects(gs1, gs2)
+	a2.ObjectEnumerator().ForIn(func(o *ns.Id) bool {
+		fmt.Printf("--%s\n",o.NSString())
+		return true
+	})
 }

@@ -51,6 +51,12 @@ func TestType(t *testing.T) {
 	chk_newtype()
 	tint := tp
 
+	str = "id"
+	n = &Node{"TypeName", "", []*Node{
+		&Node{"TypedefName", "id", []*Node{}}}}
+	chk_newtype()
+	//nsid := tp
+
 	str = "NSObject"
 	n = &Node{"TypeName", "", []*Node{
 		&Node{"TypedefName", "NSObject", []*Node{}}}}
@@ -63,6 +69,33 @@ func TestType(t *testing.T) {
 	chk_newtype()
 	nst := tp
 
+	str = "NSString**"
+	n = &Node{"TypeName", "", []*Node{
+		&Node{"TypedefName", "NSString", []*Node{}},
+			&Node{"Pointer", "*", []*Node{}},
+			&Node{"Pointer", "*", []*Node{}}}}
+	chk_newtype()
+	chk(tp.IsPointer(), true)
+	chk(tp.Typedef(), nil)
+	nstpp := tp
+
+	str = "NSObject**"
+	n = &Node{"TypeName", "", []*Node{
+		&Node{"TypedefName", "NSObject", []*Node{}},
+			&Node{"Pointer", "*", []*Node{}},
+			&Node{"Pointer", "*", []*Node{}}}}
+	chk_newtype()
+	chk(tp.IsPointer(), true)
+	nsopp := tp
+
+	str = "NSObject*"
+	n = &Node{"TypeName", "", []*Node{
+		&Node{"TypedefName", "NSObject", []*Node{}},
+		&Node{"Pointer", "*", []*Node{}}}}
+	chk_newtype()
+	chk(tp.IsPointer(), true)
+	nsop := tp
+
 	str = "NSString*"
 	n = &Node{"TypeName", "", []*Node{
 		&Node{"TypedefName", "NSString", []*Node{}},
@@ -70,14 +103,14 @@ func TestType(t *testing.T) {
 	chk_newtype()
 	chk(tp.IsPointer(), true)
 	chk(tp.Typedef(), nil)
-	tpNSString := tp
+	nstp := tp
 
 	str = "myTypedef"
 	AddTypedef("myTypedef", tp)
 	n = &Node{"TypeName", "", []*Node{
 		&Node{"TypedefName", "myTypedef", []*Node{}}}}
 	chk_newtype()
-	chk(tp.Typedef(), tpNSString)
+	chk(tp.Typedef(), nstp)
 
 	str = "const NSArray <ObjectType * _Nonnull> *"
 	n = &Node{"TypeName", "", []*Node{
@@ -147,10 +180,6 @@ func TestType(t *testing.T) {
 	chk(tp.GoTypeDecl(), `
 type MyTypedef **C.NSObject
 `)
-	chk(tp2.GoTypeDecl(), "")
-	chk(nst.GoTypeDecl(), `
-type NSString C.NSString
-`)
 	str = "void"
 	n = &Node{"TypeName", "", []*Node{
 		&Node{"TypeSpecifier", "void", []*Node{}}}}
@@ -174,7 +203,7 @@ type NSString C.NSString
 	str = "NSObject*"
 	n, _ = Parse(str)
 	chk_newtype()
-	chk(tp.GoType(), "NSObject")
+	chk(tp.GoType(), "*NSObject")
 
 	Wrap("NSString")
 	chk(nso.GoTypeDecl(), `
@@ -186,9 +215,9 @@ type NSObject interface {
 
 	chk(nst.GoTypeDecl(), `
 type NSString struct { Id }
-func (o NSString) Ptr() unsafe.Pointer { return o.ptr }
-func (o Id) NSString() NSString {
-	ret := NSString{}
+func (o *NSString) Ptr() unsafe.Pointer { if o == nil { return nil }; return o.ptr }
+func (o *Id) NSString() *NSString {
+	ret := &NSString{}
 	ret.ptr = o.ptr
 	return ret
 }
@@ -242,12 +271,13 @@ func (o Id) NSString() NSString {
 
 	str = "GoToC"
 	var rtype *Type
-	ptypes := []*Type{nst, nso, tint, voidpp}
+	ptypes := []*Type{nsop, nstp, tint, voidpp}
 	pnames := []string{"p1", "p2", "p3", "p4"}
 	snames := []string{"", "", "", ""}
 
 	chk_gotoc := func(expected string) {
-		chk(GoToC("myFun", pnames, snames, rtype, ptypes, false), expected)
+		fmt.Printf("chk_gotoc\n")
+		chk(GoToC("myFun", pnames, snames, rtype, ptypes, false, false), expected)
 	}
 
 	chk_gotoc("")
@@ -265,60 +295,74 @@ func (o Id) NSString() NSString {
 		`ret := (*unsafe.Pointer)(unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4))))
 	return ret`)
 
-	rtype = nst
+	rtype = nstp
 	chk_gotoc(
-		`ret := NSString{}
-	ret.ptr = C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4))
+		`ret := &NSString{}
+	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4)))
 	return ret`)
 
-	rtype = nso
+	rtype = nsop
 	chk_gotoc(
-		`ret := Id{}
-	ret.ptr = C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4))
+		`ret := &Id{}
+	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4)))
 	return ret`)
 
 	ptypes[1].Variadic = true
+	ptypes[0].Variadic = false
 	chk_gotoc(
-		`ret := Id{}
-	ret.ptr = C.myFun(p1.Ptr(), unsafe.Pointer(&p2), (C.int)(p3), unsafe.Pointer(p4))
+		`ret := &Id{}
+	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), unsafe.Pointer(&p2), (C.int)(p3), unsafe.Pointer(p4)))
 	return ret`)
-	ptypes[1].Variadic = false
 
+	ptypes[1].Variadic = false
 	snames[1] = "p2p"
+	ptypes[1] = nsopp
 	chk_gotoc(
-		`ret := Id{}
-	ret.ptr = C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4))
+		`ret := &Id{}
+	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), unsafe.Pointer(&p2p[0]), (C.int)(p3), unsafe.Pointer(p4)))
 	(*p2) = (*p2)[:cap(*p2)]
 	for i := 0; i < len(*p2); i++ {
 		if p2p[i] == nil {
 			(*p2) = (*p2)[:i]
 			break
 		}
+		if (*p2)[i] == nil {
+			(*p2)[i] = &Id{}
+		}
 		(*p2)[i].ptr = p2p[i]
 	}
 	return ret`)
 	snames[1] = ""
 	snames[2] = "p3p"
+	ptypes[1] = nsop
+	ptypes[2] = nstpp
 	chk_gotoc(
-		`ret := Id{}
-	ret.ptr = C.myFun(p1.Ptr(), p2.Ptr(), unsafe.Pointer(&p3p[0]), unsafe.Pointer(p4))
+		`ret := &Id{}
+	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), unsafe.Pointer(&p3p[0]), unsafe.Pointer(p4)))
 	(*p3) = (*p3)[:cap(*p3)]
 	for i := 0; i < len(*p3); i++ {
 		if p3p[i] == nil {
 			(*p3) = (*p3)[:i]
 			break
 		}
+		if (*p3)[i] == nil {
+			(*p3)[i] = &NSString{}
+		}
 		(*p3)[i].ptr = p3p[i]
 	}
 	return ret`)
-	chk(GoToC("myFun", pnames, snames, rtype, ptypes, true),
-		`ret := Id{}
-	ret.ptr = C.myFun(p1.Ptr(), p2.Ptr(), unsafe.Pointer(&p3p[0]), (**C.void)(p4))
+
+	chk(GoToC("myFun", pnames, snames, rtype, ptypes, true, false),
+		`ret := &Id{}
+	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), unsafe.Pointer(&p3p[0]), p4))
 	(*p3) = (*p3)[:cap(*p3)]
 	for i := 0; i < len(*p3); i++ {
 		if p3p[i] == nil {
 			(*p3) = (*p3)[:i]
 			break
+		}
+		if (*p3)[i] == nil {
+			(*p3)[i] = &NSString{}
 		}
 		(*p3)[i].ptr = p3p[i]
 	}
