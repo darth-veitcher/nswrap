@@ -38,9 +38,9 @@ func discoverPeripheral(c *ns.CBCentralManager, p *ns.CBPeripheral, d *ns.NSDict
 	// and if so release the old one. Be careful to check the Objective-C pointers
 	// here as the Go pointers will differ.
 
-	if peripheral != nil && p.Ptr() != peripheral.Ptr() {
-		peripheral.Release()
-	}
+//	if peripheral != nil && p.Ptr() != peripheral.Ptr() {
+//		peripheral.Release()
+//	}
 
 	peripheral = p
 

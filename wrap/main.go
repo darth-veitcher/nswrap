@@ -158,13 +158,20 @@ func (m *Method) ShouldFinalize() bool {
 
 func shouldFinalize (grtype, name string) bool {
 	return Gogc && grtype != "*NSAutoreleasePool" &&
-	(types.PtrShouldWrap(grtype) || grtype == "*Id") &&
+	(types.PtrShouldWrap(grtype) || grtype == "*Id") && 
 	(len(name) < 6 || name != "retain")
 }
 
 // IsRetained returns true if the name matches a retained property for the
 // given interface.
 func (i *Interface) IsRetained(name string) bool {
+	// init, copy and MutableCopy always return a retained object
+	if 	len(name) >= 4 && (name[:4] == "init" ||
+			name[:4] == "copy") ||
+		len(name) >= 11 && name[:11] == "mutableCopy" {
+		return true
+	}
+
 	if p, ok := i.Properties[name]; ok {
 		if p.retained {
 			return true
@@ -1081,7 +1088,7 @@ func %s%s(%s) %s {
 `, snames[i], n, n, snames[i], n))
 	}
 	w.goCode.WriteString(`	` +
-		types.GoToC(cname, ns, snames, m.Type, tps, fun, m.ShouldFinalize() && (m.ClassMethod || !inter.IsRetained(m.Name)), m.ClassMethod) + "\n}\n")
+		types.GoToC(m.Name, cname, ns, snames, m.Type, tps, fun, m.ShouldFinalize(), m.ClassMethod) + "\n}\n")
 
 	cret := ""
 	if !m.isVoid() {
@@ -1130,15 +1137,13 @@ func %s%s(%s) %s {
 		[ret retain];`
 					}
 
-				case len(m.Name) >= 4 && m.Name[:4] == "init":
-				// init always returns a retained object
-
+				// some methods always return retained objects,
+				// including "getters" for retained properties.
 				case inter.IsRetained(m.Name):
-				// some methods relate to retained properties
-				// do not retain these again
 
 				default:
-				// by default, retain if returning a new object
+				// by default, for instance methods, retain
+				// if returning a new object
 					rtn = `
 		if (o != ret) { [ret retain]; }`
 				}
@@ -1167,7 +1172,8 @@ func %s%s(%s) %s {
 		if Debug {
 			dbg = fmt.Sprintf(`fmt.Printf("Setting GC finalizer (%s): %%p -> %%p\n", o, o.ptr)
 	`,cls)
-			dbg2 = fmt.Sprintf(`fmt.Printf("GC finalizer (%s): release %%p -> %%p\n", o, o.ptr)`, cls)
+			dbg2 = fmt.Sprintf(`fmt.Printf("GC finalizer (%s): release %%p -> %%p\n", o, o.ptr)
+		`, cls)
 		}
 		w.goCode.WriteString(fmt.Sprintf(`
 func (o *%s) GC() {
@@ -1718,7 +1724,7 @@ void*
 			dbg = fmt.Sprintf(`fmt.Printf("Setting finalizer (%s): %%p -> %%p\n", ret, ret.ptr)
 	`, gname)
 			dbg2 = fmt.Sprintf(`fmt.Printf("Finalizer (%s): release %%p -> %%p\n", o, o.ptr)
-	`, gname)
+		`, gname)
 		}
 		if Gogc {
 			w.goImports["runtime"] = true
@@ -1738,6 +1744,10 @@ func %sAlloc() *%s {
 }
 `, gname, gname, gname, dname, finalizer))
 		if Gogc {
+			if Debug {
+				dbg = fmt.Sprintf(`fmt.Printf("Setting finalizer (%s): %%p -> %%p\n", o, o.ptr)
+	`, gname)
+			}
 			gocode.WriteString(fmt.Sprintf(`
 func (o *%s) GC() {
 	if o.ptr == nil { return }
@@ -1912,7 +1922,7 @@ func (o *%s) Super%s(%s) %s {
 	}
 `, vn, w.Vaargs, vn, vn))
 			}
-			gocode.WriteString("\t" + types.GoToC(dname+"_super_"+m.Name, ns, snames, m.Type, tps, false, m.ShouldFinalize(), m.ClassMethod) + "\n}\n")
+			gocode.WriteString("\t" + types.GoToC(m.Name, dname+"_super_"+m.Name, ns, snames, m.Type, tps, false, m.ShouldFinalize(), m.ClassMethod) + "\n}\n")
 		}
 	}
 	w.cCode.WriteString(cprotos.String())

@@ -384,7 +384,7 @@ func (t *Type) CToGo(cval string) string {
 }
 
 // Call a C function from Go with a given return type and parameter types
-func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fun, fin bool, cm bool) string {
+func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*Type, fun, fin bool, cm bool) string {
 	if rtype == nil {
 		//fmt.Println("nil sent to GoToC")
 		return ""
@@ -494,12 +494,16 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 	}`, pnames[i], pnames[i], pnames[i], pnames[i], sname, pnames[i], pnames[i], pnames[i], pnames[i], ptgt, pnames[i], sname))
 	}
 	if rt != "void" {
-		if fin {
-			cmp := ""
-			if !cm {
-				cmp = fmt.Sprintf(`if ret.ptr == o.ptr { return (%s)(unsafe.Pointer(o)) }
-	`,rtgt)
+		cmp := ""
+		if sw {
+			if !cm && sname != "copy" && sname != "mutableCopy" {
+				cmp = fmt.Sprintf(`
+	if ret.ptr == o.ptr { return (%s)(unsafe.Pointer(o)) }`,rtgt)
 			}
+			ret.WriteString(fmt.Sprintf(`
+	if ret.ptr == nil { return ret }%s`,cmp))
+		}
+		if fin {
 			dbg := ""
 			dbg2 := ""
 			if Debug {
@@ -509,10 +513,9 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 	`, rtgt)
 			}
 			ret.WriteString(fmt.Sprintf(`
-	if ret.ptr == nil { return ret }
-	%s%sruntime.SetFinalizer(ret, func(o %s) {
+	%sruntime.SetFinalizer(ret, func(o %s) {
 		%so.Release()
-	})`, cmp, dbg, rtgt, dbg2))
+	})`, dbg, rtgt, dbg2))
 		}
 		ret.WriteString(`
 	return ret`)

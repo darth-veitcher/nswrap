@@ -140,12 +140,18 @@ func memtest5() {
 		// finalizer.
 
 		sub := str.SubstringFromIndex(5)
-		_ = sub
+		sub2 := sub.Copy().NSString()
+		sub3 := sub2.MutableCopy().NSString()
 		u := sub.UTF8String()
+		u2 := sub2.UTF8String()
+		u3 := sub3.UTF8String()
 		_ = u
+		_ = u2
+		_ = u3
 		time.Sleep(time.Second/50)
 		runtime.GC()
 		i++
+		fmt.Printf("loop completed\n")
 	}
 }
 
