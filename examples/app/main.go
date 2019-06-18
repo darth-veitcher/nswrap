@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"git.wow.st/gmp/nswrap/examples/app/ns"
 	"runtime"
+	"time"
 )
 
 //Shortcut for literal NSStrings
@@ -31,8 +32,9 @@ func didFinishLaunching(n *ns.NSNotification) {
 		ns.NSBackingStoreBuffered,
 		0,
 	)
-	// retain win since we called Alloc and did not add it to a collection
-	win.Retain()
+	// We do not need to retain this because we are in garbage collection mode
+	// and have assigned it to a global variable.
+	//win.Retain()
 
 	win.SetTitle(nst("Hi World"))
 	win.MakeKeyAndOrderFront(win)
@@ -119,12 +121,12 @@ var (
 )
 
 func app() {
-	//Lock OS thread because Cocoa uses thread-local storage
+	// Lock OS thread because Cocoa uses thread-local storage
 	runtime.LockOSThread()
 	a = ns.NSApplicationSharedApplication()
 	a.SetActivationPolicy(ns.NSApplicationActivationPolicyRegular)
 
-	//Set up an AppDelegate
+	// Set up an AppDelegate
 	del := ns.AppDelegateAlloc()
 	del.ApplicationDidFinishLaunchingCallback(didFinishLaunching)
 	del.ApplicationShouldTerminateAfterLastWindowClosedCallback(shouldTerminateAfterLastWindowClosed)
@@ -133,12 +135,20 @@ func app() {
 
 	a.SetDelegate(del)
 
-	//Run the app
+	// Run the app
 	a.Run()
 }
 
 func main() {
-	//Run our app in an autorelease pool just for fun
+	// Run GC every second to ensure pointers are not being prematurely released.
+	go func() {
+		for {
+			runtime.GC()
+			time.Sleep(time.Second)
+		}
+	}()
+
+	// Run our app in an autorelease pool just for fun
 	go ns.Autoreleasepool(app)
 	select {}
 }

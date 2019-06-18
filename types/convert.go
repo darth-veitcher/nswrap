@@ -246,10 +246,10 @@ func (t *Type) _CType(attrib bool) string {
 	return ct
 }
 
-func (t *Type) GoTypeDecl() string {
+func (t *Type) GoTypeDecl(fin bool) string {
 	gt := t.GoType()
 	if wrapped[gt] {
-		return t.GoInterfaceDecl()
+		return t.GoInterfaceDecl(fin)
 	}
 	if t.Node.IsId() {
 		return ""
@@ -286,7 +286,7 @@ type %s %s
 	}
 }
 
-func (t *Type) GoInterfaceDecl() string {
+func (t *Type) GoInterfaceDecl(fin bool) string {
 	ct := t.CType()
 	gt := t.GoType()
 	if Debug {
@@ -384,7 +384,7 @@ func (t *Type) CToGo(cval string) string {
 }
 
 // Call a C function from Go with a given return type and parameter types
-func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fun, fin bool) string {
+func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fun, fin bool, cm bool) string {
 	if rtype == nil {
 		//fmt.Println("nil sent to GoToC")
 		return ""
@@ -495,10 +495,24 @@ func GoToC(name string, pnames, snames []string, rtype *Type, ptypes []*Type, fu
 	}
 	if rt != "void" {
 		if fin {
+			cmp := ""
+			if !cm {
+				cmp = fmt.Sprintf(`if ret.ptr == o.ptr { return (%s)(unsafe.Pointer(o)) }
+	`,rtgt)
+			}
+			dbg := ""
+			dbg2 := ""
+			if Debug {
+				dbg = fmt.Sprintf(`fmt.Printf("Setting finalizer (%s): %%p -> %%p\n", ret, ret.ptr)
+	`, rtgt)
+				dbg2 = fmt.Sprintf(`fmt.Printf("Finalizer (%s): release %%p -> %%p\n", o, o.ptr)
+	`, rtgt)
+			}
 			ret.WriteString(fmt.Sprintf(`
-	runtime.SetFinalizer(ret, func(o %s) {
-		o.Release()
-	})`,rtgt))
+	if ret.ptr == nil { return ret }
+	%s%sruntime.SetFinalizer(ret, func(o %s) {
+		%so.Release()
+	})`, cmp, dbg, rtgt, dbg2))
 		}
 		ret.WriteString(`
 	return ret`)

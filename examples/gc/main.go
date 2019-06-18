@@ -15,6 +15,7 @@ func releaseX(x int) func (ns.MyClassSupermethods) {
 		super.Release() // comment out for leak
 	}
 }
+
 func memtest1() {
 	fmt.Println("memtest1 started")
 	for {
@@ -33,7 +34,7 @@ func memtest1() {
 		// in a real program.
 		runtime.GC()
 		time.Sleep(time.Second/50)
-		fmt.Printf("Loop complete\n")
+		//fmt.Printf("Loop complete\n")
 	}
 }
 
@@ -52,18 +53,35 @@ func memtest2() {
 		o4 := ns.NSStringAlloc()
 		_ = o4
 
-		//arr := ns.NSArrayAlloc().InitWithObjects(o1,o1)
-		arr := ns.NSArrayWithObjects(o1,o2,o3,o4)
-		_ = arr
+		a1 := ns.NSArrayAlloc()
 
-		//o1.Release()
-		//o1.Release()
+		// init methods in Objective-C always return a retained object.
+		// init may or may not return the same object that was sent in.
+
+		a1 = a1.InitWithObjects(o1,o2,o3,o4)
+
+		a2 := ns.NSArrayWithObjects(o1,o2,o3,o4)
+
+		// you can always nest alloc and init.
+
+		a3 := ns.NSMutableArrayAlloc().Init()
+		a3.AddObject(o1)
+		a3.AddObject(o2)
+		a3.AddObject(o3)
+		a3.AddObject(o4)
+		_ = a1
+		_ = a2
+		_ = a3
+
 		runtime.GC()
 		time.Sleep(time.Second/50)
 	}
 }
 
 func addStr(arr *ns.NSMutableArray) {
+	// temporary strings made by the 'WithGoString' methods should be released
+	// automatically by the GC.
+
 	s1 := ns.NSStringAlloc().InitWithGoString("a string")
 	arr.AddObject(s1)
 
@@ -75,24 +93,35 @@ func addStr(arr *ns.NSMutableArray) {
 func memtest3() {
 	fmt.Println("memtest3 started")
 
-	arr := ns.NSMutableArrayAlloc().Init() // arr will be garbage collected by Go
-	addStr(arr)
-	runtime.GC()
-	time.Sleep(time.Second)
-	s1 := arr.ObjectAtIndex(0)
-	fmt.Println(s1.NSString().UTF8String())
-	fmt.Println("memtest3 done")
+	for {
+		// arr will be garbage collected by Go
+		arr := ns.NSMutableArrayAlloc().Init()
+		addStr(arr)
+		runtime.GC()
+		time.Sleep(time.Second)
+
+		// check that our string was retained.
+
+		s1 := arr.ObjectAtIndex(0)
+		gstr := s1.NSString().UTF8String().String()
+		_ = gstr
+	}
 }
 
 func memtest4() {
 	fmt.Println("memtest4 started")
 	for {
-		o1 := ns.NSStringAlloc().InitWithGoString("four string")
+		o1 := ns.NSStringAlloc().InitWithGoString("red string")
+
+		// conversions to UTF8String internally create autoreleased strings
+		// in the Objective-C runtime. NSWrap runs these in a mini-
+		// @autoreleasepool block.
+
 		c1 := o1.UTF8String()
 		_ = o1
 		_ = c1
 		runtime.GC()
-		time.Sleep(time.Second/10)
+		time.Sleep(time.Second/50)
 	}
 }
 
@@ -100,12 +129,21 @@ func memtest5() {
 	fmt.Println("memtest5 started")
 	i := 0
 	for {
-		str := ns.NSStringWithGoString(fmt.Sprintf("five string %d",i))
-		_ = str
+		// by incrementing i we can ensure that Objective-C needs to create
+		// a new NSString object at each loop iteration and cannot be reusing
+		// the same string object.
+
+		str := ns.NSStringWithGoString(fmt.Sprintf("blue string %d",i))
+
+		// SubstringFromIndex should be returning a newly allocated NSString,
+		// which is getting retained by NSWrap and released by a Go GC
+		// finalizer.
+
 		sub := str.SubstringFromIndex(5)
 		_ = sub
-		fmt.Printf("sub = %s\n",sub)
-		time.Sleep(time.Second/10)
+		u := sub.UTF8String()
+		_ = u
+		time.Sleep(time.Second/50)
 		runtime.GC()
 		i++
 	}
@@ -117,5 +155,12 @@ func main() {
 	go memtest3()
 	go memtest4()
 	go memtest5()
+	go func() {
+		for {
+			// print a progress indicator
+			fmt.Printf("t = %s\n",time.Now())
+			time.Sleep(time.Second * 10)
+		}
+	}()
 	select {}
 }

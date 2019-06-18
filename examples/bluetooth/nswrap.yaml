@@ -22,6 +22,7 @@ classes:
     - NSDictionary
     - NSEnumerator
     - NSString
+    - NSAutoreleasePool
 
 functions: [ NSMakeRange, dispatch_queue_create ]
 enums: [ CB.* ]
@@ -38,4 +39,4 @@ delegates:
             - peripheralDidUpdateValueForCharacteristic
 
 pragma: [ clang diagnostic ignored "-Wformat-security" ]
-#gogc: true
+gogc: true

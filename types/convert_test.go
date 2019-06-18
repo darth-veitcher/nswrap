@@ -177,14 +177,14 @@ func TestType(t *testing.T) {
 	chk(tp.PointsTo(), tp2)
 	chk(tp2.PointsTo(), nil)
 
-	chk(tp.GoTypeDecl(), `
+	chk(tp.GoTypeDecl(false), `
 type MyTypedef **C.NSObject
 `)
 	str = "void"
 	n = &Node{"TypeName", "", []*Node{
 		&Node{"TypeSpecifier", "void", []*Node{}}}}
 	chk_newtype()
-	chk(tp.GoTypeDecl(), "")
+	chk(tp.GoTypeDecl(false), "")
 	void := tp
 
 	str = "BOOL"
@@ -206,14 +206,14 @@ type MyTypedef **C.NSObject
 	chk(tp.GoType(), "*NSObject")
 
 	Wrap("NSString")
-	chk(nso.GoTypeDecl(), `
+	chk(nso.GoTypeDecl(false), `
 type NSObject interface {
 	Ptr() unsafe.Pointer
 }
 `)
 	chk(nso.GoType(), "NSObject")
 
-	chk(nst.GoTypeDecl(), `
+	chk(nst.GoTypeDecl(false), `
 type NSString struct { Id }
 func (o *NSString) Ptr() unsafe.Pointer { if o == nil { return nil }; return o.ptr }
 func (o *Id) NSString() *NSString {
@@ -276,8 +276,7 @@ func (o *Id) NSString() *NSString {
 	snames := []string{"", "", "", ""}
 
 	chk_gotoc := func(expected string) {
-		fmt.Printf("chk_gotoc\n")
-		chk(GoToC("myFun", pnames, snames, rtype, ptypes, false, false), expected)
+		chk(GoToC("myFun", pnames, snames, rtype, ptypes, false, false, false), expected)
 	}
 
 	chk_gotoc("")
@@ -352,7 +351,7 @@ func (o *Id) NSString() *NSString {
 	}
 	return ret`)
 
-	chk(GoToC("myFun", pnames, snames, rtype, ptypes, true, false),
+	chk(GoToC("myFun", pnames, snames, rtype, ptypes, true, false, false),
 		`ret := &Id{}
 	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), unsafe.Pointer(&p3p[0]), p4))
 	(*p3) = (*p3)[:cap(*p3)]

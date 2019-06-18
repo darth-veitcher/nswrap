@@ -52,6 +52,7 @@ type Wrapper struct {
 
 func NewWrapper(debug bool) *Wrapper {
 	Debug = debug
+	types.Debug = Debug
 	if Debug {
 		fmt.Println("// Debug mode")
 	}
@@ -133,8 +134,9 @@ type Subclass struct {
 }
 
 type Property struct {
-	Name, Attr string
-	Type       *types.Type
+	Name, Attr            string
+	Type                  *types.Type
+	retained, notretained bool
 }
 
 type Parameter struct {
@@ -155,8 +157,33 @@ func (m *Method) ShouldFinalize() bool {
 }
 
 func shouldFinalize (grtype, name string) bool {
-	return Gogc && grtype != "NSAutoreleasePool" && (types.ShouldWrap(grtype) || grtype == "Id") && (len(name) < 4 || name[:4] != "init")
+	return Gogc && grtype != "*NSAutoreleasePool" &&
+	(types.PtrShouldWrap(grtype) || grtype == "*Id") &&
+	(len(name) < 6 || name != "retain")
 }
+
+// IsRetained returns true if the name matches a retained property for the
+// given interface.
+func (i *Interface) IsRetained(name string) bool {
+	if p, ok := i.Properties[name]; ok {
+		if p.retained {
+			return true
+		}
+		if p.notretained {
+			return false
+		}
+		attrs := strings.Split(p.Attr," ")
+		for _, a := range attrs {
+			if a == "retain" {
+				p.retained = true // cache this result
+				return true
+			}
+		}
+		p.notretained = true // cache this result
+	}
+	return false
+}
+
 
 //Fully disambiguated method name (m.GoName + all parameter names)
 func (m *Method) LongName() string {
@@ -184,13 +211,14 @@ type Protocol struct {
 }
 
 type MethodCollection struct {
-	Class   string
+	Class, GoClass   string
 	Methods []*Method
 }
 
 func NewMethodCollection(class string) *MethodCollection {
 	ret := &MethodCollection{
 		Class:   class,
+		GoClass: strings.Title(class),
 		Methods: []*Method{},
 	}
 	return ret
@@ -564,7 +592,7 @@ func (w *Wrapper) AddEnum(n *ast.EnumDecl, rs []string) {
 func (w *Wrapper) addIntCat(name string, ns []ast.Node) {
 	var i *Interface
 	var ok bool
-	goname := strings.Title(types.NewTypeFromString(name, name).GoType())
+	goname := strings.Title(name)
 	types.Wrap(goname)
 	if i, ok = w.Interfaces[name]; !ok {
 		i = &Interface{}
@@ -572,6 +600,7 @@ func (w *Wrapper) addIntCat(name string, ns []ast.Node) {
 		i.GoName = goname
 		i.InstanceMethods = NewMethodCollection(name)
 		i.ClassMethods = NewMethodCollection(name)
+		i.Properties = map[string]*Property{}
 		i.Protocols = []string{}
 		i.ProcessedInstanceMethods = map[string]bool{}
 	}
@@ -582,19 +611,15 @@ func (w *Wrapper) addIntCat(name string, ns []ast.Node) {
 	for _, c := range ns {
 		switch x := c.(type) {
 		case *ast.ObjCPropertyDecl:
-			//FIXME: Properties are not supported, typically there
-			//will be setter/getter methods you can use instead
 			if Debug {
 				fmt.Printf("ObjCPropertyDecl: %s\n", x.Name)
 			}
-			//p := &Property{
-			//	Name: x.Name,
-			//	Type: types.NewTypeFromString(x.Type,name),
-			//}
-			//_,avail = w.GetParms(x,name) // TODO
-			//if avail {
-			//	i.Properties[p.Name] = p
-			//}
+			p := &Property{
+				Name: x.Name,
+				Type: types.NewTypeFromString(x.Type,name),
+				Attr: x.Attr,
+			}
+			i.Properties[x.Name] = p
 		case *ast.ObjCMethodDecl:
 			if Debug {
 				fmt.Printf("ObjCMethodDecl: %s (%s) %s\n", x.Type, name, x.Name)
@@ -765,7 +790,6 @@ func (w *Wrapper) AddTypedef(n, t string) {
 		}
 		types.Wrap(n)
 		types.SetSuper(n, gt)
-		//w._processType(tp, n)
 		w._processType(tp)
 	} else {
 		cgt := tp.CGoType()
@@ -785,8 +809,6 @@ func (w *Wrapper) processTypes(tps []*types.Type) {
 
 func (w *Wrapper) processType(tp *types.Type) {
 	bt := tp.BaseType()
-	//gt := bt.GoType()
-	//w._processType(bt, gt)
 	w._processType(bt)
 }
 
@@ -804,8 +826,10 @@ func (w *Wrapper) _processType(bt *types.Type) {
 		return
 	}
 	if w.ProcessedTypes[gt] {
+		if Debug { fmt.Printf("  -- already seen\n") }
 		return
 	}
+	if Debug { fmt.Printf("  -- not yet seen\n") }
 	w.ProcessedTypes[gt] = true
 	if gt == "Char" {
 		w.CharHelpers()
@@ -828,7 +852,7 @@ func (w *Wrapper) _processType(bt *types.Type) {
 	if Debug {
 		fmt.Printf("Writing go type for %s -> %s\n",bt.CType(),gt)
 	}
-	w.goTypes.WriteString(bt.GoTypeDecl())
+	w.goTypes.WriteString(bt.GoTypeDecl(Gogc))
 }
 
 func (w *Wrapper) CharHelpers() {
@@ -860,13 +884,19 @@ func (o *NSString) String() string {
 }
 
 func (w *Wrapper) EnumeratorHelpers() {
-	w.goHelpers.WriteString(`
+	var re1, re2 string
+	if Gogc && false { // FIXME: don't need this
+		re1 = "o.Release(); "
+		re2 = `
+		o.Release()`
+	}
+	w.goHelpers.WriteString(fmt.Sprintf(`
 func (e *NSEnumerator) ForIn(f func(*Id) bool) {
 	for o := e.NextObject(); o.Ptr() != nil; o = e.NextObject() {
-		if !f(o) { break }
+		if !f(o) { %sbreak }%s
 	}
 }
-`)
+`, re1, re2))
 }
 
 func (w *Wrapper) AutoreleaseHelpers() {
@@ -898,12 +928,13 @@ func (w *Wrapper) ProcessMethod(m *Method) {
 }
 
 func (w *Wrapper) ProcessMethodForClass(m *Method, class string) {
-	goclass := strings.Title(types.NewTypeFromString(class, class).GoType())
+	goclass := strings.Title(class)
 	m2 := &Method{
 		Name: m.Name, GoName: m.GoName, Class: class, GoClass: goclass,
 		Type:        m.Type.CloneToClass(class),
 		ClassMethod: m.ClassMethod,
 		Parameters:  make([]*Parameter, len(m.Parameters)),
+		Unavailable: m.Unavailable,
 	}
 	for i, p := range m.Parameters {
 		m2.Parameters[i] = &Parameter{
@@ -1004,21 +1035,23 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 	if gname == grtype { // avoid name conflicts between methods and types
 		gname = "Get" + gname
 	}
+	var inter *Interface
 	if m.ClassMethod {
 		if w.ProcessedClassMethods[gname] {
 			return
 		}
 		w.ProcessedClassMethods[gname] = true
 	} else {
-		i, ok := w.Interfaces[m.Class]
+		var ok bool
+		inter,ok = w.Interfaces[m.Class]
 		if !ok {
 			fmt.Printf("Can't find interface %s for method %s\n", m.Class, m.Name)
 			os.Exit(-1)
 		}
-		if i.ProcessedInstanceMethods[gname] {
+		if inter.ProcessedInstanceMethods[gname] {
 			return
 		}
-		i.ProcessedInstanceMethods[gname] = true
+		inter.ProcessedInstanceMethods[gname] = true
 	}
 
 	w.goCode.WriteString(fmt.Sprintf(`
@@ -1048,7 +1081,7 @@ func %s%s(%s) %s {
 `, snames[i], n, n, snames[i], n))
 	}
 	w.goCode.WriteString(`	` +
-		types.GoToC(cname, ns, snames, m.Type, tps, fun, m.ShouldFinalize()) + "\n}\n")
+		types.GoToC(cname, ns, snames, m.Type, tps, fun, m.ShouldFinalize() && (m.ClassMethod || !inter.IsRetained(m.Name)), m.ClassMethod) + "\n}\n")
 
 	cret := ""
 	if !m.isVoid() {
@@ -1088,13 +1121,25 @@ func %s%s(%s) %s {
 	default:
 		if Gogc && !m.isVoid() {
 			rtn := ""
-			//if m.ClassMethod && types.ShouldWrap(m.Type.GoType()) {
-			if types.ShouldWrap(m.Type.GoType()) {
-				if m.ClassMethod {
-				rtn = `
+			if types.PtrShouldWrap(m.Type.GoType()) {
+				switch {
+				case m.ClassMethod:
+					if grtype != "*NSAutoreleasePool" {
+				// retain objects returned by class methods
+						rtn = `
 		[ret retain];`
-				} else {
-				rtn = `
+					}
+
+				case len(m.Name) >= 4 && m.Name[:4] == "init":
+				// init always returns a retained object
+
+				case inter.IsRetained(m.Name):
+				// some methods relate to retained properties
+				// do not retain these again
+
+				default:
+				// by default, retain if returning a new object
+					rtn = `
 		if (o != ret) { [ret retain]; }`
 				}
 			}
@@ -1111,6 +1156,28 @@ func %s%s(%s) %s {
 		}
 	}
 
+	// create SetFinalizer methods when we see an alloc function:
+	if Gogc && m.Name == "alloc" {
+		cls := m.GoClass
+		if types.IsGoInterface(cls) {
+			cls = "Id"
+		}
+		dbg := ""
+		dbg2 := ""
+		if Debug {
+			dbg = fmt.Sprintf(`fmt.Printf("Setting GC finalizer (%s): %%p -> %%p\n", o, o.ptr)
+	`,cls)
+			dbg2 = fmt.Sprintf(`fmt.Printf("GC finalizer (%s): release %%p -> %%p\n", o, o.ptr)`, cls)
+		}
+		w.goCode.WriteString(fmt.Sprintf(`
+func (o *%s) GC() {
+	if o.ptr == nil { return }
+	%sruntime.SetFinalizer(o, func(o *%s) {
+		%so.Release()
+	})
+}
+`, cls, dbg, cls, dbg2))
+	}
 	// create GoString helper method
 	if ok, _ := regexp.MatchString("WithString$", m.Name); ok {
 		if Debug {
@@ -1143,21 +1210,12 @@ func %s%s(%s) %s {
 			obj = "o."
 			ns = ns[1:]
 		}
-		finalizer := ""
-		if m.ShouldFinalize() && false {
-			w.goImports["runtime"] = true
-			finalizer = fmt.Sprintf(
-	`runtime.SetFinalizer(ret, func(o *%s) {
-		o.Release()
-	})
-	`, grtype)
-		}
 		w.goCode.WriteString(fmt.Sprintf(`
 func %s%s(%s) %s {
 	%sret := %s%s(%s)
-	%sreturn ret
+	return ret
 }
-`, receiver, gname2, gplist, grtype, cvts, obj, gname, strings.Join(ns, ", "), finalizer))
+`, receiver, gname2, gplist, grtype, cvts, obj, gname, strings.Join(ns, ", ")))
 	}
 }
 
@@ -1246,7 +1304,40 @@ func (w *Wrapper) MethodFromSig(sig, class string) *Method {
 	return ret
 }
 
+func (mc *MethodCollection) AddMethod(m *Method) {
+	m2 := &Method{
+		Name:        m.Name,
+		GoName:      m.GoName,
+		Class:       mc.Class,
+		GoClass:     mc.GoClass,
+		Type:        m.Type.CloneToClass(mc.Class),
+		ClassMethod: m.ClassMethod,
+		Parameters:  []*Parameter{},
+		Unavailable: m.Unavailable,
+	}
+	for _, p := range m.Parameters {
+		p2 := &Parameter{
+			Pname: p.Pname,
+			Vname: p.Vname,
+			Type:  p.Type.CloneToClass(mc.Class),
+		}
+		m2.Parameters = append(m2.Parameters, p2)
+	}
+	mc.Methods = append(mc.Methods, m2)
+}
+
+func (mc *MethodCollection) AddMethods(smc *MethodCollection) {
+	for _, m := range smc.Methods {
+		mc.AddMethod(m)
+	}
+}
+
 func (w *Wrapper) ProcessSubclass(sname string, sc *Subclass) {
+	i := &Interface{
+		ProcessedInstanceMethods: map[string]bool{},
+		Properties: map[string]*Property{},
+	}
+	w.Interfaces[sname] = i
 	gname := strings.Title(sname)
 	types.Wrap(gname)
 	types.SetSuper(gname, sc.Super)
@@ -1257,12 +1348,17 @@ func (w *Wrapper) ProcessSubclass(sname string, sc *Subclass) {
 		nms[i] = w.MethodFromSig(sig, sname)
 	}
 	if Debug {
-		fmt.Println("ProcessSubclass(%s)\n",sname)
+		fmt.Printf("ProcessSubclass(%s)\n",sname)
 	}
 	w._ProcessDelSub(sname, ps, nms, true)
 }
 
 func (w *Wrapper) ProcessDelegate(dname string, ps map[string][]string) {
+	i := &Interface{
+		ProcessedInstanceMethods: map[string]bool{},
+		Properties: map[string]*Property{},
+	}
+	w.Interfaces[dname] = i
 	w._ProcessDelSub(dname, ps, nil, false)
 }
 
@@ -1276,6 +1372,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 	//5. Go constructor
 	//6. Go dispatch database for callbacks
 	//7. Go superclass dispatch function
+	//8. Methods inherited from parent class
 	//To create (per method):
 	//1. ObjC function prototypes for go exports
 	//2. Go callback registration functions
@@ -1290,6 +1387,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 	sms := 0             // the number of methods that have super-methods
 	gnames := []string{} // go names for methods
 	pnames := make([]string, len(ps))
+	supmeths := []*Method{}
 	var supr string
 	i := 0
 	for pname, pats := range ps {
@@ -1364,6 +1462,8 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 				fmt.Printf("--Method: %s\n", m.Name)
 			}
 			if !matches(string(m.Name[0])+m.GoName[1:], pats) {
+			//methods from superclass that we are not overriding
+				supmeths = append(supmeths,m)
 				continue
 			}
 			if m.HasUnsupportedType() {
@@ -1606,27 +1706,49 @@ void*
 	}
 
 	//4. Go type
-
-	gotypes.WriteString(
-		types.NewTypeFromString(gname, supr).GoInterfaceDecl())
+	if !w.ProcessedTypes[gname] {
+		gotypes.WriteString(
+		types.NewTypeFromString(gname, supr).GoInterfaceDecl(Gogc))
 
 	//5. Go constructor
-	var finalizer string
-	if shouldFinalize(gname,"") {
-		w.goImports["runtime"] = true
-		finalizer = fmt.Sprintf(
-`runtime.SetFinalizer(ret,func(o *%s) {
-		o.Release()
+		var finalizer string
+		dbg := ""
+		dbg2 := ""
+		if Debug {
+			dbg = fmt.Sprintf(`fmt.Printf("Setting finalizer (%s): %%p -> %%p\n", ret, ret.ptr)
+	`, gname)
+			dbg2 = fmt.Sprintf(`fmt.Printf("Finalizer (%s): release %%p -> %%p\n", o, o.ptr)
+	`, gname)
+		}
+		if Gogc {
+			w.goImports["runtime"] = true
+			if Debug { w.goImports["fmt"] = true }
+			finalizer = fmt.Sprintf(
+`if ret.ptr == nil { return ret }
+	%sruntime.SetFinalizer(ret,func(o *%s) {
+		%so.Release()
 	})
-	`,gname)
-	}
-	gocode.WriteString(fmt.Sprintf(`
+	`, dbg, gname, dbg2)
+		}
+		gocode.WriteString(fmt.Sprintf(`
 func %sAlloc() *%s {
 	ret := &%s{}
 	ret.ptr = unsafe.Pointer(C.%sAlloc())
 	%sreturn ret
 }
 `, gname, gname, gname, dname, finalizer))
+		if Gogc {
+			gocode.WriteString(fmt.Sprintf(`
+func (o *%s) GC() {
+	if o.ptr == nil { return }
+	%sruntime.SetFinalizer(o,func(o *%s) {
+		%so.Release()
+	})
+}
+`, gname, dbg, gname, dbg2))
+		}
+	}
+	w.ProcessedTypes[gname] = true
 
 	//6. Go dispatch database for callbacks
 	dispitems := make([]string, len(gnames))
@@ -1790,7 +1912,7 @@ func (o *%s) Super%s(%s) %s {
 	}
 `, vn, w.Vaargs, vn, vn))
 			}
-			gocode.WriteString("\t" + types.GoToC(dname+"_super_"+m.Name, ns, snames, m.Type, tps, false, m.ShouldFinalize()) + "\n}\n")
+			gocode.WriteString("\t" + types.GoToC(dname+"_super_"+m.Name, ns, snames, m.Type, tps, false, m.ShouldFinalize(), m.ClassMethod) + "\n}\n")
 		}
 	}
 	w.cCode.WriteString(cprotos.String())
@@ -1798,6 +1920,11 @@ func (o *%s) Super%s(%s) %s {
 	w.goTypes.WriteString(gotypes.String())
 	w.goCode.WriteString(gocode.String())
 	w.goExports.WriteString(goexports.String())
+
+	// add methods from parent class that we are not overriding
+	for _,m := range supmeths {
+		w.ProcessMethodForClass(m,dname)
+	}
 }
 
 //Add class and instance methods from super class
@@ -1808,8 +1935,8 @@ func (w *Wrapper) AddSupermethods(i *Interface) {
 			m2 := &Method{
 				Name:        m.Name,
 				GoName:      m.GoName,
-				Class:       i.Name,
-				GoClass:     i.GoName,
+				Class:       mc.Class,
+				GoClass:     mc.GoClass,
 				Type:        m.Type.CloneToClass(i.Name),
 				ClassMethod: m.ClassMethod,
 				Parameters:  []*Parameter{},
