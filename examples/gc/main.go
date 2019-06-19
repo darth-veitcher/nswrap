@@ -151,7 +151,7 @@ func memtest5() {
 		time.Sleep(time.Second/50)
 		runtime.GC()
 		i++
-		fmt.Printf("loop completed\n")
+		//fmt.Printf("loop completed\n")
 	}
 }
 

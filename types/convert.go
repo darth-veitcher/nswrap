@@ -314,9 +314,7 @@ type %s interface {
 type %s struct { %s }
 func (o *%s) Ptr() unsafe.Pointer { if o == nil { return nil }; return o.ptr }
 func (o *Id) %s() *%s {
-	ret := &%s{}
-	ret.ptr = o.ptr
-	return ret
+	return (*%s)(unsafe.Pointer(o))
 }
 `, gt, super, gt, gt, gt, gt)
 }

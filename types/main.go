@@ -9,7 +9,7 @@ var (
 )
 
 func dbg(f string, xs ...interface{}) {
-	if Debug {
+	if Debug && false {
 		fmt.Printf(f, xs...)
 	}
 }

@@ -153,25 +153,25 @@ type Method struct {
 }
 
 func (m *Method) ShouldFinalize() bool {
-	return shouldFinalize(m.Type.GoType(), m.Name)
+	grtype := m.Type.GoType()
+	return Gogc && grtype != "NSAutoreleasePool" &&
+		(types.PtrShouldWrap(grtype) || grtype == "*Id") &&
+		(!m.ClassMethod || IsRetained(m.Name))
 }
 
-func shouldFinalize (grtype, name string) bool {
-	return Gogc && grtype != "*NSAutoreleasePool" &&
-	(types.PtrShouldWrap(grtype) || grtype == "*Id") && 
-	(len(name) < 6 || name != "retain")
+// IsRetained returns true if a given instance method returns a retained object.
+func IsRetained(name string) bool {
+	return (
+		(len(name) >= 3 && name[:3] == "new") ||
+		(len(name) >= 4 && name[:4] == "init") ||
+		(len(name) >= 4 && name[:4] == "copy") ||
+		(len(name) >= 5 && name[:5] == "alloc") ||
+		(len(name) >= 11 && name[:11] == "mutableCopy"))
 }
 
-// IsRetained returns true if the name matches a retained property for the
-// given interface.
-func (i *Interface) IsRetained(name string) bool {
-	// init, copy and MutableCopy always return a retained object
-	if 	len(name) >= 4 && (name[:4] == "init" ||
-			name[:4] == "copy") ||
-		len(name) >= 11 && name[:11] == "mutableCopy" {
-		return true
-	}
-
+// IsRetainedProperty returns true if the name matches a retained property for
+// the given interface.
+func (i *Interface) IsRetainedProperty(name string) bool {
 	if p, ok := i.Properties[name]; ok {
 		if p.retained {
 			return true
@@ -976,6 +976,7 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 	gname = strings.Title(gname)
 	gname = strings.ReplaceAll(gname, " ", "")
 	receiver := ""
+	constructor := false // this is an autoreleased object constructor
 	var cname string
 	if fun {
 		cname = m.Name
@@ -984,6 +985,16 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 	}
 	if Debug {
 		fmt.Printf("Method %s (GoClass %s)\n", cname, m.GoClass)
+	}
+	grtype := m.Type.GoType()
+	if grtype == "Void" {
+		grtype = ""
+	}
+	if types.PtrIsGoInterface(grtype) {
+		grtype = "*Id"
+	}
+	if grtype == "BOOL" { // convert objective-c bools to Go bools
+		grtype = "bool"
 	}
 	switch {
 	case !m.ClassMethod:
@@ -994,15 +1005,19 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 		}
 		//Disambiguate instance methods with same name as a class method
 		cname = "inst_" + cname
-	default:
+	case m.ClassMethod:
 		//Shorten class method names
 		lens1 := len(m.Class)
 		i := 0
-		if len(gname) < len(m.Class) {
+		if len(gname) < lens1 {
 			i = lens1 - len(gname)
 		}
 		for ; i < lens1; i++ {
 			if m.Class[i:] == gname[:lens1-i] {
+				if Gogc &&
+				(types.PtrShouldWrap(grtype) || grtype == "*Id") {
+					constructor = true
+				}
 				break
 			}
 		}
@@ -1029,16 +1044,6 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 		cmtype = m.Type.CTypeAttrib()
 	}
 	ns, snames, tps, gplist := w.gpntp(m)
-	grtype := m.Type.GoType()
-	if grtype == "Void" {
-		grtype = ""
-	}
-	if types.PtrIsGoInterface(grtype) {
-		grtype = "*Id"
-	}
-	if grtype == "BOOL" { // convert objective-c bools to Go bools
-		grtype = "bool"
-	}
 	if gname == grtype { // avoid name conflicts between methods and types
 		gname = "Get" + gname
 	}
@@ -1088,7 +1093,7 @@ func %s%s(%s) %s {
 `, snames[i], n, n, snames[i], n))
 	}
 	w.goCode.WriteString(`	` +
-		types.GoToC(m.Name, cname, ns, snames, m.Type, tps, fun, m.ShouldFinalize(), m.ClassMethod) + "\n}\n")
+		types.GoToC(m.Name, cname, ns, snames, m.Type, tps, fun, constructor || m.ShouldFinalize(), m.ClassMethod) + "\n}\n")
 
 	cret := ""
 	if !m.isVoid() {
@@ -1131,15 +1136,14 @@ func %s%s(%s) %s {
 			if types.PtrShouldWrap(m.Type.GoType()) {
 				switch {
 				case m.ClassMethod:
-					if grtype != "*NSAutoreleasePool" {
-				// retain objects returned by class methods
+					if grtype != "*NSAutoreleasePool" && constructor {
+			// retain objects returned by class constructor methods
 						rtn = `
 		[ret retain];`
 					}
 
-				// some methods always return retained objects,
-				// including "getters" for retained properties.
-				case inter.IsRetained(m.Name):
+				// do not retain new, alloc, init and copy methods
+				case IsRetained(m.Name):
 
 				default:
 				// by default, for instance methods, retain
@@ -1148,13 +1152,16 @@ func %s%s(%s) %s {
 		if (o != ret) { [ret retain]; }`
 				}
 			}
+			var ar1, ar2 string
+			if constructor || true {
+				ar1 = "@autoreleasepool {\n\t\t"
+				ar2 = "\n	}"
+			}
 			w.cCode.WriteString(fmt.Sprintf(
 `	%s ret;
-	@autoreleasepool {
-		ret = [%s %s];%s
-	}
+	%sret = [%s %s];%s%s
 	return ret;
-}`, m.Type.CTypeAttrib(), cobj, w.objcparamlist(m),rtn))
+}`, m.Type.CTypeAttrib(), ar1, cobj, w.objcparamlist(m), rtn, ar2))
 		} else {
 			w.cCode.WriteString(fmt.Sprintf(`	%s[%s %s];
 }`, cret, cobj, w.objcparamlist(m)))
