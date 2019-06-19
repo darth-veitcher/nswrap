@@ -44,5 +44,3 @@ subclasses:
 
 frameworks: [ Foundation, AppKit ]
 pragma: [ clang diagnostic ignored "-Wformat-security" ]
-#autorelease: true
-gogc: true

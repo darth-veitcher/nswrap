@@ -16,4 +16,3 @@ functions:
 frameworks:
     - Foundation
 pragma: [ clang diagnostic ignored "-Wformat-security" ]
-gogc: true

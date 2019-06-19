@@ -39,7 +39,6 @@ type conf struct {
 	//Arc flag for debugging only, builds will break
 	Arc         bool
 	Autorelease bool
-	Gogc        bool
 }
 
 var Config conf
@@ -251,19 +250,17 @@ func Start() (err error) {
 	if Config.Positions {
 		ast.TrackPositions = true
 	}
-	if Config.Gogc && Config.Autorelease {
-		fmt.Printf("Cannot use Autorelease and Gogc directives at the same time\n")
-		os.Exit(-1)
-	}
+	wrap.Gogc = true
+
 	if Config.Arc {
 		wrap.Arc = true
+		wrap.Gogc = false
 	}
 	if Config.Autorelease {
 		wrap.Autorelease = true
+		wrap.Gogc = false
 	}
-	if Config.Gogc {
-		wrap.Gogc = true
-	}
+
 	//NOTE: converting in parallel is slower on my system
 	//nodes := convertLinesToNodesParallel(lines)
 	nodes := convertLinesToNodes(lines)
