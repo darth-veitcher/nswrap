@@ -1,3 +1,4 @@
+// An example of manual memory management (nogc directive in nswrap.yaml)
 package main
 
 import "C"
@@ -38,8 +39,6 @@ func memtest1() {
 	for {
 		pool := ns.NSAutoreleasePoolAlloc().Init()
 		o1 := ns.MyClassAlloc()
-		//If autorelease: true is set in nswrap.yaml, the manual calls to
-		//autorelease are not necessary.
 		o1.Autorelease()
 		o1.DeallocCallback(dealloc)
 		o1.ReleaseCallback(release)
@@ -133,6 +132,9 @@ func memtest4() {
 	go memtest1()
 	go memtest2()
 	go memtest3()
+	go memtest1()
+	go memtest2()
+	go memtest3()
 }
 
 func memtest4a() {
@@ -196,9 +198,6 @@ func main() {
 	//Within an autorelease pool, do not do anything that can result in a
 	//switch to a different thread.
 
-	//go memtest1()
-	//go memtest2()
-	//go memtest3()
 	go memtest4()
 	select {}
 }

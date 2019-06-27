@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"git.wow.st/gmp/nswrap/examples/foundation/ns"
 )
@@ -43,8 +44,10 @@ func main() {
 	fmt.Printf("i1 = %@\n", i1)
 	fmt.Printf("i1.Ptr() = %p\n", i1.Ptr())
 	fmt.Printf("\nNSArray.ObjectEnumerator().ForIn():\n")
+	x := 0
 	a.ObjectEnumerator().ForIn(func(o *ns.Id) bool {
-		fmt.Println(o.NSString())
+		fmt.Printf("%d: %s\n",x,o.NSString())
+		x++
 		return true
 	})
 	fmt.Printf("\nNSSetWithObjectsCount():\n")
@@ -69,6 +72,7 @@ func main() {
 		}
 		return true
 	})
+	fmt.Printf("a = %p a.NSArray = %p\n",a,&a.NSArray)
 	fmt.Printf("\nNSArrayWithObjects() (length 1)\n")
 	a2 = ns.NSArrayWithObjects(n1)
 	a2.ObjectEnumerator().ForIn(func(o *ns.Id) bool {
@@ -102,19 +106,26 @@ func main() {
 		ns.NSArrayWithObjects(nst("obj1"), nst("obj2")),
 		ns.NSArrayWithObjects(nst("key1"), nst("key2")),
 	)
-	os := make([]*ns.Id, 0, 5)
-	fmt.Printf("Length of os is %d\n", len(os))
-	ks := make([]*ns.Id, 0, 5)
+	oarr := make([]*ns.Id, 0, 5)
+	fmt.Printf("Length of oarr is %d\n", len(oarr))
+	karr := make([]*ns.Id, 0, 5)
 	fmt.Printf("\nGetObjects()\n")
-	d.GetObjects(&os, &ks, 4)
-	fmt.Printf("Length of os is now %d\n", len(os))
-	for i, k := range ks {
-		fmt.Printf("-- %s -> %s\n", k.NSString(), os[i].NSString())
+	d.GetObjects(&oarr, &karr, 4)
+	fmt.Printf("Length of oarr is now %d\n", len(oarr))
+	for i, k := range karr {
+		fmt.Printf("-- %s -> %s\n", k.NSString(), oarr[i].NSString())
 	}
 	fmt.Printf("\nNSStringWithContentsOfURLEncoding()\n")
 	err := make([]*ns.NSError, 1)
-	n1 = ns.NSStringWithContentsOfURLEncoding(ns.NSURLWithGoString("htttypo://example.com"), 0, &err)
-	fmt.Printf("err: %s\n", err[0].LocalizedDescription())
+	n1 = ns.NSStringWithContentsOfURLEncoding(ns.NSURLWithGoString("http://captive.apple.com"), ns.NSUTF8StringEncoding, &err)
+	if len(err) == 0 {
+		fmt.Printf("n1 = %s\n",n1)
+	}
+	n1 = ns.NSStringWithContentsOfURLEncoding(ns.NSURLWithGoString("htttypo://example.com"), ns.NSUTF8StringEncoding, &err)
+	if len(err) > 0 {
+		fmt.Printf("err[0] = %p -> %p\n",err[0],err[0].Ptr())
+		fmt.Printf("err: %s\n", err[0].LocalizedDescription())
+	}
 
 	fmt.Printf("\nNSStringWithFormat()\n")
 	str := ns.NSStringWithFormat(nst("(%@) (%@)\n(%@)\n"), n2, n3, s1)
@@ -129,4 +140,24 @@ func main() {
 		fmt.Printf("--%s\n",o.NSString())
 		return true
 	})
+	dir,e := os.Getwd()
+	if e != nil {
+		fmt.Printf("Failed to get current working directory. %s\n",err)
+		os.Exit(-1)
+	}
+	path := nst(dir)
+	filter := ns.NSArrayWithObjects(nst("ast"),nst("yaml"))
+	ost := make([]*ns.NSString,0,1)
+	oar:= make([]*ns.NSArray,0,1)
+	fmt.Printf("\nCompletePathIntoString()\n")
+	i := path.CompletePathIntoString(&ost,0,&oar,filter)
+	fmt.Printf("%d matches\n",i)
+	if i > 0 {
+		fmt.Printf("ost = %s\n",ost[0])
+		fmt.Printf("oar =\n")
+		oar[0].ObjectEnumerator().ForIn(func(o *ns.Id) bool {
+			fmt.Printf("--%s\n",o.NSString())
+			return true
+		})
+	}
 }

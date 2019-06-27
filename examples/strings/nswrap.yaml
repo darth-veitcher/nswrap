@@ -1,19 +1,8 @@
 inputfiles:
     - /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
 classes:
-    - NSAutoreleasePool
-    - NSArray
-    - NSMutableArray
     - NSString
-    - NSDictionary
     - NSThread
-subclasses:
-    MyClass:
-        NSObject:
-            - dealloc
-            - release
-functions:
-    - NSMakeRange
 frameworks:
     - Foundation
 pragma: [ clang diagnostic ignored "-Wformat-security" ]

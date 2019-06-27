@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var Gogc bool
+
 //super is a map recording which class is the parent of each other class
 var super map[string]string
 
@@ -442,7 +444,7 @@ func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*T
 		case TypedefShouldWrap(ptgt) && !pt.Variadic && !fun:
 			p = pn + ".Ptr()"
 		case snames[i] != "":
-			p = "unsafe.Pointer(&" + snames[i] + "[0])"
+			p = "(*unsafe.Pointer)(unsafe.Pointer(&" + snames[i] + "[0]))"
 		case pt.Variadic:
 			p = "unsafe.Pointer(&" + p + ")"
 		case pt.IsPointer() && !fun:
@@ -478,6 +480,13 @@ func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*T
 		if IsGoInterface(ptgt) {
 			ptgt = "Id"
 		}
+		dogc := ""
+		if Gogc {
+			dogc = fmt.Sprintf(`
+			runtime.SetFinalizer((*%s)[i], func(o *%s) {
+				o.Release()
+			})`, pnames[i], ptgt)
+		}
 		ret.WriteString(fmt.Sprintf(`
 	(*%s) = (*%s)[:cap(*%s)]
 	for i := 0; i < len(*%s); i++ {
@@ -486,10 +495,10 @@ func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*T
 			break
 		}
 		if (*%s)[i] == nil {
-			(*%s)[i] = &%s{}
+			(*%s)[i] = &%s{}%s
 		}
 		(*%s)[i].ptr = %s[i]
-	}`, pnames[i], pnames[i], pnames[i], pnames[i], sname, pnames[i], pnames[i], pnames[i], pnames[i], ptgt, pnames[i], sname))
+	}`, pnames[i], pnames[i], pnames[i], pnames[i], sname, pnames[i], pnames[i], pnames[i], pnames[i], ptgt, dogc, pnames[i], sname))
 	}
 	if rt != "void" {
 		cmp := ""

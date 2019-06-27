@@ -19,6 +19,12 @@ import (
 var Debug = false
 var Profile = false
 
+//automatically add interfaces if they are found in the input interface
+//declarations
+var autoadd = []string{
+	"NSObject",
+}
+
 type conf struct {
 	Positions     bool
 	Package       string
@@ -39,6 +45,7 @@ type conf struct {
 	//Arc flag for debugging only, builds will break
 	Arc         bool
 	Autorelease bool
+	Nogc        bool
 }
 
 var Config conf
@@ -260,6 +267,9 @@ func Start() (err error) {
 		wrap.Autorelease = true
 		wrap.Gogc = false
 	}
+	if Config.Nogc {
+		wrap.Gogc = false
+	}
 
 	//NOTE: converting in parallel is slower on my system
 	//nodes := convertLinesToNodesParallel(lines)
@@ -293,6 +303,9 @@ func Start() (err error) {
 							Config.Classes = append(Config.Classes, x.Name)
 						}
 					}
+				}
+				if matches(x.Name, autoadd) {
+					Config.Classes = append(Config.Classes,x.Name)
 				}
 			case *ast.ObjCCategoryDecl:
 				w.AddCategory(x)

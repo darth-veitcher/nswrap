@@ -21,6 +21,10 @@ func pb2() {
 	a.Terminate(a)
 }
 
+func db() {
+	fmt.Println("button deallocated")
+}
+
 func didFinishLaunching(n *ns.NSNotification) {
 	fmt.Println("Go: did finish launching")
 	fmt.Printf("Notification: %s\n", n.Name().UTF8String())
@@ -68,12 +72,14 @@ func didFinishLaunching(n *ns.NSNotification) {
 
 	b1.Init()
 	b1.PressedCallback(pb1)
+	b1.DeallocCallback(db)
 	b1.SetAction(ns.Selector("pressed"))
 	b1.SetTarget(b1)
 	b1.SetTitle(nst("PUSH"))
 
 	b2.Init()
 	b2.PressedCallback(pb2)
+	b2.DeallocCallback(db)
 	b2.SetTarget(b2)
 	b2.SetAction(ns.Selector("pressed"))
 	b2.SetTitle(nst("QUIT"))
@@ -103,6 +109,7 @@ func didFinishLaunching(n *ns.NSNotification) {
 }
 
 func shouldTerminateAfterLastWindowClosed(s *ns.NSApplication) ns.BOOL {
+	fmt.Println("Go: should terminate after last window closed")
 	return 1
 }
 
@@ -117,6 +124,7 @@ func didBecomeActive(n *ns.NSNotification) {
 
 var (
 	a   *ns.NSApplication
+	del *ns.AppDelegate
 	win *ns.NSWindow
 )
 
@@ -127,7 +135,8 @@ func app() {
 	a.SetActivationPolicy(ns.NSApplicationActivationPolicyRegular)
 
 	// Set up an AppDelegate
-	del := ns.AppDelegateAlloc()
+	// assign it to a global variable so it doesn't get garbage collected
+	del = ns.AppDelegateAlloc()
 	del.ApplicationDidFinishLaunchingCallback(didFinishLaunching)
 	del.ApplicationShouldTerminateAfterLastWindowClosedCallback(shouldTerminateAfterLastWindowClosed)
 	del.ApplicationWillTerminateCallback(willTerminate)
@@ -149,6 +158,6 @@ func main() {
 	}()
 
 	// Run our app in an autorelease pool just for fun
-	go ns.Autoreleasepool(app)
+	go app()
 	select {}
 }

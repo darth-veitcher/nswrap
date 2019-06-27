@@ -70,7 +70,7 @@ func NewWrapper(debug bool) *Wrapper {
 	}
 	ret.goImports["unsafe"] = true
 	if Gogc {
-		ret.goImports["runtime"] = true
+		types.Gogc = true
 	}
 	ret.goTypes.WriteString(`
 type Id struct {
@@ -152,6 +152,8 @@ type Method struct {
 	Unavailable                  bool
 }
 
+// ShouldFinalize returns true on a method that returns an object that should
+// have a GC finalizer.
 func (m *Method) ShouldFinalize() bool {
 	grtype := m.Type.GoType()
 	return Gogc && grtype != "NSAutoreleasePool" &&
@@ -160,6 +162,8 @@ func (m *Method) ShouldFinalize() bool {
 }
 
 // IsRetained returns true if a given instance method returns a retained object.
+// NSWrap will not send a 'retain' message to these objects before returning
+// them to Go.
 func IsRetained(name string) bool {
 	return (
 		(len(name) >= 3 && name[:3] == "new") ||
@@ -300,10 +304,14 @@ func (w Wrapper) cparamlist(m *Method) (string, string, string) {
 	}
 	for _, p := range m.Parameters {
 		var tp string
-		wp := types.ShouldWrap(p.Type.GoType())
-		if wp || p.Type.IsPointer() || p.Type.Variadic {
+		gt := p.Type.GoType()
+		wp := types.ShouldWrap(gt)
+		switch {
+		case len(gt) > 2 && gt[:1] == "*" && types.PtrShouldWrap(gt[1:]):
+			tp = "void**"
+		case wp || p.Type.IsPointer() || p.Type.Variadic:
 			tp = "void*"
-		} else {
+		default:
 			tp = p.Type.CType()
 		}
 		ns = append(ns, p.Vname)
@@ -319,21 +327,28 @@ func (w Wrapper) objcparamlist(m *Method) string {
 	}
 	first := true
 	ret := []string{}
+	pname := ""
 	for _, p := range m.Parameters {
-		if first && !p.Type.Variadic {
-			ret = append(ret, m.Name+":"+p.Vname)
+		gt := p.Type.GoType()
+		if first {
 			first = false
+			pname = m.Name
 		} else {
-			if p.Type.Variadic {
-				str := []string{p.Pname + ", arr[0]"}
-				for i := 1; i < w.Vaargs; i++ {
-					str = append(str, "arr["+strconv.Itoa(i)+"]")
-				}
-				str = append(str, "nil")
-				ret = append(ret, strings.Join(str, ", "))
-			} else {
-				ret = append(ret, p.Pname+":"+p.Vname)
+			pname = p.Pname
+		}
+		switch {
+		case len(gt) > 2 && gt[:1] == "*" && types.PtrShouldWrap(gt[1:]):
+			ret = append(ret, pname+":("+p.Type.Node.CType()+")"+p.Vname)
+		case !p.Type.Variadic:
+			ret = append(ret, pname+":"+p.Vname)
+			first = false
+		case p.Type.Variadic:
+			str := []string{p.Pname + ", arr[0]"}
+			for i := 1; i < w.Vaargs; i++ {
+				str = append(str, "arr["+strconv.Itoa(i)+"]")
 			}
+			str = append(str, "nil")
+			ret = append(ret, strings.Join(str, ", "))
 		}
 	}
 	return strings.Join(ret, " ")
@@ -347,11 +362,13 @@ var goreserved map[string]bool = map[string]bool{
 	"len":   true,
 }
 
-func (w *Wrapper) gpntp(m *Method) ([]string, []string, []*types.Type, string) {
+func (w *Wrapper) gpntp(m *Method) ([]string, []string, []string, []*types.Type, string) {
 	ns := []string{}
+	pnames := []string{}
 	tps := []*types.Type{}
 	if !m.ClassMethod {
 		ns = append(ns, "o")
+		pnames = append(pnames, m.Name)
 		tps = append(tps, types.NewTypeFromString(m.Class+"*", ""))
 	}
 	for i, p := range m.Parameters {
@@ -363,6 +380,7 @@ func (w *Wrapper) gpntp(m *Method) ([]string, []string, []*types.Type, string) {
 			gname = fmt.Sprintf("p%d",i)
 		}
 		ns = append(ns, gname)
+		pnames = append(pnames, p.Pname)
 		tps = append(tps, p.Type)
 	}
 	w.processTypes(tps)
@@ -394,7 +412,7 @@ func (w *Wrapper) gpntp(m *Method) ([]string, []string, []*types.Type, string) {
 		}
 		ret = append(ret, ns[i]+" "+gt)
 	}
-	return ns, snames, tps, strings.Join(ret, ", ")
+	return ns, pnames, snames, tps, strings.Join(ret, ", ")
 }
 
 type Interface struct {
@@ -883,11 +901,17 @@ func (c *Char) Free() {
 }
 
 func (w *Wrapper) StringHelpers() {
-	w.goHelpers.WriteString(`
+	ufree := ""
+	if Gogc {
+		ufree = "utf8.Free()\n\t"
+	}
+	w.goHelpers.WriteString(fmt.Sprintf(`
 func (o *NSString) String() string {
-	return o.UTF8String().String()
+	utf8 := o.UTF8String()
+	ret := utf8.String()
+	%sreturn ret
 }
-`)
+`,ufree))
 }
 
 func (w *Wrapper) EnumeratorHelpers() {
@@ -1043,7 +1067,7 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 	} else {
 		cmtype = m.Type.CTypeAttrib()
 	}
-	ns, snames, tps, gplist := w.gpntp(m)
+	ns, pnames, snames, tps, gplist := w.gpntp(m)
 	if gname == grtype { // avoid name conflicts between methods and types
 		gname = "Get" + gname
 	}
@@ -1131,7 +1155,8 @@ func %s%s(%s) %s {
 }`, cret, cobj, w.objcparamlist(m)))
 		}
 	default:
-		if Gogc && !m.isVoid() {
+		//if Gogc && !m.isVoid() {
+		if Gogc {
 			rtn := ""
 			if types.PtrShouldWrap(m.Type.GoType()) {
 				switch {
@@ -1139,7 +1164,7 @@ func %s%s(%s) %s {
 					if grtype != "*NSAutoreleasePool" && constructor {
 			// retain objects returned by class constructor methods
 						rtn = `
-		[ret retain];`
+		if(ret != nil) { [ret retain]; }`
 					}
 
 				// do not retain new, alloc, init and copy methods
@@ -1149,19 +1174,48 @@ func %s%s(%s) %s {
 				// by default, for instance methods, retain
 				// if returning a new object
 					rtn = `
-		if (o != ret) { [ret retain]; }`
+		if (ret != nil && ret != o) { [ret retain]; }`
 				}
 			}
-			var ar1, ar2 string
-			if constructor || true {
-				ar1 = "@autoreleasepool {\n\t\t"
-				ar2 = "\n	}"
+			rtns := []string{}
+		// for pointers to pointers, assume length 1 unless there is a
+		// parameter named "range" or "count".
+			rlength := "i<1"
+			for i,n := range pnames {
+				vn := strings.ReplaceAll(ns[i],"_","")
+				if n == "range" {
+					rlength = "i<" + vn + ".length"
+				}
+				if n == "count" {
+					rlength = "i<" + vn
+				}
+			}
+			for i,n := range ns {
+				if snames[i] == "" {
+					continue
+				}
+				rtns = append(rtns,fmt.Sprintf(`
+		for(int i=0;%s;i++) {
+			if(%s[i] == 0) { break; }
+			[(id)%s[i] retain];
+		}
+	`, rlength, n, n))
+			}
+			var retdecl, reteq, retretn, dup1, dup2 string
+			if !m.isVoid() {
+				retdecl = fmt.Sprintf("%s ret;\n\t", m.Type.CTypeAttrib())
+				reteq = "ret = "
+				retretn = "\n\treturn ret;\n"
+				if m.Type.CType() == "char*" {
+					dup1 = "strdup("
+					dup2 = ")"
+				}
 			}
 			w.cCode.WriteString(fmt.Sprintf(
-`	%s ret;
-	%sret = [%s %s];%s%s
-	return ret;
-}`, m.Type.CTypeAttrib(), ar1, cobj, w.objcparamlist(m), rtn, ar2))
+`	%s@autoreleasepool {
+		%s%s[%s %s]%s;%s%s
+	}%s
+}`, retdecl, reteq, dup1, cobj, w.objcparamlist(m), dup2, rtn, strings.Join(rtns,"\n\t"), retretn))
 		} else {
 			w.cCode.WriteString(fmt.Sprintf(`	%s[%s %s];
 }`, cret, cobj, w.objcparamlist(m)))
@@ -1182,6 +1236,7 @@ func %s%s(%s) %s {
 			dbg2 = fmt.Sprintf(`fmt.Printf("GC finalizer (%s): release %%p -> %%p\n", o, o.ptr)
 		`, cls)
 		}
+		w.goImports["runtime"] = true
 		w.goCode.WriteString(fmt.Sprintf(`
 func (o *%s) GC() {
 	if o.ptr == nil { return }
@@ -1916,7 +1971,7 @@ func %s%s(%s)%s {
 			gocode.WriteString(fmt.Sprintf(`
 func (o *%s) Super%s(%s) %s {
 `, gname, gnames[i], strings.Join(earglist[1:], ", "), grtype))
-			ns, snames, tps, _ := w.gpntp(m)
+			ns, _, snames, tps, _ := w.gpntp(m)
 			lparm := len(tps) - 1
 			if len(tps) > 0 && tps[lparm].Variadic {
 				vn := ns[lparm]
@@ -2157,14 +2212,31 @@ func (w *Wrapper) Wrap(toproc []string) {
 	for k := range w.goImports {
 		imports = append(imports,"\t\"" + k + "\"")
 	}
+	startThread := ""
+	goInit := ""
+	if w.Interfaces["NSThread"] != nil {
+		startThread = `
+void
+NSWrap_init() {
+	[[NSThread new] start]; // put the runtime into multi-threaded mode
+}
+`
+		goInit = `
+func init() {
+	C.NSWrap_init()
+}
+`
+	}
 	of.WriteString(fmt.Sprintf(`
+%s
 */
 import "C"
 
 import (
 %s
 )
-`,strings.Join(imports,"\n")))
+%s
+`,startThread,strings.Join(imports,"\n"),goInit))
 	of.WriteString(w.goTypes.String())
 	of.WriteString(w.goConst.String())
 	of.WriteString(w.goHelpers.String())

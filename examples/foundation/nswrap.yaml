@@ -19,7 +19,7 @@ classes:
     - NSFileManager
     - NSObject
 functions: [ NSMakeRange ]
-enums: [ P_ALL, CF.* ]
+enums: [ P_ALL, CF.*, .*StringEncoding ]
 frameworks: [ Foundation ]
 pragma: [ clang diagnostic ignored "-Wformat-security" ]
 vaargs: 32

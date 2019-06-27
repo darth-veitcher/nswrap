@@ -103,7 +103,7 @@ func memtest3() {
 		// check that our string was retained.
 
 		s1 := arr.ObjectAtIndex(0)
-		gstr := s1.NSString().UTF8String().String()
+		gstr := s1.NSString().String()
 		_ = gstr
 	}
 }
@@ -122,6 +122,7 @@ func memtest4() {
 		_ = c1
 		runtime.GC()
 		time.Sleep(time.Second/50)
+		c1.Free() // you need to manually free UTF8Strings
 	}
 }
 
@@ -145,22 +146,78 @@ func memtest5() {
 		u := sub.UTF8String()
 		u2 := sub2.UTF8String()
 		u3 := sub3.UTF8String()
-		_ = u
-		_ = u2
-		_ = u3
 		time.Sleep(time.Second/50)
 		runtime.GC()
 		i++
+		u.Free()
+		u2.Free()
+		u3.Free()
+		_ = u
+		_ = u2
+		_ = u3
 		//fmt.Printf("loop completed\n")
 	}
 }
 
+func tmpdict(i int) *ns.NSString {
+	o1 := ns.NSStringWithGoString(fmt.Sprintf("temp string 1-%d",i))
+	o2 := ns.NSStringWithGoString(fmt.Sprintf("temp string 2-%d",i))
+	k1 := ns.NSStringWithGoString(fmt.Sprintf("temp key 1-%d",i))
+	k2 := ns.NSStringWithGoString(fmt.Sprintf("temp key 2-%d",i))
+	dict := ns.NSDictionaryWithObjectsAndKeys(o1,k1,o2,k2)
+	ret := dict.ValueForKey(k1)
+	//fmt.Printf("tmpdict(): string = %s\n",ret.NSString())
+
+	defer runtime.GC() // o1, o2, k1, k2, and dict can be released after we return
+	return ret.NSString() // should be retained by NSDictionary.ValueForKey()
+}
+
+func tmparr(i int) *ns.NSString {
+	o1 := ns.NSStringWithGoString(fmt.Sprintf("temp string 3-%d",i))
+	o2 := ns.NSStringWithGoString(fmt.Sprintf("temp string 4-%d",i))
+	arr := ns.NSArrayWithObjects(o1,o2)
+	os := make([]*ns.Id,0,2)
+	arr.GetObjects(&os, ns.NSMakeRange(0,2))
+
+	defer runtime.GC() // collect o1, o2 and arr
+	return os[1].NSString() // should have been retained by NSArray.GetObjects()
+}
+
+
+func memtest6() {
+	fmt.Println("memtest6 started")
+	i := 0
+	for {
+		s1 := tmpdict(i)
+		s2 := tmparr(i)
+		time.Sleep(time.Second / 5)
+		u1 := s1.String() // make sure s1 and s2 are still available
+		u2 := s2.String()
+		e1 := fmt.Sprintf("temp string 1-%d",i)
+		if u1 != e1 {
+			fmt.Printf("tmpdict() error: %s != %s\n",u1,e1)
+		}
+		e2 := fmt.Sprintf("temp string 4-%d",i)
+		if u2 != e2 {
+			fmt.Printf("tmparr() error: %s != %s\n",u2,e2)
+
+		}
+		i++
+	}
+}
+
 func main() {
+	fmt.Printf("MultiThreaded? %t\n", ns.NSThreadIsMultiThreaded())
+	th := ns.NSThreadNew()
+	th.Start()
+	fmt.Printf("MultiThreaded? %t\n", ns.NSThreadIsMultiThreaded())
 	go memtest1()
 	go memtest2()
 	go memtest3()
 	go memtest4()
 	go memtest5()
+	go memtest6()
+
 	go func() {
 		for {
 			// print a progress indicator

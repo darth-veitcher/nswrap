@@ -41,6 +41,7 @@ subclasses:
     GButton:
         NSButton:
             - -(void)pressed
+            - dealloc
 
 frameworks: [ Foundation, AppKit ]
 pragma: [ clang diagnostic ignored "-Wformat-security" ]

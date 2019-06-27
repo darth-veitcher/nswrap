@@ -217,9 +217,7 @@ type NSObject interface {
 type NSString struct { Id }
 func (o *NSString) Ptr() unsafe.Pointer { if o == nil { return nil }; return o.ptr }
 func (o *Id) NSString() *NSString {
-	ret := &NSString{}
-	ret.ptr = o.ptr
-	return ret
+	return (*NSString)(unsafe.Pointer(o))
 }
 `)
 	str = "int(void)"
@@ -276,7 +274,7 @@ func (o *Id) NSString() *NSString {
 	snames := []string{"", "", "", ""}
 
 	chk_gotoc := func(expected string) {
-		chk(GoToC("myFun", pnames, snames, rtype, ptypes, false, false, false), expected)
+		chk(GoToC("myFun", "myFun", pnames, snames, rtype, ptypes, false, false, false), expected)
 	}
 
 	chk_gotoc("")
@@ -298,12 +296,16 @@ func (o *Id) NSString() *NSString {
 	chk_gotoc(
 		`ret := &NSString{}
 	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4)))
+	if ret.ptr == nil { return ret }
+	if ret.ptr == o.ptr { return (*NSString)(unsafe.Pointer(o)) }
 	return ret`)
 
 	rtype = nsop
 	chk_gotoc(
 		`ret := &Id{}
 	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4)))
+	if ret.ptr == nil { return ret }
+	if ret.ptr == o.ptr { return (*Id)(unsafe.Pointer(o)) }
 	return ret`)
 
 	ptypes[1].Variadic = true
@@ -311,6 +313,8 @@ func (o *Id) NSString() *NSString {
 	chk_gotoc(
 		`ret := &Id{}
 	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), unsafe.Pointer(&p2), (C.int)(p3), unsafe.Pointer(p4)))
+	if ret.ptr == nil { return ret }
+	if ret.ptr == o.ptr { return (*Id)(unsafe.Pointer(o)) }
 	return ret`)
 
 	ptypes[1].Variadic = false
@@ -318,7 +322,7 @@ func (o *Id) NSString() *NSString {
 	ptypes[1] = nsopp
 	chk_gotoc(
 		`ret := &Id{}
-	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), unsafe.Pointer(&p2p[0]), (C.int)(p3), unsafe.Pointer(p4)))
+	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), (*unsafe.Pointer)(unsafe.Pointer(&p2p[0])), (C.int)(p3), unsafe.Pointer(p4)))
 	(*p2) = (*p2)[:cap(*p2)]
 	for i := 0; i < len(*p2); i++ {
 		if p2p[i] == nil {
@@ -330,6 +334,8 @@ func (o *Id) NSString() *NSString {
 		}
 		(*p2)[i].ptr = p2p[i]
 	}
+	if ret.ptr == nil { return ret }
+	if ret.ptr == o.ptr { return (*Id)(unsafe.Pointer(o)) }
 	return ret`)
 	snames[1] = ""
 	snames[2] = "p3p"
@@ -337,7 +343,7 @@ func (o *Id) NSString() *NSString {
 	ptypes[2] = nstpp
 	chk_gotoc(
 		`ret := &Id{}
-	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), unsafe.Pointer(&p3p[0]), unsafe.Pointer(p4)))
+	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (*unsafe.Pointer)(unsafe.Pointer(&p3p[0])), unsafe.Pointer(p4)))
 	(*p3) = (*p3)[:cap(*p3)]
 	for i := 0; i < len(*p3); i++ {
 		if p3p[i] == nil {
@@ -349,11 +355,13 @@ func (o *Id) NSString() *NSString {
 		}
 		(*p3)[i].ptr = p3p[i]
 	}
+	if ret.ptr == nil { return ret }
+	if ret.ptr == o.ptr { return (*Id)(unsafe.Pointer(o)) }
 	return ret`)
 
-	chk(GoToC("myFun", pnames, snames, rtype, ptypes, true, false, false),
+	chk(GoToC("myFun", "myFun", pnames, snames, rtype, ptypes, true, false, false),
 		`ret := &Id{}
-	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), unsafe.Pointer(&p3p[0]), p4))
+	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (*unsafe.Pointer)(unsafe.Pointer(&p3p[0])), p4))
 	(*p3) = (*p3)[:cap(*p3)]
 	for i := 0; i < len(*p3); i++ {
 		if p3p[i] == nil {
@@ -365,5 +373,7 @@ func (o *Id) NSString() *NSString {
 		}
 		(*p3)[i].ptr = p3p[i]
 	}
+	if ret.ptr == nil { return ret }
+	if ret.ptr == o.ptr { return (*Id)(unsafe.Pointer(o)) }
 	return ret`)
 }

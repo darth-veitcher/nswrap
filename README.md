@@ -62,6 +62,8 @@ pragma [ clang diagnostic ignored "-Wformat-security" ]
 
 Regular expressions are permitted in the names of classes, functions,
 protocols and protocol methods, overridden superclass methods, and enums.
+Since the `NSObject` class is necessary for memory management, NSWrap will
+automatically include it if it is encountered in an input header file.
 
 When invoked, NSWrap creates a subdirectory with the name of the package
 as specified in `nswrap.yaml` or, by default, `ns` if a package name is not
@@ -131,14 +133,14 @@ For example, `NSString` provides the folowing `compare` methods:
 These are translated into Go as:
 
 ```go
-func (o NSString) Compare(string NSString) NSComparisonResult { }
+func (o *NSString) Compare(string *NSString) NSComparisonResult { }
 
-func (o NSString) CompareOptions(string NSString, mask NSStringCompareOptions) NSComparisonResult { }
+func (o *NSString) CompareOptions(string *NSString, mask NSStringCompareOptions) NSComparisonResult { }
 
-func (o NSString) CompareOptionsRange(string NSString, mask NSStringCompareOptions,
+func (o *NSString) CompareOptionsRange(string *NSString, mask NSStringCompareOptions,
 	rangeOfReceiverToCompare NSRange) NSComparisonResult { }
 
-func (o NSString) CompareOptionsRangeLocale(string NSString, mask NSStringCompareOptions,
+func (o *NSString) CompareOptionsRangeLocale(string *NSString, mask NSStringCompareOptions,
 	rangeOfReceiverToCompare NSRange, locale NSObject) NSComparisonResult { }
 ```
 
@@ -156,11 +158,45 @@ fmt.Printf("%s\n",str)
 NSWrap creates a `Char` Go type that is equivalent to a C `char`. A pointer to
 `Char` in Go code can therefore be used with Objective-C functions and methods
 that take a `char*` parameter.
+
+When NSWrap binds a method that returns `*Char` (and is in garbage collected mode,
+the default), it first calls `strdup`
+on the output of the underlying Objective-C method. Therefore, the returned
+pointer is manually allocated and will need to be freed later from Go. NSWrap
+creates a
+`(*Char).Free()` method for use when these pointers are no longer needed.
+This copying is necessary because the Objective-C runtime will sometimes
+return pointers to internal objects that are impossible to manage from the
+Go side. NSWrap aims to cause any internal objects to be deallocated as soon
+as possible so they do not cause memory leaks. This means that any returned
+C strings need to be copied and memory managed manually from the Go side.
+
 NSWrap provides the helper functions `CharWithGoString` and `CharWithBytes`
 that take, respectively, Go strings and Go byte arrays (`[]byte`) and return
-`*Char` in Go. As demonstrated above, NSWrap also provides a `String()`
-methods so that the `*Char` and `NSString` types implement the `Stringer`
-Go interface.
+`*Char` in Go. As demonstrated above, NSWrap also provides `String()`
+methods so that the `*Char` and `*NSString` types implement the `Stringer`
+Go interface and therefore can be sent directly to functions like `fmt.Printf`.
+The `String()` method on `*NSString` creates a temporary `*Char` internally
+but frees it for you before returning. Since methods returning
+`*Char` return a pointer that needs to be manually freed, it is important
+to use these properly in order to avoid leaks:
+
+```go
+nst := ns.NSStringWithGoString("one string")
+
+// NO: the next line leaks a *Char (UTF8String)
+//mygostring := nst.UTF8String().String()
+
+// OK: NSWrap creates a temporary *Char and frees it for you:
+mygostring := nst.String()
+
+// ALSO OK: manually free your own temporary *Char:
+mytmpchar := nst.UTF8String()
+mygostring = mytmpchar.String()
+mytmpchar.Free()
+```
+In most cases it will be more convenient to convert directly to Go strings instead
+of `*Char`.
 
 ## Working With NSObject and its Descendants
 
@@ -171,14 +207,23 @@ follows:
 type Id struct {
 	ptr unsafe.Pointer
 }
-func (o Id) Ptr() unsafe.Pointer { return o.ptr }
+func (o *Id) Ptr() unsafe.Pointer { if o == nil { return nil }; return o.ptr }
 
 type NSObject interface {
 	Ptr() unsafe.Pointer
 }
 ```
 Other object types in Go are structs that directly or indirectly embed `Id`
-and therefore implement `NSObject`.
+and therefore contain an `unsafe.Pointer` to an Objective-C object, and
+implement `NSObject` by inheriting the `Ptr()` method.
+
+Because of this implementation, you will note that every Objective-C object
+is represented by at least two pointers -- an underlying pointer to the 
+Objective-C object
+in CGo memory (allocated by the Objective-C runtime), as well as a pointer
+allocated by the Go runtime to an `Id` type, or to another type that directly
+or indirectly embeds `Id`. This "dual pointer" approach is necessary to ensure
+that memory management can be made to work correctly (see below for details).
 
 * The NSObject Interface
 
@@ -190,7 +235,7 @@ embeds `Id` to be used with generic Objective-C functions. For example:
 
 ```go
 o1 := ns.NSStringWithGoString("my string")
-s1 := ns.NSSetWithOBjects(o1)
+s1 := ns.NSSetWithObjects(o1)
 a := ns.NSMutableArrayWithObjects(o1,s1)
 ```
 Since `NSString` and `NSSet` in Go both implement the `NSObject` interface,
@@ -204,70 +249,73 @@ implements the required delegate protocol.
 
 * Inheritance
 
-Objective-C only provides single inheritance. In Go, this is modeled using
-embedding. Top level objects that inherit from `NSObject` in Objective-C
+Objective-C allows single inheritance. NSWrap automatically adds
+inherited methods to classes that are includled in your binding.
+
+Types created by NSWrap also "embed" their parent class. For example, top
+level objects that inherit from `NSObject` in Objective-C
 embed the Go type `Id` and therefore implement the `NSObject` Go interface.
-Other objects embed their superclass. For example:
+Other objects embed their direct superclass. For example:
 
 ```go
 type NSArray struct { Id }
-func (o NSArray) Ptr() unsafe.Pointer { return o.ptr }
-func (o Id) NSArray() NSArray {
-	ret := NSArray{}
-	ret.ptr = o.ptr
-	return ret
+func (o *NSArray) Ptr() unsafe.Pointer { if o == nil { return nil }; return o.ptr }
+func (o *Id) NSArray() *NSArray {
+	return (*NSArray)(unsafe.Pointer(o))
 }
 
 type NSMutableArray struct { NSArray }
-func (o NSMutableArray) Ptr() unsafe.Pointer { return o.ptr }
-func (o Id) NSMutableArray() NSMutableArray {...}
+func (o *NSMutableArray) Ptr() unsafe.Pointer { if o == nil { return nil }; return o.ptr }
+func (o *Id) NSMutableArray() *NSMutableArray {
+        return (*NSMutableArray)(unsafe.Pointer(o))
+}
 ```
 
 Observe:
 ```go
 b := ns.NSButtonAlloc()        // NSButton > NSControl > NSView > NSResponder > NSObject
-b.InitWithFrame(ns.NSMakeRect(100,100,200,200)) // Method of NSView
-b.SetTitle(nst("PUSH"))                         // Method of NSButton
+b.InitWithFrame(ns.NSMakeRect(100,100,200,200))
+b.SetTitle(nst("PUSH"))
 vw := win.ContentView()
-vw.AddSubview(b.NSView)				// Pass the button's embedded NSView
+vw.AddSubview(&b.NSView)	// Pass the button's embedded NSView
 ```
 In Go, `NSButtonAlloc` returns a Go object of type `ns.NSButton`. However,
-there is no `InitWithFrame` method for receivers of this type. This is
-not necessary because `NSButton` embeds `NSControl` which in turn embeds
-`NSView`. The `InitWithFrame` method only needs to be implemented for `NSView`
-receivers. Go will automatically find the indirectly embedded `NSView` and
-call the right method.
+the `initWithFrame` method is defined in AppKit for `NSView`. NSWrap will find this
+method and add it to the Go `NSButton` type when creating your wrapper because
+`NSButton` inherits from `NSControl` which inherits from `NSView`.
 
-Note that, since `InitWithFrame()` is defined only for `NSView` and returns
-an `NSView` type,
-the following will not work. Look out for this if you like to chain your
-`Alloc` and `Init` methods and are getting type errors:
-
-```go
-//DO NOT DO THIS -- InitWithFrame returns NSView, not NSButton
-b := ns.NSButtonAlloc().InitWithFrame(ns.MakeRect(100,100,200,200))
-```
-
-Go has no trouble finding embedded methods for your `NSButton` and will
-happily search up the chain through `NSControl`, `NSView`, `NSResponder` and
-`NSObject` and all of their associated protocols and categories. As of this
-writing, on MacOS 10.13.6, NSWrap binds 90 instance methods for `NSObject`,
-so things like `Hash()`, `IsEqualTo()`, `ClassName()`, `RespondsToSelector`
+As of this
+writing, on MacOS 10.13.6, NSWrap binds 115 instance methods for `NSObject`,
+so things like `Hash()`, `IsEqualTo()`, `ClassName()`, `RespondsToSelector()`
 and many many others are available and can be called on any object directly
 from Go.
 
-Go does not perform the same type
-magic when you use variables as function or method parameters.
-If you want to pass your `NSButton` as a parameter to a method that accepts
-an `NSView` type, you need to explicitly pass the embedded `NSView`
-(`b.NSView` in the example above).
+All objects implement the `NSObject` interface, but from time to time you
+will encounter a method that takes a parameter of a different type that may
+not exactly match the type you have. For example, if you want to pass your
+`NSButton` as a parameter to a method that accepts an `NSView` type, you need
+to explicitly pass its embedded `NSView` (`&b.NSView` in the example above).
+This approach is safer than "converting" the button to an `NSView` (see below)
+because it will only work on objects that directly or indirectly embed an
+`NSView` Go type.
 
 NSWrap creates a method for `Id` allowing objects to be converted
-at run-time to any other class. You will need this for Enumerators, which
-always return `Id`. See below under Enumerators for an example, but make
+at run-time to any other class. You will need this for Enumerators and
+functions like `NSArray`'s `GetObjects`, for example,
+which always return `*Id`. Make
 sure you know (or test) what type your objects are before converting them.
-You can
-implement a somewhat less convenient version of a Go type switch this way.
+You can implement a version of a Go type switch this way:
+
+```go
+switch {
+case o.IsKindOfClass(ns.NSStringClass()):
+        // do something with o.NSString()
+case o.IsKindOfClass(ns.NSSetClass()):
+        // do something with o.NSSet()
+default:
+        ...
+}
+```
 
 Because `Id` can be converted to any type, and every object in the Foundation
 classes inherits from `Id`, it is possible to send any message to any
@@ -314,11 +362,12 @@ functions.
 Pointers to pointers are sometimes passed to Objective-C methods or functions
 as a way of receiving output from those functions, especially because
 Objective-C does not allow for multiple return values. In those cases, after
-the CGo call, the method parameter will be treated as a nil-terminated array of
+the CGo call, the method parameter will be treated as an array of
 object pointers that may have been modified by the Objective-C function or
 method. NSWrap will copy the object pointers back into the input Go slice, up
 to its capacity (which will never be changed). The input Go slice is then
-truncated to the appropriate length.
+truncated to the appropriate length. If there is no output, the length will
+be set to 0.
 
 An example in Core Foundation is the `getObjects:andKeys:count` method for
 `NSDictionary`:
@@ -329,28 +378,31 @@ An example in Core Foundation is the `getObjects:andKeys:count` method for
                 ns.NSArrayWithObjects(nst("obj1"),nst("obj2")),
                 ns.NSArrayWithObjects(nst("key1"),nst("key2")),
         )
-        os,ks := make([]ns.Id,0,5), make([]ns.Id,0,5)  // length 0, capacity 5 slices
-        dict.GetObjects(&os,&ks,5)
-	// last parameter is the count, must be less than or equal to the input slice capacity
-        fmt.Printf("Length of os is now %d\n",len(os)) // os and ks slices are now length = 2
-        for i,k := range ks {
-                fmt.Printf("-- %s -> %s\n",k.NSString(),os[i].NSString())
+        va,ka := make([]*ns.Id,0,5), make([]*ns.Id,0,5)  // length 0, capacity 5 slices
+        dict.GetObjects(&va,&ka,5)
+	// last parameter to GetObjects is the count, must be less than or equal to the input slice capacity
+        fmt.Printf("Length of va is now %d\n",len(va)) // va and ka slices are now length = 2
+        for i,k := range ka {
+                fmt.Printf("-- %s -> %s\n",k.NSString(),va[i].NSString())
         }
 ```
 
-NSWrap will never check the "count" parameter, so the user will always need
+NSWrap will not check the "count" parameter, so the user will always need
 to make sure it is less than or equal to the capacity of the input
 Go slices.
 
 Using pointers to pointers is necessary in many Core Foundation situations
-where you need to get an error message out of a function or method.
+where you need to get an error message out of a function or method, or in other
+cases where an Objective-C method wants to provide multiple return values.
 Here is an example using `[NSString stringWithContentsOfURL...]`:
 
 ```go
-        err := make([]ns.NSError,1)
-        n1 = ns.NSStringWithContentsOfURLEncoding(ns.NSURLWithGoString("htttypo://example.com"),0,&err)
-        fmt.Printf("err: %s\n",err[0].LocalizedDescription())
+        err := make([]*ns.NSError,1)
+        n1 = ns.NSStringWithContentsOfURLEncoding(ns.NSURLWithGoString("htttypo://example.com"), 0, &err)
+	if len(err) > 0 {
+        	fmt.Printf("err: %s\n",err[0].LocalizedDescription())
 //err: The file couldn’t be opened because URL type htttypo isn’t supported.
+	}
 ```
 
 ## Selectors
@@ -370,15 +422,17 @@ appMenu.AddItemWithTitle(
 ## Enumerators
 
 NSWrap provides a `ForIn` method for the `NSEnumerator` type. Call it with a
-`func(ns.Id) bool` parameter that returns `true` to continue and `false` to
+`func(*ns.Id) bool` parameter that returns `true` to continue and `false` to
 stop the enumeration.
 
 ```go
 a := ns.NSArrayWithObjects(o1,o2,o3)
-a.ObjectEnumerator().ForIn(func (o ns.Id) bool {
+i := 0
+a.ObjectEnumerator().ForIn(func (o *ns.Id) bool {
 	switch {
 	case o.IsKindOfClass(ns.NSStringClass()):
-		fmt.Println(o.NSString().UTF8String())
+		fmt.Printf("%d: %s\n", i, o.NSString())
+		i++
 		return true  // continue enumeration
 	default:
 		fmt.Println("Unknown class")
@@ -392,7 +446,7 @@ identification.
 
 ## Enum Definitions
 
-NSWrap translates C `enum` values into Go constants. The enums you need are
+NSWrap translates C `enum` values into Go constants. The enums you want are
 specified in `nswrap.yaml` by regular expression, which, in the case of named
 enums, must match the name of the `enum` itself, or in the case of anonymous
 enums, must match the name of the constant(s) you are looking for as declared
@@ -425,70 +479,6 @@ const _CLOCK_MONOTONIC  = C._CLOCK_MONOTONIC
 const _CLOCK_MONOTONIC_RAW  = C._CLOCK_MONOTONIC_RAW
 ...
 ```
-
-
-## Memory management
-
-Objective-C objects are always allocated and returned from CGo code, and
-therefore these pointers are not garbage collected by Go. You can use any
-of the standard Objective-C memory management techniques for those pointers,
-which seem to work but have not been extensively tested.
-
-Since everything inherits methods from `NSObject`, you can call `Retain()`,
-`Release()` and `Autorelease()` on any object.
-
-If the autorelease configuration directive is set to "true", all allocation functions
-created by NSWrap (i.e. those ending in `Alloc`) will call `autorelease` before they
-return an object. Alternately, objects can be manually sent an autorelease message.
-If you are not working in an environment (such as an
-Application Delegate callback) that provides an autorelease pool, you can
-create your own:
-
-* Work directly with `NSAutoreleasePool` objects
-
-```go
-swamp := ns.NSAutoreleasePoolAlloc().Init()
-del := ns.AppDelegateAlloc()
-//del.Autorelease() // if autorelease: true is not set in nswrap.yaml
-menu := ns.NSMenuAlloc().InitWithTitle(nst("Main"))
-//menu.Autorelease()
-str := ns.NSStringWithGoString("these objects will be automatically deallocated when swamp is drained.")
-...
-swamp.Drain()
-```
-
-* ...or use the `AutoreleasePool()` helper function
-
-NSWrap provides a helper function that can be passed a `func()` with no
-parameters or return value. It is conventient to give it an anonymous function
-and write your code in line, just like you would if you were using an
-`@autoreleasepool { }` block.
-
-```go
-ns.AutoreleasePool(func() {
-	a := MyObjectAlloc().Init()
-	b := MyOtherObjectAlloc().Init()
-	...
-})
-```
-
-You will need to make sure `NSAutoreleasePool` is included in the `classes`
-directive in your configuration file before working with
-`NSAutoreleasePool` objects or the `AutoreleasePool` helper function.
-
-* Pitfalls
-
-Go concurrency does not play well with Objective-C memory management. In particular,
-an AutoreleasePool needs to be allocated and drained from the same thread, and
-only objects allocated within that thread will be drained. Objects allocated and
-autoreleased from a different goroutine in the same thread are at risk of being
-prematurely drained. Therefore, you should only work with one AutoreleasePool at
-a time, and only within a thread that is locked to the OS thread
-(by calling `runtime.LockOSThread()`). If you will be allocating Objective-C objects
-from multiple goroutines, it is best not to use the `autorelease: true` directive
-as that will cause all objects to receive an `autorelease` message even if they are
-created outside the thread where are using your autorelease pool.
-See `examples/memory` for some basic tests and read the comments to larn what to avoid.
 
 ## Delegates
 
@@ -531,7 +521,8 @@ registered,
 it will be called with all of its parameters converted to their Go type
 equivalents. User-defined callbacks are registered by calling a function
 with the method name in TitleCase + `Callback`, so in the example above,
-you would call `ns.CentralManagerDidUpdateStateCallback(...)` with the name of
+if your delegate was named `del`, you would call
+`del.CentralManagerDidUpdateStateCallback(...)` with the name of
 your callback function to register to receive notifications when your central
 manager updates its state.
 
@@ -547,11 +538,16 @@ func cb(c ns.CBCentralManager) {
 	...
 }
 
+var (
+	del *ns.CBDelegate // use global variables so these don't get garbage collected
+	cm *ns.CBCentralManager
+)
+
 func main() {
 	...
-	del := ns.CBDelegateAlloc()
+	del = ns.CBDelegateAlloc()
 	del.CentralManagerDidUpdateStateCallback(cb)
-	cm := ns.CBCentralManagerAlloc().InitWithDelegateQueue(del,queue)
+	cm = ns.CBCentralManagerAlloc().InitWithDelegateQueue(del,queue)
 ```
 
 When you provide user-defined callback functions, you will need to specify
@@ -562,12 +558,12 @@ messages will point you in the right direction.
 
 ```
 $ go build
-./main.go:127:43: cannot use didFinishLaunching (type func(ns.NSNotification, bool)) as type
-func(ns.NSNotification) in argument to del.ApplicationDidFinishLaunchingCallback
+./main.go:127:43: cannot use didFinishLaunching (type func(*ns.NSNotification, bool)) as type
+func(*ns.NSNotification) in argument to del.ApplicationDidFinishLaunchingCallback
 ```
 In the above example, the build failed because an extra `bool` parameter was
 included in the callback function. The compiler is telling you that the right
-type for the callback is `func(ns.NSNotification)` with no return value.
+type for the callback is `func(*ns.NSNotification)` with no return value.
 
 ## Working with AppKit
 
@@ -576,8 +572,7 @@ Delegate. This allows you to build a Cocoa application entirely in Go.
 
 Because AppKit uses thread local storage, you will need to make sure all
 calls into it are done from the main OS thread. This can be a challenge in
-Go even though runtime.LockOSThread() is supposed to provide
-this functionality.
+Go and you will want to make use of `runtime.LockOSThread()`.
 
 This is actually a full working Cocoa application:
 
@@ -618,24 +613,30 @@ import (
 	"git.wow.st/gmp/nswrap/examples/app/ns" // point to your own NSWrap output directory
 )
 
-func didFinishLaunching(n ns.NSNotification) {
+func didFinishLaunching(n *ns.NSNotification) {
 	fmt.Println("Go: did finish launching!")
 }
 
-func shouldTerminate(s ns.NSApplication) ns.BOOL {
+func shouldTerminate(s *ns.NSApplication) ns.BOOL {
 	return 1
 }
 
+var (
+	a *ns.NSApplication // global vars so these are not garbage collected
+	del *ns.AppDelegate
+	win *ns.NSWindow
+)
+
 func main() {
 	runtime.LockOSThread()
-	a := ns.NSApplicationSharedApplication()
+	a = ns.NSApplicationSharedApplication()
 	a.SetActivationPolicy(ns.NSApplicationActivationPolicyRegular)
-	del := ns.AppDelegateAlloc()
+	del = ns.AppDelegateAlloc()
 	del.ApplicationDidFinishLaunchingCallback(didFinishLaunching)
 	del.ApplicationShouldTerminateAfterLastWindowClosedCallback(shouldTerminate)
 	a.SetDelegate(del)
 
-	win := ns.NSWindowAlloc().InitWithContentRectStyleMask(
+	win = ns.NSWindowAlloc().InitWithContentRectStyleMask(
 		ns.NSMakeRect(200,200,600,600),
 		ns.NSWindowStyleMaskTitled | ns.NSWindowStyleMaskClosable,
 		ns.NSBackingStoreBuffered,
@@ -647,7 +648,7 @@ func main() {
 }
 ```
 
-Pretty simple right? Not really, NSWrap just generated almost 15,000 lines of
+Pretty simple right? Not really, NSWrap just generated over 39,000 lines of
 code. See `examples/app` for a slightly more complex example with working
 menus, visual format-based auto layout, and a custom button class.
 
@@ -667,7 +668,7 @@ subclasses:
     yourClass:                  # the superclass to inherit from
       - init.*                  # what methods to override
       - -(void)hi_there:(int)x  # Objective-C prototype of your new method(s)
-#       |--this hyphen indicates that this is an instance method
+#       \--the initial hyphen indicates that this is an instance method
 ```
 
 In the example above, your new class will be named `myClass` in Objective-C
@@ -728,9 +729,109 @@ Later on you can add your new button to a view and tell Cocoa where to lay
 it out. It's all a little verbose, but that's because for some reason you
 decided to write Objective-C code in Go.
 
+## Memory management
+
+As mentioned above, NSWrap is designed for there to be at least one Go pointer
+associated with each underlying Objective-C object pointer.
+Since Objective-C memory
+is always allocated by the Objective-C runtime, it is not possible for the Go
+runtime to have visibility into these memory regions or to directly manage memory
+used by the CGo code. However, Go will keep track of the associated Go pointer
+that was created the first time the corresponding Objective-C object was passed
+over to the Go side and an `Id` or other NSWrap struct type was allocated.
+Because of this,
+it is possible to hook into the Go garbage collection system in an attempt to
+manage Objective-C memory strictly from the Go side. When there are no remaining Go
+pointers to an NSWrap `Id` struct, it will be deallocated by the Go garbage collector
+and a finalizer will be called that `release`es the corresponding Objective-C
+object.
+
+The memory management rules work as follows:
+
+* Objects in Go are represented by pointers to types that implement the `NSObject`
+interface
+* NSObject has one method, `Ptr()`, which returns an `unsafe.Pointer` to an 
+Objective-C object.
+* All methods that return objects to Go call `retain` except for `new`, `init`,
+`alloc`, `copy` and `mutableCopy`, which already return retained objects from the
+Objective-C runtime.
+* Go wrappers for Objective-C methods call `runtime.SetFinalizer()`, which calls
+`release` when the associated Go struct is garbage collected.
+* All Objective-C methods are run inside an `@autoreleasepool {}` block to prevent
+internal memory leaks within the Objective-C libraries and frameworks.
+* Objects sent to you in callback functions are not memory managed by Go
+and must be manually
+managed using `Retain()` and `Release()` methods if you need to take ownership of them.
+A rule of thumb is that if you assign such an object to a persistent Go variable for
+use outside of the callback, call `Retain()`.
+
+Because of the linkage with the Go garbage collector described above, there should be
+no need for any memory management code to be written from the Go side, except in the
+case mentioned above where your Go delegate receives objects that need to be kept
+around outside of the callback.
+
+Since everything in Objective C inherits methods from `NSObject`, you can call
+`Retain()`, `Release()` and `Autorelease()` on any object. You can technically bind
+the `NSAutoreleasePool` class and create and drain instances of it from the Go side,
+but this is not recommended in the default, garbage collected mode and can run into
+problems because the Go runtime is inherently multithreaded. See `examples/memory`
+for an example of manual memory management, which should be possible to do reliably
+but I'm not sure why you would go through the trouble.
+
+NSWrap is doing a number of things behind the scenes to make garbage collection work.
+As mentioned,
+all Objective-C methods are called within an `@autorelease {}` block. This is
+necessary because some foundation classes (notably `NSString`) create internal
+objects that are `autoreleased` but never returned to the caller. These objects can
+never be deallocated unless the method in question was called within an autorelease
+pool.
+
+NSWrap assumes you
+are going to take ownership of every Objective-C object returned by a method, either
+directly as a return value or through a pointer to a pointer given as a parameter.
+Therefore, NSWrap calls `retain` on all of these objects before going back to the
+Go side, unless the object is either `nil` or equivalent to the input object.
+NSWrap also will not call `retain` on the return values of `init`, `new`, `copy`,
+`mutableCopy` or `alloc` methods. If you do not want ownership of the object,
+simply assign it to a local varable and the garbage collector will take care of
+releasing it.
+
+In
+order for this to work on a pointer to a pointer parameter, NSWrap treats the
+input
+parameter as an array with a length specified by either a `range` parameter (of
+type `NSRange`) or a `count` parameter of an integer type. If there is neither a
+`range` or `count` parameter, NSWrap assumes the array is length 1.
+
+As an example, in Objective-C, if you were to take an object out of an `NSArray`
+and the array was later deallocated, there is no guarantee that the object you
+obtained is still around unless you called `retain` on it. This is not necessary
+with NSWrap, which automatically retains objects returned by methods like
+`objectAtIndex:` and `getObjects:range` and manages them with the Go garbage
+collector.
+
+The methods described above work for methods that return Objective-C
+objects, which can be `retain`ed, but not with methods that return other types of
+pointers such as C strings. NSWrap has a special case for C strings (`*Char`
+in Go), calling
+`strdup` on the return value within the `@autoreleasepool` block. This
+ensures that the string is preserved even if it points to a termporary
+autoreleased
+object. Since this behavior results in newly allocated memory, these pointers will
+need to be freed from Go later on. Since these are pointers to C memory,
+it is not possible to set a finalizer on these pointers for garbage collection
+by Go.
+
+Note that the Go garbage collector is lazy and will not activate unless your
+application is running low on heap space. That means in practice that Objective-C
+objects are going to stick around a lot longer than they might in a pure
+Objective-C application. If this is an issue, simply run the Go GC manually with
+`runtime.GC()`.
+
+
 # Limitations
 
-## Blocks
+## Blocks and Function Pointers
 
 NSWrap does not support methods or functions that take C functions or blocks
 as parameters or return values.
@@ -742,7 +843,7 @@ and got carried away.
 
 # Acknowledgements
 
-This work was inspired by Maxim's excellent
+This work was inspired by Maxim Kupriianov's excellent
 [c-for-go](https://github.com/xlab/c-for-go). Much of the
 infrastructure was lifted from Elliot Chance's equally excellent
 [c2go](https://github.com/elliotchance/c2go). Kiyoshi Murata's

@@ -100,12 +100,12 @@ func hr(d *ns.NSData) int {
 func discoverCharacteristics(p *ns.CBPeripheral, s *ns.CBService, e *ns.NSError) {
 	fmt.Printf("Did discover characteristics\n")
 	uuid := s.UUID()
-	fmt.Printf("----%s\n", uuid.UUIDString().UTF8String())
+	fmt.Printf("----%s\n", uuid.UUIDString())
 	if uuid.IsEqualTo(hrm_uuid) {
 		s.Characteristics().ObjectEnumerator().ForIn(func(o *ns.Id) bool {
 			chr := o.CBCharacteristic()
 			chuuid := chr.UUID()
-			fmt.Printf("------%s\n", chuuid.UUIDString().UTF8String())
+			fmt.Printf("------%s\n", chuuid.UUIDString())
 			if chuuid.IsEqualTo(hrv_uuid) {
 				p.SetNotifyValue(1, chr)
 				v := chr.Value()

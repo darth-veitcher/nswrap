@@ -16,3 +16,5 @@ examples/gc/ns
 examples/functions/functions
 examples/functions/ns
 ns-old
+examples/strings/strings
+examples/strings/ns

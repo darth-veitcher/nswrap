@@ -1,6 +1,7 @@
 package: ClassOne
 inputfiles: [ ClassOne/simple.h ]
 classes:
+    - NSObject
     - ClassOne
     - ClassTwo
 subclasses:
@@ -8,8 +9,7 @@ subclasses:
         ClassTwo:
             - geti1
             - -(void)myMethod1:(int)a
-            - +(const NSObject* _Nonnull)myMethod2:(int)a options:(NSDictionary<NSString*,NSObject*> *)opt
+            - -(const NSObject* _Nonnull)myMethod2:(int)a options:(NSDictionary<NSString*,NSObject*> *)opt
 
 imports: [ simple.h ]
 frameworks: [ Foundation ]
-#arc: true
