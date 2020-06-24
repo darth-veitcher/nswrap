@@ -1,0 +1,26 @@
+inputfiles: [ /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Foundation.framework/Headers/Foundation.h ]
+classes:
+    - NSObject
+    - NSString
+subclasses:
+    c1:
+      NSObject:
+        - dealloc
+        - release
+    c2:
+      NSObject:
+        - -(void)myMethod
+#    c3:
+#      NSObject:
+#        - -(void)myMethod:(int)i
+#    c4:
+#      NSObject:
+#        - release
+#        - -(int)myMethod:(int)i
+#    c5:
+#      NSObject:
+#        - release
+#        - -(void)myMethod
+
+frameworks: [ Foundation ]
+pragma: [ clang diagnostic ignored "-Wformat-security" ]

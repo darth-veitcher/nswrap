@@ -7,7 +7,7 @@ import (
 	ns "git.wow.st/gmp/nswrap/examples/simple/ClassOne"
 )
 
-func cb(super ns.ClassThreeSupermethods) ns.Int {
+func cb(self ns.ClassThree, super ns.ClassThreeSupermethods) ns.Int {
 	fmt.Printf("In Go callback\n")
 	return 0
 }

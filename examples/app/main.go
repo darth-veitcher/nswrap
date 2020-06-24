@@ -12,28 +12,28 @@ import (
 //Shortcut for literal NSStrings
 var nst = ns.NSStringWithGoString
 
-func pb1() {
+func pb1(self ns.GButton, super ns.GButtonSupermethods) {
 	fmt.Println("Pushed button 1")
 }
 
-func pb2() {
+func pb2(self ns.GButton, super ns.GButtonSupermethods) {
 	fmt.Println("Pushed button 2")
 	a.Terminate(a)
 }
 
-func db() {
+func db(self ns.GButton, super ns.GButtonSupermethods) {
 	fmt.Println("button deallocated")
 }
 
-func didFinishLaunching(n *ns.NSNotification) {
+func didFinishLaunching(self ns.AppDelegate, n *ns.NSNotification) {
 	fmt.Println("Go: did finish launching")
 	fmt.Printf("Notification: %s\n", n.Name().UTF8String())
 	//Set up an NSWindow
 	win = ns.NSWindowAlloc().InitWithContentRectStyleMask(
 		ns.NSMakeRect(200, 200, 600, 600),
-		ns.NSWindowStyleMaskTitled|ns.NSWindowStyleMaskClosable|
-			ns.NSWindowStyleMaskResizable,
-		ns.NSBackingStoreBuffered,
+		ns.NSWindowStyleMask(ns.NSWindowStyleMaskTitled|ns.NSWindowStyleMaskClosable|
+			ns.NSWindowStyleMaskResizable),
+		ns.NSBackingStoreType(ns.NSBackingStoreBuffered),
 		0,
 	)
 	// We do not need to retain this because we are in garbage collection mode
@@ -103,21 +103,21 @@ func didFinishLaunching(n *ns.NSNotification) {
 	cv.AddConstraints(ns.NSLayoutConstraintsWithVisualFormat(
 		nst("H:|-[b1]"), 0, nil, viewmap))
 	cv.AddConstraints(ns.NSLayoutConstraintsWithVisualFormat(
-		nst("H:[b1]-[b2]"), ns.NSLayoutFormatAlignAllBaseline, nil, viewmap))
+		nst("H:[b1]-[b2]"), ns.NSLayoutFormatOptions(ns.NSLayoutFormatAlignAllBaseline), nil, viewmap))
 
 	a.ActivateIgnoringOtherApps(1)
 }
 
-func shouldTerminateAfterLastWindowClosed(s *ns.NSApplication) ns.BOOL {
+func shouldTerminateAfterLastWindowClosed(self ns.AppDelegate, s *ns.NSApplication) ns.BOOL {
 	fmt.Println("Go: should terminate after last window closed")
 	return 1
 }
 
-func willTerminate(n *ns.NSNotification) {
+func willTerminate(self ns.AppDelegate, n *ns.NSNotification) {
 	fmt.Println("Go: will terminate")
 }
 
-func didBecomeActive(n *ns.NSNotification) {
+func didBecomeActive(self ns.AppDelegate, n *ns.NSNotification) {
 	fmt.Println("Go: did become active")
 	fmt.Printf("Notification: %s\n", n.Name().UTF8String())
 }
@@ -132,7 +132,7 @@ func app() {
 	// Lock OS thread because Cocoa uses thread-local storage
 	runtime.LockOSThread()
 	a = ns.NSApplicationSharedApplication()
-	a.SetActivationPolicy(ns.NSApplicationActivationPolicyRegular)
+	a.SetActivationPolicy(ns.NSApplicationActivationPolicy(ns.NSApplicationActivationPolicyRegular))
 
 	// Set up an AppDelegate
 	// assign it to a global variable so it doesn't get garbage collected

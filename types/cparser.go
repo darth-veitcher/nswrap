@@ -112,9 +112,25 @@ func ArrayDeclarator(s string, n *Node) (string, *Node) {
 }
 
 func FunctionDeclarator(s string, n *Node) (string, *Node) {
-	return ChildOf(NewNode("Function"),
+	return ChildOf(NewNode("Function"), Seq(
 		Parenthesized(Opt(ParameterList)),
+		ZeroOrMore(Attribute),
+	))(s, n)
+}
+
+func Attribute(s string, n *Node) (string, *Node) {
+	return Seq(
+		Word("__attribute__"),
+		ChildOf(NewNode("parens"), Parenthesized(Parenthesized(
+			Attr,
+		))),
 	)(s, n)
+}
+
+func Attr(s string, n *Node) (string, *Node) {
+	return NodeNamed("Attribute", OneOf(
+		Word("noreturn"),
+	))(s, n)
 }
 
 func DirectAbstractDeclarator(s string, n *Node) (string, *Node) {

@@ -72,8 +72,8 @@ func TestType(t *testing.T) {
 	str = "NSString**"
 	n = &Node{"TypeName", "", []*Node{
 		&Node{"TypedefName", "NSString", []*Node{}},
-			&Node{"Pointer", "*", []*Node{}},
-			&Node{"Pointer", "*", []*Node{}}}}
+		&Node{"Pointer", "*", []*Node{}},
+		&Node{"Pointer", "*", []*Node{}}}}
 	chk_newtype()
 	chk(tp.IsPointer(), true)
 	chk(tp.Typedef(), nil)
@@ -82,8 +82,8 @@ func TestType(t *testing.T) {
 	str = "NSObject**"
 	n = &Node{"TypeName", "", []*Node{
 		&Node{"TypedefName", "NSObject", []*Node{}},
-			&Node{"Pointer", "*", []*Node{}},
-			&Node{"Pointer", "*", []*Node{}}}}
+		&Node{"Pointer", "*", []*Node{}},
+		&Node{"Pointer", "*", []*Node{}}}}
 	chk_newtype()
 	chk(tp.IsPointer(), true)
 	nsopp := tp
@@ -272,40 +272,46 @@ func (o *Id) NSString() *NSString {
 	ptypes := []*Type{nsop, nstp, tint, voidpp}
 	pnames := []string{"p1", "p2", "p3", "p4"}
 	snames := []string{"", "", "", ""}
+	goImports := make(map[string]bool)
 
 	chk_gotoc := func(expected string) {
-		chk(GoToC("myFun", "myFun", pnames, snames, rtype, ptypes, false, false, false), expected)
+		chk(GoToC("myFun", "myFun", pnames, snames, rtype, ptypes, false, false, false, goImports), expected)
 	}
 
 	chk_gotoc("")
 
 	rtype = void
-	chk_gotoc(`C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4))`)
+	chk_gotoc(`C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4))
+	runtime.KeepAlive(o)`)
 
 	rtype = bl
 	chk_gotoc(
 		`ret := (C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4))) != 0
+	runtime.KeepAlive(o)
 	return ret`)
 
 	rtype = voidpp
 	chk_gotoc(
 		`ret := (*unsafe.Pointer)(unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4))))
+	runtime.KeepAlive(o)
 	return ret`)
 
 	rtype = nstp
 	chk_gotoc(
 		`ret := &NSString{}
 	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4)))
-	if ret.ptr == nil { return ret }
-	if ret.ptr == o.ptr { return (*NSString)(unsafe.Pointer(o)) }
+	if ret.ptr == nil { runtime.KeepAlive(o); return ret }
+	if ret.ptr == o.ptr { runtime.KeepAlive(o); return (*NSString)(unsafe.Pointer(o)) }
+	runtime.KeepAlive(o)
 	return ret`)
 
 	rtype = nsop
 	chk_gotoc(
 		`ret := &Id{}
 	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (C.int)(p3), unsafe.Pointer(p4)))
-	if ret.ptr == nil { return ret }
-	if ret.ptr == o.ptr { return (*Id)(unsafe.Pointer(o)) }
+	if ret.ptr == nil { runtime.KeepAlive(o); return ret }
+	if ret.ptr == o.ptr { runtime.KeepAlive(o); return (*Id)(unsafe.Pointer(o)) }
+	runtime.KeepAlive(o)
 	return ret`)
 
 	ptypes[1].Variadic = true
@@ -313,8 +319,9 @@ func (o *Id) NSString() *NSString {
 	chk_gotoc(
 		`ret := &Id{}
 	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), unsafe.Pointer(&p2), (C.int)(p3), unsafe.Pointer(p4)))
-	if ret.ptr == nil { return ret }
-	if ret.ptr == o.ptr { return (*Id)(unsafe.Pointer(o)) }
+	if ret.ptr == nil { runtime.KeepAlive(o); return ret }
+	if ret.ptr == o.ptr { runtime.KeepAlive(o); return (*Id)(unsafe.Pointer(o)) }
+	runtime.KeepAlive(o)
 	return ret`)
 
 	ptypes[1].Variadic = false
@@ -334,8 +341,9 @@ func (o *Id) NSString() *NSString {
 		}
 		(*p2)[i].ptr = p2p[i]
 	}
-	if ret.ptr == nil { return ret }
-	if ret.ptr == o.ptr { return (*Id)(unsafe.Pointer(o)) }
+	if ret.ptr == nil { runtime.KeepAlive(o); return ret }
+	if ret.ptr == o.ptr { runtime.KeepAlive(o); return (*Id)(unsafe.Pointer(o)) }
+	runtime.KeepAlive(o)
 	return ret`)
 	snames[1] = ""
 	snames[2] = "p3p"
@@ -355,11 +363,12 @@ func (o *Id) NSString() *NSString {
 		}
 		(*p3)[i].ptr = p3p[i]
 	}
-	if ret.ptr == nil { return ret }
-	if ret.ptr == o.ptr { return (*Id)(unsafe.Pointer(o)) }
+	if ret.ptr == nil { runtime.KeepAlive(o); return ret }
+	if ret.ptr == o.ptr { runtime.KeepAlive(o); return (*Id)(unsafe.Pointer(o)) }
+	runtime.KeepAlive(o)
 	return ret`)
 
-	chk(GoToC("myFun", "myFun", pnames, snames, rtype, ptypes, true, false, false),
+	chk(GoToC("myFun", "myFun", pnames, snames, rtype, ptypes, true, false, false, goImports),
 		`ret := &Id{}
 	ret.ptr = unsafe.Pointer(C.myFun(p1.Ptr(), p2.Ptr(), (*unsafe.Pointer)(unsafe.Pointer(&p3p[0])), p4))
 	(*p3) = (*p3)[:cap(*p3)]
@@ -373,7 +382,8 @@ func (o *Id) NSString() *NSString {
 		}
 		(*p3)[i].ptr = p3p[i]
 	}
-	if ret.ptr == nil { return ret }
-	if ret.ptr == o.ptr { return (*Id)(unsafe.Pointer(o)) }
+	if ret.ptr == nil { runtime.KeepAlive(o); return ret }
+	if ret.ptr == o.ptr { runtime.KeepAlive(o); return (*Id)(unsafe.Pointer(o)) }
+	runtime.KeepAlive(o)
 	return ret`)
 }

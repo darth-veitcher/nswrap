@@ -9,8 +9,8 @@ import (
 	"git.wow.st/gmp/nswrap/examples/gc/ns"
 )
 
-func releaseX(x int) func (ns.MyClassSupermethods) {
-	return func(super ns.MyClassSupermethods) {
+func releaseX(x int) func(ns.MyClass, ns.MyClassSupermethods) {
+	return func(self ns.MyClass, super ns.MyClassSupermethods) {
 		//fmt.Printf("--release %d\n", x)
 		super.Release() // comment out for leak
 	}
@@ -19,7 +19,7 @@ func releaseX(x int) func (ns.MyClassSupermethods) {
 func memtest1() {
 	fmt.Println("memtest1 started")
 	for {
-		arr := make([]*ns.MyClass,1000)
+		arr := make([]*ns.MyClass, 1000)
 		for i := 0; i < 1000; i++ {
 			// Alloc methods set a finalizer that causes the Go GC to
 			// Release these objects.
@@ -33,7 +33,7 @@ func memtest1() {
 		// Manually run the Go GC at every loop iteration. May not be needed
 		// in a real program.
 		runtime.GC()
-		time.Sleep(time.Second/50)
+		time.Sleep(time.Second / 50)
 		//fmt.Printf("Loop complete\n")
 	}
 }
@@ -42,8 +42,8 @@ func memtest2() {
 	fmt.Println("memtest2 started")
 	i := 0
 	for {
-		o1 := ns.NSStringAlloc().InitWithGoString(fmt.Sprintf("two string %d",i))
-		o2 := ns.NSStringWithGoString(fmt.Sprintf("two string %d",i))
+		o1 := ns.NSStringAlloc().InitWithGoString(fmt.Sprintf("two string %d", i))
+		o2 := ns.NSStringWithGoString(fmt.Sprintf("two string %d", i))
 
 		// NSWrap runs object constructors inside an @autoreleasepool block,
 		// and then calls "retain" on them before returning to Go. A Go
@@ -58,9 +58,9 @@ func memtest2() {
 		// init methods in Objective-C always return a retained object.
 		// init may or may not return the same object that was sent in.
 
-		a1 = a1.InitWithObjects(o1,o2,o3,o4)
+		a1 = a1.InitWithObjects(o1, o2, o3, o4)
 
-		a2 := ns.NSArrayWithObjects(o1,o2,o3,o4)
+		a2 := ns.NSArrayWithObjects(o1, o2, o3, o4)
 
 		// you can always nest alloc and init.
 
@@ -74,7 +74,7 @@ func memtest2() {
 		_ = a3
 
 		runtime.GC()
-		time.Sleep(time.Second/50)
+		time.Sleep(time.Second / 50)
 	}
 }
 
@@ -121,7 +121,7 @@ func memtest4() {
 		_ = o1
 		_ = c1
 		runtime.GC()
-		time.Sleep(time.Second/50)
+		time.Sleep(time.Second / 50)
 		c1.Free() // you need to manually free UTF8Strings
 	}
 }
@@ -134,7 +134,7 @@ func memtest5() {
 		// a new NSString object at each loop iteration and cannot be reusing
 		// the same string object.
 
-		str := ns.NSStringWithGoString(fmt.Sprintf("blue string %d",i))
+		str := ns.NSStringWithGoString(fmt.Sprintf("blue string %d", i))
 
 		// SubstringFromIndex should be returning a newly allocated NSString,
 		// which is getting retained by NSWrap and released by a Go GC
@@ -146,7 +146,7 @@ func memtest5() {
 		u := sub.UTF8String()
 		u2 := sub2.UTF8String()
 		u3 := sub3.UTF8String()
-		time.Sleep(time.Second/50)
+		time.Sleep(time.Second / 50)
 		runtime.GC()
 		i++
 		u.Free()
@@ -160,29 +160,28 @@ func memtest5() {
 }
 
 func tmpdict(i int) *ns.NSString {
-	o1 := ns.NSStringWithGoString(fmt.Sprintf("temp string 1-%d",i))
-	o2 := ns.NSStringWithGoString(fmt.Sprintf("temp string 2-%d",i))
-	k1 := ns.NSStringWithGoString(fmt.Sprintf("temp key 1-%d",i))
-	k2 := ns.NSStringWithGoString(fmt.Sprintf("temp key 2-%d",i))
-	dict := ns.NSDictionaryWithObjectsAndKeys(o1,k1,o2,k2)
+	o1 := ns.NSStringWithGoString(fmt.Sprintf("temp string 1-%d", i))
+	o2 := ns.NSStringWithGoString(fmt.Sprintf("temp string 2-%d", i))
+	k1 := ns.NSStringWithGoString(fmt.Sprintf("temp key 1-%d", i))
+	k2 := ns.NSStringWithGoString(fmt.Sprintf("temp key 2-%d", i))
+	dict := ns.NSDictionaryWithObjectsAndKeys(o1, k1, o2, k2)
 	ret := dict.ValueForKey(k1)
 	//fmt.Printf("tmpdict(): string = %s\n",ret.NSString())
 
-	defer runtime.GC() // o1, o2, k1, k2, and dict can be released after we return
+	defer runtime.GC()    // o1, o2, k1, k2, and dict can be released after we return
 	return ret.NSString() // should be retained by NSDictionary.ValueForKey()
 }
 
 func tmparr(i int) *ns.NSString {
-	o1 := ns.NSStringWithGoString(fmt.Sprintf("temp string 3-%d",i))
-	o2 := ns.NSStringWithGoString(fmt.Sprintf("temp string 4-%d",i))
-	arr := ns.NSArrayWithObjects(o1,o2)
-	os := make([]*ns.Id,0,2)
-	arr.GetObjects(&os, ns.NSMakeRange(0,2))
+	o1 := ns.NSStringWithGoString(fmt.Sprintf("temp string 3-%d", i))
+	o2 := ns.NSStringWithGoString(fmt.Sprintf("temp string 4-%d", i))
+	arr := ns.NSArrayWithObjects(o1, o2)
+	os := make([]*ns.Id, 0, 2)
+	arr.GetObjectsRange(&os, ns.NSMakeRange(0, 2))
 
-	defer runtime.GC() // collect o1, o2 and arr
+	defer runtime.GC()      // collect o1, o2 and arr
 	return os[1].NSString() // should have been retained by NSArray.GetObjects()
 }
-
 
 func memtest6() {
 	fmt.Println("memtest6 started")
@@ -193,13 +192,13 @@ func memtest6() {
 		time.Sleep(time.Second / 5)
 		u1 := s1.String() // make sure s1 and s2 are still available
 		u2 := s2.String()
-		e1 := fmt.Sprintf("temp string 1-%d",i)
+		e1 := fmt.Sprintf("temp string 1-%d", i)
 		if u1 != e1 {
-			fmt.Printf("tmpdict() error: %s != %s\n",u1,e1)
+			fmt.Printf("tmpdict() error: %s != %s\n", u1, e1)
 		}
-		e2 := fmt.Sprintf("temp string 4-%d",i)
+		e2 := fmt.Sprintf("temp string 4-%d", i)
 		if u2 != e2 {
-			fmt.Printf("tmparr() error: %s != %s\n",u2,e2)
+			fmt.Printf("tmparr() error: %s != %s\n", u2, e2)
 
 		}
 		i++
@@ -221,7 +220,7 @@ func main() {
 	go func() {
 		for {
 			// print a progress indicator
-			fmt.Printf("t = %s\n",time.Now())
+			fmt.Printf("t = %s\n", time.Now())
 			time.Sleep(time.Second * 10)
 		}
 	}()

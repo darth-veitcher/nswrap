@@ -8,6 +8,7 @@ import (
 )
 
 var Gogc bool
+var Typesubs map[string]string
 
 //super is a map recording which class is the parent of each other class
 var super map[string]string
@@ -201,25 +202,45 @@ func (t *Type) GoType() string {
 	return _goType(t.CType())
 }
 
+func typeSub(gt string) string {
+	if Typesubs == nil {
+		return gt
+	}
+	i := 0
+	for ; i < len(gt); i++ {
+		if gt[i] != '*' {
+			break
+		}
+	}
+	gtp := gt[:i]
+	gte := gt[i:]
+	for k, v := range Typesubs {
+		if gte == k {
+			return gtp + v
+		}
+	}
+	return gt
+}
+
 func _goType(ct string) string {
 	ct = strings.Title(ct)
 	ct = strings.ReplaceAll(ct, " ", "")
 	ct = strings.TrimPrefix(ct, "Struct")
 	ct = swapstars(ct)
 	if len(ct) > 0 && ct[0] == '*' && IsGoInterface(ct[1:]) {
-		return ct
+		return typeSub(ct)
 	}
-	
+
 	if ct == "Id" {
 		ct = "*Id"
 	}
 	if ShouldWrap(ct) {
-		return ct
+		return typeSub(ct)
 	}
 	if len(ct) > 4 && ct[len(ct)-4:len(ct)] == "Void" {
 		ct = ct[:len(ct)-5] + "unsafe.Pointer"
 	}
-	return ct
+	return typeSub(ct)
 }
 
 func (t *Type) CType() string {
@@ -271,20 +292,32 @@ func (t *Type) GoTypeDecl(fin bool) string {
 type %s = %s
 `, gt, tdgt)
 		}
+		cgt := td.CGoType()
+		eq := ""
+		if len(cgt) > 9 && cgt[:9] == "C.struct_" {
+			//cgt = "C." + cgt[9:]
+			eq = "= "
+		}
 		return fmt.Sprintf(`
-type %s %s
-`, gt, td.CGoType())
+type %s %s%s
+`, gt, eq, cgt)
 	}
 	if Debug {
-		fmt.Printf("  writing GoTypeDecl for %s\n",gt)
+		fmt.Printf("  writing GoTypeDecl for %s\n", gt)
 	}
 	switch gt {
 	case "", "Void":
 		return ""
 	default:
+		cgt := t.CGoType()
+		eq := ""
+		if len(cgt) > 9 && cgt[:9] == "C.struct_" {
+			//cgt = "C." + cgt[9:]
+			eq = "= "
+		}
 		return fmt.Sprintf(`
-type %s %s
-`, gt, t.CGoType())
+type %s %s%s
+`, gt, eq, cgt)
 	}
 }
 
@@ -292,12 +325,12 @@ func (t *Type) GoInterfaceDecl(fin bool) string {
 	ct := t.CType()
 	gt := t.GoType()
 	if Debug {
-		fmt.Printf("  writing GoInterfaceDecl for %s\n",gt)
+		fmt.Printf("  writing GoInterfaceDecl for %s\n", gt)
 	}
 	if gt[0] == '*' {
 		gt = gt[1:] // dereference wrapped types
 		ct = ct[:len(ct)-1]
-		fmt.Printf("  dereferenced %s\n",gt)
+		//fmt.Printf("  dereferenced %s\n", gt)
 	}
 	super := Super(ct)
 	if super == "" {
@@ -384,7 +417,7 @@ func (t *Type) CToGo(cval string) string {
 }
 
 // Call a C function from Go with a given return type and parameter types
-func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*Type, fun, fin bool, cm bool) string {
+func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*Type, fun, fin bool, cm bool, goImports map[string]bool) string {
 	if rtype == nil {
 		//fmt.Println("nil sent to GoToC")
 		return ""
@@ -407,7 +440,7 @@ func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*T
 				rtgt = "*Id"
 			}
 			ret.WriteString(fmt.Sprintf(
-	`ret := &%s{}
+				`ret := &%s{}
 	ret.ptr = unsafe.Pointer(`, rtgt[1:]))
 		case TypedefShouldWrap(rtgt):
 			isptr = true
@@ -416,7 +449,7 @@ func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*T
 				rtgt = "*Id"
 			}
 			ret.WriteString(fmt.Sprintf(
-	`ret := &%s{}
+				`ret := &%s{}
 	ret.ptr = unsafe.Pointer(`, rtgt[1:]))
 		default:
 			if rtgt == "BOOL" {
@@ -444,7 +477,11 @@ func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*T
 		case TypedefShouldWrap(ptgt) && !pt.Variadic && !fun:
 			p = pn + ".Ptr()"
 		case snames[i] != "":
-			p = "(*unsafe.Pointer)(unsafe.Pointer(&" + snames[i] + "[0]))"
+			cast := pt.CGoType()
+			if len(ptgt) > 2 && ptgt[:1] == "*" && PtrShouldWrap(ptgt[1:]) {
+				cast = "*unsafe.Pointer"
+			}
+			p = fmt.Sprintf("(%s)(unsafe.Pointer(&%s[0]))", cast, snames[i])
 		case pt.Variadic:
 			p = "unsafe.Pointer(&" + p + ")"
 		case pt.IsPointer() && !fun:
@@ -472,8 +509,11 @@ func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*T
 			continue
 		}
 		ptgt := ptypes[i].GoType()
+		if !(len(ptgt) > 2 && ptgt[:1] == "*" && PtrShouldWrap(ptgt[1:])) {
+			continue
+		}
 		if len(ptgt) < 2 {
-			fmt.Printf("Error in function translation -- argument %s to %s should be pointer to pointer\n",pnames[i],name)
+			fmt.Printf("Error in function translation -- argument %s to %s should be pointer to pointer\n", pnames[i], name)
 			os.Exit(-1)
 		}
 		ptgt = ptgt[2:]
@@ -482,6 +522,7 @@ func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*T
 		}
 		dogc := ""
 		if Gogc {
+			goImports["runtime"] = true
 			dogc = fmt.Sprintf(`
 			runtime.SetFinalizer((*%s)[i], func(o *%s) {
 				o.Release()
@@ -503,12 +544,17 @@ func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*T
 	if rt != "void" {
 		cmp := ""
 		if sw {
+			ka := ""
+			if !cm {
+				goImports["runtime"] = true
+				ka = "runtime.KeepAlive(o); "
+			}
 			if !cm && sname != "copy" && sname != "mutableCopy" {
 				cmp = fmt.Sprintf(`
-	if ret.ptr == o.ptr { return (%s)(unsafe.Pointer(o)) }`,rtgt)
+	if ret.ptr == o.ptr { %sreturn (%s)(unsafe.Pointer(o)) }`, ka, rtgt)
 			}
 			ret.WriteString(fmt.Sprintf(`
-	if ret.ptr == nil { return ret }%s`,cmp))
+	if ret.ptr == nil { %sreturn ret }%s`, ka, cmp))
 		}
 		if fin {
 			dbg := ""
@@ -519,13 +565,25 @@ func GoToC(sname, name string, pnames, snames []string, rtype *Type, ptypes []*T
 				dbg2 = fmt.Sprintf(`fmt.Printf("Finalizer (%s): release %%p -> %%p\n", o, o.ptr)
 	`, rtgt)
 			}
+			goImports["runtime"] = true
 			ret.WriteString(fmt.Sprintf(`
 	%sruntime.SetFinalizer(ret, func(o %s) {
 		%so.Release()
 	})`, dbg, rtgt, dbg2))
 		}
+		if !cm {
+			goImports["runtime"] = true
+			ret.WriteString(`
+	runtime.KeepAlive(o)`)
+		}
 		ret.WriteString(`
 	return ret`)
+	} else {
+		if !cm {
+			goImports["runtime"] = true
+			ret.WriteString(`
+	runtime.KeepAlive(o)`)
+		}
 	}
 	return ret.String()
 }

@@ -10,13 +10,13 @@ import (
 	"git.wow.st/gmp/nswrap/examples/memory/ns"
 )
 
-func dealloc() {
+func dealloc(self ns.MyClass, super ns.MyClassSupermethods) {
 	//[super dealloc] is called for you automatically, so no Supermethods
 	//struct is provided here.
 	fmt.Println("--dealloc called")
 }
 
-func release(super ns.MyClassSupermethods) {
+func release(self ns.MyClass, super ns.MyClassSupermethods) {
 	fmt.Println("--release called")
 	super.Release() // comment out for leak
 }
@@ -92,19 +92,19 @@ func memtest3() {
 		ns.Autoreleasepool(func() {
 			arr := ns.NSMutableArrayAlloc().Init()
 			arr.Autorelease()
-			arr.AddObject(ns.NSStringWithGoString(fmt.Sprintf("my string %d",i)))
-			s1 := ns.NSStringWithGoString(fmt.Sprintf("my other string %d",i))
-			fmt.Printf("%s\n",arr.ObjectAtIndex(0).NSString())
+			arr.AddObject(ns.NSStringWithGoString(fmt.Sprintf("my string %d", i)))
+			s1 := ns.NSStringWithGoString(fmt.Sprintf("my other string %d", i))
+			fmt.Printf("%s\n", arr.ObjectAtIndex(0).NSString())
 			_ = s1
 
 			for x := 0; x < 3; x++ {
 				ns.Autoreleasepool(func() {
 					str := arr.ObjectAtIndex(0).NSString()
-					fmt.Printf("%d->%s\n",x,str) // does not leak in an autorelease pool
+					fmt.Printf("%d->%s\n", x, str) // does not leak in an autorelease pool
 					time.Sleep(time.Second / 5)
 				})
 			}
-			time.Sleep(time.Second/2)
+			time.Sleep(time.Second / 2)
 			i++
 		})
 	}

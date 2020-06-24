@@ -1,7 +1,7 @@
 # nswrap.yaml
 inputfiles:
-    - /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
-    - /System/Library/Frameworks/AppKit.framework/Headers/AppKit.h
+    - /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
+    - /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/AppKit.h
 
 classes:
     - NSAutoreleasePool

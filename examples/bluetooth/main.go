@@ -5,14 +5,14 @@ import "C"
 import (
 	"encoding/binary"
 	"fmt"
+	"git.wow.st/gmp/nswrap/examples/bluetooth/ns"
 	"runtime"
 	"time"
-	"git.wow.st/gmp/nswrap/examples/bluetooth/ns"
 )
 
-func updateState(c *ns.CBCentralManager) {
+func updateState(self ns.CBDelegate, c *ns.CBCentralManager) {
 	fmt.Printf("Go: did update state\n")
-	switch cm.CBManager.State() {
+	switch ns.NSInteger(cm.CBManager.State()) {
 	case ns.CBManagerStateUnknown:
 		fmt.Printf("  unknown\n")
 	case ns.CBManagerStateResetting:
@@ -30,7 +30,7 @@ func updateState(c *ns.CBCentralManager) {
 	fmt.Printf("Go: updateState returning\n")
 }
 
-func discoverPeripheral(c *ns.CBCentralManager, p *ns.CBPeripheral, d *ns.NSDictionary, rssi *ns.NSNumber) {
+func discoverPeripheral(self ns.CBDelegate, c *ns.CBCentralManager, p *ns.CBPeripheral, d *ns.NSDictionary, rssi *ns.NSNumber) {
 	fmt.Printf("Did discover peripheral\n")
 	c.StopScan()
 
@@ -51,7 +51,7 @@ func discoverPeripheral(c *ns.CBCentralManager, p *ns.CBPeripheral, d *ns.NSDict
 	c.ConnectPeripheral(peripheral, nil)
 }
 
-func connectPeripheral(c *ns.CBCentralManager, p *ns.CBPeripheral) {
+func connectPeripheral(self ns.CBDelegate, c *ns.CBCentralManager, p *ns.CBPeripheral) {
 	fmt.Printf("Did connect peripheral\n")
 
 	// set ourselves up as a peripheral delegate
@@ -64,7 +64,7 @@ func connectPeripheral(c *ns.CBCentralManager, p *ns.CBPeripheral) {
 	fmt.Printf("Go: discoverPeripheral returning\n")
 }
 
-func discoverServices(p *ns.CBPeripheral, e *ns.NSError) {
+func discoverServices(self ns.CBDelegate, p *ns.CBPeripheral, e *ns.NSError) {
 	fmt.Printf("Did discover services\n")
 	p.Services().ObjectEnumerator().ForIn(func(o *ns.Id) bool {
 		serv := o.CBService()
@@ -97,7 +97,7 @@ func hr(d *ns.NSData) int {
 	}
 }
 
-func discoverCharacteristics(p *ns.CBPeripheral, s *ns.CBService, e *ns.NSError) {
+func discoverCharacteristics(self ns.CBDelegate, p *ns.CBPeripheral, s *ns.CBService, e *ns.NSError) {
 	fmt.Printf("Did discover characteristics\n")
 	uuid := s.UUID()
 	fmt.Printf("----%s\n", uuid.UUIDString())
@@ -117,7 +117,7 @@ func discoverCharacteristics(p *ns.CBPeripheral, s *ns.CBService, e *ns.NSError)
 	fmt.Printf("Go: discoverCharacteristics returning\n")
 }
 
-func updateValue(p *ns.CBPeripheral, chr *ns.CBCharacteristic, e *ns.NSError) {
+func updateValue(self ns.CBDelegate, p *ns.CBPeripheral, chr *ns.CBCharacteristic, e *ns.NSError) {
 	if chr.UUID().IsEqualTo(hrv_uuid) {
 		v := chr.Value()
 		fmt.Printf("Heart rate: %d\n", hr(v))

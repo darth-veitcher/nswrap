@@ -12,7 +12,10 @@ import (
 	"strings"
 
 	"git.wow.st/gmp/nswrap/ast"
+	"git.wow.st/gmp/nswrap/types"
 	"git.wow.st/gmp/nswrap/wrap"
+
+	"github.com/a8m/envsubst"
 	"gopkg.in/yaml.v2"
 )
 
@@ -26,22 +29,26 @@ var autoadd = []string{
 }
 
 type conf struct {
-	Positions     bool
-	Package       string
-	Inputfiles    []string
-	Astfile       string
-	Debugast      bool
-	Classes       []string
-	Functions     []string
-	Enums         []string
-	Delegates     map[string]map[string][]string
-	Subclasses    map[string]map[string][]string
-	Frameworks    []string
-	Frameworkdirs []string
-	Imports       []string
-	Sysimports    []string
-	Pragma        []string
-	Vaargs        int
+	Positions      bool
+	Package        string
+	Inputfiles     []string
+	Astfile        string
+	Debugast       bool
+	Classes        []string
+	Functions      []string
+	FunctionIgnore []string
+	Enums          []string
+	Delegates      map[string]map[string][]string
+	Subclasses     map[string]map[string][]string
+	Frameworks     []string
+	Libraries      []string
+	Frameworkdirs  []string
+	Imports        []string
+	Sysimports     []string
+	Pragma         []string
+	Typesubs       map[string]string
+	Vaargs         int
+	Clang          string
 	//Arc flag for debugging only, builds will break
 	Arc         bool
 	Autorelease bool
@@ -233,7 +240,12 @@ func Start() (err error) {
 		}
 		cargs = append(cargs, Config.Inputfiles...)
 		fmt.Printf("Generating AST\n")
-		astPP, err = exec.Command("clang", cargs...).Output()
+		clang := "clang"
+		if Config.Clang != "" {
+			clang = Config.Clang
+		}
+		fmt.Printf("%s %s\n", clang, strings.Join(cargs, " "))
+		astPP, err = exec.Command(clang, cargs...).Output()
 		if err != nil {
 			// If clang fails it still prints out the AST, so we have to run it
 			// again to get the real error.
@@ -281,12 +293,14 @@ func Start() (err error) {
 	w := wrap.NewWrapper(Debug)
 	w.Package = Config.Package
 	w.Frameworks = Config.Frameworks
+	w.Libraries = Config.Libraries
 	w.Frameworkdirs = Config.Frameworkdirs
 	w.Import(Config.Imports)
 	w.SysImport(Config.Sysimports)
 	w.Pragmas = Config.Pragma
 	w.Delegate(Config.Delegates)
 	w.Subclass(Config.Subclasses)
+	types.Typesubs = Config.Typesubs
 	if Config.Vaargs == 0 {
 		Config.Vaargs = 16
 	}
@@ -305,7 +319,7 @@ func Start() (err error) {
 					}
 				}
 				if matches(x.Name, autoadd) {
-					Config.Classes = append(Config.Classes,x.Name)
+					Config.Classes = append(Config.Classes, x.Name)
 				}
 			case *ast.ObjCCategoryDecl:
 				w.AddCategory(x)
@@ -314,7 +328,8 @@ func Start() (err error) {
 					w.AddTypedef(x.Name, x.Type)
 				}
 			case *ast.FunctionDecl:
-				if matches(x.Name, Config.Functions) {
+				if matches(x.Name, Config.Functions) &&
+					!matches(x.Name, Config.FunctionIgnore) {
 					w.AddFunction(x)
 				}
 			case *ast.ObjCProtocolDecl:
@@ -341,9 +356,18 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	confbytes, err := ioutil.ReadFile("nswrap.yaml")
+	conffile := "nswrap.yaml"
+	if len(os.Args) > 1 {
+		conffile = os.Args[1]
+	}
+	confbytes, err := ioutil.ReadFile(conffile)
 	if err != nil {
-		fmt.Printf("%s\n\nFATAL ERROR: Configuration file must be present in directory where nswrap\nis invoked.\n", err)
+		fmt.Printf("%s\n\nFATAL ERROR: Configuration file not found (default: nswrap.yaml)\n", err)
+		os.Exit(-1)
+	}
+	confbytes, err = envsubst.Bytes(confbytes)
+	if err != nil {
+		fmt.Printf("FATAL ERROR: Shell string variable substitution faled: %s\n", err)
 		os.Exit(-1)
 	}
 	if err = yaml.UnmarshalStrict(confbytes, &Config); err != nil {

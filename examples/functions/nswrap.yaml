@@ -1,7 +1,7 @@
 inputfiles:
-  - /usr/include/stdio.h
-  - /usr/include/stdlib.h
-  - /usr/include/sys/stat.h
+  - /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/stdio.h
+  - /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/stdlib.h
+  - /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/stat.h
 sysimports:
   - stdio.h
   - stdlib.h

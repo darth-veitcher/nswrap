@@ -42,7 +42,7 @@ func ChildOf(ret *Node, p Parser) Parser {
 	}
 }
 
-//Children takes a parser returns a parser that adds the children of its
+//Children takes a parser and returns a parser that adds the children of its
 //output node to the tree. If multiple parsers are passed in, they are
 //passed to Seq(...)
 func Children(ps ...Parser) Parser {

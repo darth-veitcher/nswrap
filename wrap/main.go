@@ -32,6 +32,7 @@ type Wrapper struct {
 	Subclasses    map[string]*Subclass
 	Protocols     map[string]*Protocol
 	Frameworks    []string
+	Libraries     []string
 	Frameworkdirs []string
 	Pragmas       []string
 
@@ -52,7 +53,7 @@ type Wrapper struct {
 
 func NewWrapper(debug bool) *Wrapper {
 	Debug = debug
-	types.Debug = Debug
+	//types.Debug = Debug
 	if Debug {
 		fmt.Println("// Debug mode")
 	}
@@ -82,15 +83,23 @@ func (o *Id) Ptr() unsafe.Pointer { if o == nil { return nil }; return o.ptr }
 }
 
 func (w *Wrapper) Import(ss []string) {
+	if len(ss) == 0 {
+		return
+	}
 	for _, s := range ss {
 		w.cImports.WriteString("\n#import \"" + s + "\"\n")
 	}
+	w.cImports.WriteString("\n")
 }
 
 func (w *Wrapper) SysImport(ss []string) {
+	if len(ss) == 0 {
+		return
+	}
 	for _, s := range ss {
 		w.cImports.WriteString("\n#import <" + s + ">\n")
 	}
+	w.cImports.WriteString("\n")
 }
 
 func (w *Wrapper) Delegate(ds map[string]map[string][]string) {
@@ -103,11 +112,11 @@ func (w *Wrapper) Subclass(ds map[string]map[string][]string) {
 			Overrides:  []string{},
 			NewMethods: []string{},
 		}
-		if len(ds) == 0 {
+		if len(v) == 0 {
 			fmt.Printf("No superclass specified for subclass %s\n", k)
 			os.Exit(-1)
 		}
-		if len(ds) > 1 {
+		if len(v) > 1 {
 			fmt.Printf("Multiple inheritance not permitted for subclass %s\n", k)
 			os.Exit(-1)
 		}
@@ -165,8 +174,7 @@ func (m *Method) ShouldFinalize() bool {
 // NSWrap will not send a 'retain' message to these objects before returning
 // them to Go.
 func IsRetained(name string) bool {
-	return (
-		(len(name) >= 3 && name[:3] == "new") ||
+	return ((len(name) >= 3 && name[:3] == "new") ||
 		(len(name) >= 4 && name[:4] == "init") ||
 		(len(name) >= 4 && name[:4] == "copy") ||
 		(len(name) >= 5 && name[:5] == "alloc") ||
@@ -183,7 +191,7 @@ func (i *Interface) IsRetainedProperty(name string) bool {
 		if p.notretained {
 			return false
 		}
-		attrs := strings.Split(p.Attr," ")
+		attrs := strings.Split(p.Attr, " ")
 		for _, a := range attrs {
 			if a == "retain" {
 				p.retained = true // cache this result
@@ -194,7 +202,6 @@ func (i *Interface) IsRetainedProperty(name string) bool {
 	}
 	return false
 }
-
 
 //Fully disambiguated method name (m.GoName + all parameter names)
 func (m *Method) LongName() string {
@@ -208,13 +215,19 @@ func (m *Method) LongName() string {
 func (m *Method) HasUnsupportedType() bool {
 	return m.Type.IsFunction() ||
 		m.Type.IsFunctionPtr() ||
+		m.Type.CGoType() == "C.longdouble" ||
 		m.hasUnsupportedParam()
+}
+
+type EnumConstant struct {
+	name string
+	tp   *types.Type
 }
 
 type Enum struct {
 	Name      string
 	Type      *types.Type
-	Constants []string
+	Constants []EnumConstant
 }
 
 type Protocol struct {
@@ -222,8 +235,8 @@ type Protocol struct {
 }
 
 type MethodCollection struct {
-	Class, GoClass   string
-	Methods []*Method
+	Class, GoClass string
+	Methods        []*Method
 }
 
 func NewMethodCollection(class string) *MethodCollection {
@@ -291,6 +304,9 @@ func (m Method) hasUnsupportedParam() bool {
 		if pt := p.Type.PointsTo(); pt.IsValist() {
 			return true
 		}
+		if p.Type.CGoType() == "C.longdouble" {
+			return true
+		}
 	}
 	return false
 }
@@ -309,6 +325,8 @@ func (w Wrapper) cparamlist(m *Method) (string, string, string) {
 		switch {
 		case len(gt) > 2 && gt[:1] == "*" && types.PtrShouldWrap(gt[1:]):
 			tp = "void**"
+		case len(gt) > 3 && gt[:2] == "**":
+			tp = p.Type.CType()
 		case wp || p.Type.IsPointer() || p.Type.Variadic:
 			tp = "void*"
 		default:
@@ -377,7 +395,7 @@ func (w *Wrapper) gpntp(m *Method) ([]string, []string, []string, []*types.Type,
 			gname = gname + "_"
 		}
 		if gname == "" {
-			gname = fmt.Sprintf("p%d",i)
+			gname = fmt.Sprintf("p%d", i)
 		}
 		ns = append(ns, gname)
 		pnames = append(pnames, p.Pname)
@@ -403,12 +421,17 @@ func (w *Wrapper) gpntp(m *Method) ([]string, []string, []string, []*types.Type,
 			ns[i] = ns[i] + "s"
 		}
 		if len(gt) > 2 && gt[:1] == "*" && types.PtrShouldWrap(gt[1:]) {
+
 			x := gt[1:]
 			if types.PtrIsGoInterface(x) {
 				x = "*Id"
 			}
 			gt = "*[]" + x
 			snames[i] = "goSlice" + strconv.Itoa(i)
+		}
+		if len(gt) > 3 && gt[:2] == "**" {
+			gt = "[]" + gt[1:]
+			snames[i] = ns[i]
 		}
 		ret = append(ret, ns[i]+" "+gt)
 	}
@@ -428,7 +451,6 @@ func (w *Wrapper) AddInterface(n *ast.ObjCInterfaceDecl) {
 	if Debug {
 		fmt.Printf("ast.ObjCInterfaceDecl: %s\n", n.Name)
 	}
-	//fmt.Printf("AddInterface(%s)\n",n.Name)
 	w.addIntCat(n.Name, n.Children())
 }
 
@@ -468,9 +490,13 @@ func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
 		fmt.Printf("FunctionDecl: %s (%s) %s\n", n.Type, m.Type.CType(), n.Name)
 	}
 	i := 0
+	a := (*Avail)(&[]AvailAttr{})
 	for _, c := range n.Children() {
 		switch x := c.(type) {
 		case *ast.ParmVarDecl:
+			if x.Type == "va_list" {
+				return // skip functions taking a va_list
+			}
 			p := &Parameter{
 				Vname: x.Name,
 				Type:  types.NewTypeFromString(x.Type, ""),
@@ -480,6 +506,8 @@ func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
 			if Debug {
 				fmt.Printf("  %s\n", p.Type.CType())
 			}
+		case *ast.FormatAttr:
+			return // skip C variadic functions
 		case *ast.Variadic:
 			p := &Parameter{
 				Vname: "object",
@@ -488,9 +516,13 @@ func (w *Wrapper) AddFunction(n *ast.FunctionDecl) {
 			p.Type.Variadic = true
 			m.Parameters = append(m.Parameters, p)
 			i++
+		case *ast.AvailabilityAttr, *ast.UnavailableAttr, *ast.DeprecatedAttr:
+			a.Add(x)
 		}
 	}
-	w.Functions[n.Name] = m
+	if a.Available() {
+		w.Functions[n.Name] = m
+	}
 }
 
 func (w *Wrapper) AddProtocol(n *ast.ObjCProtocolDecl) {
@@ -585,7 +617,7 @@ func (w *Wrapper) AddEnum(n *ast.EnumDecl, rs []string) {
 	e := &Enum{
 		Name:      n.Name, // NOTE: may be empty string
 		Type:      tp,
-		Constants: []string{},
+		Constants: []EnumConstant{},
 	}
 	for _, c := range n.Children() {
 		switch x := c.(type) {
@@ -598,7 +630,9 @@ func (w *Wrapper) AddEnum(n *ast.EnumDecl, rs []string) {
 			if n.Name == "" && !matches(x.Name, rs) {
 				continue
 			}
-			e.Constants = append(e.Constants, x.Name)
+			tp := types.NewTypeFromString(x.Type, "")
+			e.Constants = append(e.Constants,
+				EnumConstant{name: x.Name, tp: tp})
 		}
 	}
 	if a.Available() && len(e.Constants) > 0 {
@@ -641,7 +675,7 @@ func (w *Wrapper) addIntCat(name string, ns []ast.Node) {
 			}
 			p := &Property{
 				Name: x.Name,
-				Type: types.NewTypeFromString(x.Type,name),
+				Type: types.NewTypeFromString(x.Type, name),
 				Attr: x.Attr,
 			}
 			i.Properties[x.Name] = p
@@ -818,11 +852,11 @@ func (w *Wrapper) AddTypedef(n, t string) {
 		w._processType(tp)
 	} else {
 		cgt := tp.CGoType()
-		if Debug {
+		if Debug && false {
 			fmt.Printf("  processing un-wrapped type for %s -> %s\n", n, cgt)
 		}
 		types.AddTypedef(n, tp)
-		
+
 	}
 }
 
@@ -846,15 +880,22 @@ func (w *Wrapper) _processType(bt *types.Type) {
 	if gt == "" {
 		return
 	}
+	if gt == "LongDouble" { // not supported by cgo
+		return
+	}
 	if gt[0] == '*' {
 		w.processType(bt.PointsTo())
 		return
 	}
 	if w.ProcessedTypes[gt] {
-		if Debug { fmt.Printf("  -- already seen\n") }
+		if Debug {
+			fmt.Printf("  -- already seen\n")
+		}
 		return
 	}
-	if Debug { fmt.Printf("  -- not yet seen\n") }
+	if Debug {
+		fmt.Printf("  -- not yet seen\n")
+	}
 	w.ProcessedTypes[gt] = true
 	if gt == "Char" {
 		w.CharHelpers()
@@ -875,7 +916,7 @@ func (w *Wrapper) _processType(bt *types.Type) {
 		w.processType(tp)
 	}
 	if Debug {
-		fmt.Printf("Writing go type for %s -> %s\n",bt.CType(),gt)
+		fmt.Printf("Writing go type for %s -> %s\n", bt.CType(), gt)
 	}
 	w.goTypes.WriteString(bt.GoTypeDecl(Gogc))
 }
@@ -903,7 +944,8 @@ func (c *Char) Free() {
 func (w *Wrapper) StringHelpers() {
 	ufree := ""
 	if Gogc {
-		ufree = "utf8.Free()\n\t"
+		w.goImports["runtime"] = true
+		ufree = "utf8.Free()\n\truntime.KeepAlive(o)\n\t"
 	}
 	w.goHelpers.WriteString(fmt.Sprintf(`
 func (o *NSString) String() string {
@@ -911,7 +953,7 @@ func (o *NSString) String() string {
 	ret := utf8.String()
 	%sreturn ret
 }
-`,ufree))
+`, ufree))
 }
 
 func (w *Wrapper) EnumeratorHelpers() {
@@ -1039,7 +1081,7 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 		for ; i < lens1; i++ {
 			if m.Class[i:] == gname[:lens1-i] {
 				if Gogc &&
-				(types.PtrShouldWrap(grtype) || grtype == "*Id") {
+					(types.PtrShouldWrap(grtype) || grtype == "*Id") {
 					constructor = true
 				}
 				break
@@ -1079,7 +1121,7 @@ func (w *Wrapper) _processMethod(m *Method, fun bool) {
 		w.ProcessedClassMethods[gname] = true
 	} else {
 		var ok bool
-		inter,ok = w.Interfaces[m.Class]
+		inter, ok = w.Interfaces[m.Class]
 		if !ok {
 			fmt.Printf("Can't find interface %s for method %s\n", m.Class, m.Name)
 			os.Exit(-1)
@@ -1098,15 +1140,26 @@ func %s%s(%s) %s {
 		vn := ns[lparm]
 		vn = vn[:len(vn)-1]
 		ns[lparm] = vn
+		dotptr := ""
+		if !fun {
+			dotptr = ".Ptr()"
+		}
 		w.goCode.WriteString(fmt.Sprintf(
 			`	var %s [%d]unsafe.Pointer
 	for i,o := range %ss {
-		%s[i] = o.Ptr()
+		%s[i] = o%s
 	}
-`, vn, w.Vaargs, vn, vn))
+`, vn, w.Vaargs, vn, vn, dotptr))
+		if fun {
+			cname = "_" + cname
+		}
 	}
 	for i, n := range ns {
 		if snames[i] == "" {
+			continue
+		}
+		gt := tps[i].GoType()
+		if !(len(gt) > 2 && gt[:1] == "*" && types.PtrShouldWrap(gt[1:])) {
 			continue
 		}
 		w.goCode.WriteString(fmt.Sprintf(`
@@ -1117,7 +1170,7 @@ func %s%s(%s) %s {
 `, snames[i], n, n, snames[i], n))
 	}
 	w.goCode.WriteString(`	` +
-		types.GoToC(m.Name, cname, ns, snames, m.Type, tps, fun, constructor || m.ShouldFinalize(), m.ClassMethod) + "\n}\n")
+		types.GoToC(m.Name, cname, ns, snames, m.Type, tps, fun, constructor || m.ShouldFinalize(), m.ClassMethod, w.goImports) + "\n}\n")
 
 	cret := ""
 	if !m.isVoid() {
@@ -1131,22 +1184,24 @@ func %s%s(%s) %s {
 	}
 	cns, cntps, _ := w.cparamlist(m)
 	if fun {
-		return
+		//	return
 	}
-	w.cCode.WriteString(fmt.Sprintf(`
+	if !fun || len(tps) > 0 && tps[lparm].Variadic {
+		w.cCode.WriteString(fmt.Sprintf(`
 %s
 %s(%s) {
 `, cmtype, cname, cntps))
+	}
 	if len(tps) > 0 && tps[lparm].Variadic {
 		w.cCode.WriteString(fmt.Sprintf(
 			`	%s* arr = %s;
 `, tps[lparm].CType(), ns[lparm]))
 	}
 	switch {
-	case fun:
+	case fun && len(tps) > 0 && tps[lparm].Variadic:
 		w.cCode.WriteString(fmt.Sprintf(`	%s%s(%s);
 }`, cret, m.Name, cns))
-	case len(m.Name) >= 5 && m.Name[:5] == "alloc" && m.Class != "NSAutoreleasePool":
+	case !fun && len(m.Name) >= 5 && m.Name[:5] == "alloc" && m.Class != "NSAutoreleasePool":
 		if Autorelease {
 			w.cCode.WriteString(fmt.Sprintf(`	%s[[%s %s] autorelease];
 }`, cret, cobj, w.objcparamlist(m)))
@@ -1154,7 +1209,7 @@ func %s%s(%s) %s {
 			w.cCode.WriteString(fmt.Sprintf(`	%s[%s %s];
 }`, cret, cobj, w.objcparamlist(m)))
 		}
-	default:
+	case !fun:
 		//if Gogc && !m.isVoid() {
 		if Gogc {
 			rtn := ""
@@ -1162,7 +1217,7 @@ func %s%s(%s) %s {
 				switch {
 				case m.ClassMethod:
 					if grtype != "*NSAutoreleasePool" && constructor {
-			// retain objects returned by class constructor methods
+						// retain objects returned by class constructor methods
 						rtn = `
 		if(ret != nil) { [ret retain]; }`
 					}
@@ -1171,18 +1226,18 @@ func %s%s(%s) %s {
 				case IsRetained(m.Name):
 
 				default:
-				// by default, for instance methods, retain
-				// if returning a new object
+					// by default, for instance methods, retain
+					// if returning a new object
 					rtn = `
 		if (ret != nil && ret != o) { [ret retain]; }`
 				}
 			}
 			rtns := []string{}
-		// for pointers to pointers, assume length 1 unless there is a
-		// parameter named "range" or "count".
+			// for pointers to pointers, assume length 1 unless there is a
+			// parameter named "range" or "count".
 			rlength := "i<1"
-			for i,n := range pnames {
-				vn := strings.ReplaceAll(ns[i],"_","")
+			for i, n := range pnames {
+				vn := strings.ReplaceAll(ns[i], "_", "")
 				if n == "range" {
 					rlength = "i<" + vn + ".length"
 				}
@@ -1190,11 +1245,11 @@ func %s%s(%s) %s {
 					rlength = "i<" + vn
 				}
 			}
-			for i,n := range ns {
+			for i, n := range ns {
 				if snames[i] == "" {
 					continue
 				}
-				rtns = append(rtns,fmt.Sprintf(`
+				rtns = append(rtns, fmt.Sprintf(`
 		for(int i=0;%s;i++) {
 			if(%s[i] == 0) { break; }
 			[(id)%s[i] retain];
@@ -1212,10 +1267,10 @@ func %s%s(%s) %s {
 				}
 			}
 			w.cCode.WriteString(fmt.Sprintf(
-`	%s@autoreleasepool {
+				`	%s@autoreleasepool {
 		%s%s[%s %s]%s;%s%s
 	}%s
-}`, retdecl, reteq, dup1, cobj, w.objcparamlist(m), dup2, rtn, strings.Join(rtns,"\n\t"), retretn))
+}`, retdecl, reteq, dup1, cobj, w.objcparamlist(m), dup2, rtn, strings.Join(rtns, "\n\t"), retretn))
 		} else {
 			w.cCode.WriteString(fmt.Sprintf(`	%s[%s %s];
 }`, cret, cobj, w.objcparamlist(m)))
@@ -1232,7 +1287,7 @@ func %s%s(%s) %s {
 		dbg2 := ""
 		if Debug {
 			dbg = fmt.Sprintf(`fmt.Printf("Setting GC finalizer (%s): %%p -> %%p\n", o, o.ptr)
-	`,cls)
+	`, cls)
 			dbg2 = fmt.Sprintf(`fmt.Printf("GC finalizer (%s): release %%p -> %%p\n", o, o.ptr)
 		`, cls)
 		}
@@ -1243,6 +1298,7 @@ func (o *%s) GC() {
 	%sruntime.SetFinalizer(o, func(o *%s) {
 		%so.Release()
 	})
+	runtime.KeepAlive(o)
 }
 `, cls, dbg, cls, dbg2))
 	}
@@ -1300,14 +1356,10 @@ func (w *Wrapper) ProcessEnum(e *Enum) {
 	}
 	w.processType(e.Type)
 	gtp := ""
-	ctp := ""
-	if e.Name != "" {
-		gtp = e.Name
-		ctp = "C." + e.Name
-	} else {
+	if e.Type != nil {
 		gtp = e.Type.GoType()
-		ctp = e.Type.CGoType()
 	}
+	ctp := e.Type.CGoType()
 	if e.Type != nil {
 		if !w.ProcessedTypes[gtp] {
 			w.goTypes.WriteString(fmt.Sprintf(`
@@ -1316,13 +1368,12 @@ type %s %s
 			w.ProcessedTypes[gtp] = true
 		}
 	}
-	gtp = gtp + " "
 	if Debug {
 		fmt.Printf("  gtp = %s; ctp = %s\n", gtp, ctp)
 	}
 	for _, c := range e.Constants {
 		w.goConst.WriteString(fmt.Sprintf(`const %s %s= C.%s
-`, c, gtp, c))
+`, c.name, gtp, c.name))
 	}
 	w.goConst.WriteString("\n")
 }
@@ -1337,6 +1388,7 @@ func (w *Wrapper) MethodFromSig(sig, class string) *Method {
 	}
 	sig = sig[1:]
 	rem, n := types.MethodSignature(sig, types.NewNode("AST"))
+	fmt.Println(n.String())
 	if len(rem) > 0 {
 		fmt.Printf("Failed to parse method signature %s (%s)\n", sig, rem)
 		os.Exit(-1)
@@ -1403,7 +1455,7 @@ func (mc *MethodCollection) AddMethods(smc *MethodCollection) {
 func (w *Wrapper) ProcessSubclass(sname string, sc *Subclass) {
 	i := &Interface{
 		ProcessedInstanceMethods: map[string]bool{},
-		Properties: map[string]*Property{},
+		Properties:               map[string]*Property{},
 	}
 	w.Interfaces[sname] = i
 	gname := strings.Title(sname)
@@ -1416,7 +1468,7 @@ func (w *Wrapper) ProcessSubclass(sname string, sc *Subclass) {
 		nms[i] = w.MethodFromSig(sig, sname)
 	}
 	if Debug {
-		fmt.Printf("ProcessSubclass(%s)\n",sname)
+		fmt.Printf("ProcessSubclass(%s)\n", sname)
 	}
 	w._ProcessDelSub(sname, ps, nms, true)
 }
@@ -1424,7 +1476,7 @@ func (w *Wrapper) ProcessSubclass(sname string, sc *Subclass) {
 func (w *Wrapper) ProcessDelegate(dname string, ps map[string][]string) {
 	i := &Interface{
 		ProcessedInstanceMethods: map[string]bool{},
-		Properties: map[string]*Property{},
+		Properties:               map[string]*Property{},
 	}
 	w.Interfaces[dname] = i
 	w._ProcessDelSub(dname, ps, nil, false)
@@ -1439,8 +1491,6 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 	//4. Go type
 	//5. Go constructor
 	//6. Go dispatch database for callbacks
-	//7. Go superclass dispatch function
-	//8. Methods inherited from parent class
 	//To create (per method):
 	//1. ObjC function prototypes for go exports
 	//2. Go callback registration functions
@@ -1450,7 +1500,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 	//organize output into string builders
 	var cprotos, ccode, gotypes, gocode, goexports strings.Builder
 
-	//set up array of methods for this delegate
+	//set up array of methods for this delegate or subclass
 	methods := []*Method{}
 	sms := 0             // the number of methods that have super-methods
 	gnames := []string{} // go names for methods
@@ -1473,34 +1523,43 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 				fmt.Printf("Failed to find interface %s for subclass %s\n", pname, dname)
 				os.Exit(-1)
 			}
-			if Debug {
-				fmt.Printf("  subclass for %s\n", pname)
-			}
+			//if Debug {
+			fmt.Printf("  subclass for %s\n", pname)
+			//}
 			mc := NewMethodCollection(dname)
 			var addmeths func(s string)
 			addmeths = func(s string) {
 				if sup := types.Super(s); w.Interfaces[sup] != nil {
 					addmeths(sup)
 				}
-				if Debug {
-					fmt.Printf("Adding methods for interface %s\n", s)
-				}
+				//if Debug {
+				fmt.Printf("Adding methods for interface %s\n", s)
+				//}
 				for _, m := range w.Interfaces[s].InstanceMethods.Methods {
+					if m.Unavailable {
+						continue
+					}
 					if Debug {
 						fmt.Printf("  -> %s\n", m.Name)
 					}
-					mc.Methods = append(mc.Methods, m)
+					if matches(string(m.Name[0])+m.GoName[1:], pats) {
+						mc.Methods = append(mc.Methods, m)
+					}
 				}
-				//mc.Methods = append(mc.Methods,w.Interfaces[s].InstanceMethods...)
 				for _, p := range w.Interfaces[s].Protocols {
 					if Debug {
 						fmt.Printf("Adding methods for protocol %s\n", p)
 					}
 					for _, m := range w.Protocols[p].InstanceMethods.Methods {
+						if m.Unavailable {
+							continue
+						}
 						if Debug {
 							fmt.Printf("  -> %s\n", m.Name)
 						}
-						mc.Methods = append(mc.Methods, m)
+						if matches(string(m.Name[0])+m.GoName[1:], pats) {
+							mc.Methods = append(mc.Methods, m)
+						}
 					}
 				}
 			}
@@ -1508,6 +1567,10 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 			addmeths(interf.Name)
 			Disambiguate(mc)
 			ms = mc.Methods
+			fmt.Printf("METHODS:\n")
+			for _, m := range ms {
+				fmt.Printf("  -> %s\n", m.Name)
+			}
 		} else { // not a subclass
 			proto := w.Protocols[pname]
 			if proto == nil {
@@ -1526,30 +1589,40 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 		}
 		for _, m := range ms {
 			//note:we may have capitalized the first character to make a GoName...
+			if m.HasUnsupportedType() {
+				continue
+			}
 			if Debug {
 				fmt.Printf("--Method: %s\n", m.Name)
 			}
-			if !matches(string(m.Name[0])+m.GoName[1:], pats) {
-			//methods from superclass that we are not overriding
-				supmeths = append(supmeths,m)
-				continue
-			}
-			if m.HasUnsupportedType() {
-				continue
+			if sub || !matches(string(m.Name[0])+m.GoName[1:], pats) {
+				//methods from superclass that we are not overriding
+				supmeths = append(supmeths, m)
+				if !sub {
+					continue
+				}
 			}
 			methods = append(methods, m)
 			gnames = append(gnames, m.GoName)
 			if sub {
 				sms = len(methods)
+				if Debug {
+					fmt.Printf("sms = %d\n", sms)
+				}
 			}
 		}
 	}
 	//add new methods being defined for the subclass
 	if sub {
 		for _, m := range nms {
+			//if Debug {
+			fmt.Printf("Adding method %s to subclass\n", m.Name)
+			//}
 			methods = append(methods, m)
 			gnames = append(gnames, strings.Title(m.Name))
 		}
+	} else {
+		nms = methods
 	}
 
 	methprotos := make([]string, len(methods)) // objc method prototypes
@@ -1577,11 +1650,15 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 		getypes[i] = make([]string, len(m.Parameters)+1)
 		vnames[i][0] = "self"
 		getypes[i][0] = "unsafe.Pointer"
-		gtypes[i] = make([]string, len(m.Parameters)+1)
-		if m.Name != "dealloc" {
-			gtypes[i][0] = gname + "Supermethods"
-		}
+		//if m.Name == "dealloc" {
+		//	gtypes[i] = make([]string, len(m.Parameters))
+		//} else {
+		gtypes[i] = make([]string, len(m.Parameters)+2)
+		gtypes[i][0] = gname // self
+		gtypes[i][1] = gname + "Supermethods"
+		//}
 		if Debug {
+			fmt.Printf("len gtypes[%d] = %d\n", i, len(gtypes[i]))
 			fmt.Printf("%s: %s\n", dname, m.Name)
 		}
 		var parms string
@@ -1597,11 +1674,19 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 			cparms = fmt.Sprintf("void* self, %s %s", pm.Type.Node.CType(), pm.Vname)
 			vnames[i][1] = pm.Vname
 			vpnames[i][0] = pm.Pname + ":" + pm.Vname
-			gtypes[i][1] = pm.Type.GoType()
+			//if m.Name == "dealloc" {
+			//	gtypes[i][1] = pm.Type.GoType()
+			//} else {
+			gtypes[i][2] = pm.Type.GoType()
+			//}
 			if pm.Type.IsPointer() {
 				getypes[i][1] = "unsafe.Pointer"
 			} else {
-				getypes[i][1] = gtypes[i][1]
+				//if m.Name == "dealloc" {
+				//	getypes[i][1] = gtypes[i][1]
+				//} else {
+				getypes[i][1] = gtypes[i][2]
+				//}
 			}
 		}
 		for j := 1; j < len(m.Parameters); j++ {
@@ -1611,12 +1696,20 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 			cparms = cparms + fmt.Sprintf(", %s %s", pm.Type.Node.CType(), pm.Vname)
 			vnames[i][j+1] = pm.Vname
 			vpnames[i][j] = pm.Pname + ":" + pm.Vname
-			gtypes[i][j+1] = pm.Type.GoType()
+			//if m.Name == "dealloc" {
+			//	gtypes[i][j+1] = pm.Type.GoType()
+			//} else {
+			gtypes[i][j+2] = pm.Type.GoType()
+			//}
 			var getp string
 			if pm.Type.IsPointer() {
 				getp = "unsafe.Pointer"
 			} else {
-				getp = gtypes[i][j+1]
+				//if m.Name == "dealloc" {
+				//	getp = gtypes[i][j+1]
+				//} else {
+				getp = gtypes[i][j+2]
+				//}
 			}
 			getypes[i][j+1] = getp
 		}
@@ -1642,7 +1735,7 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 		if i < sms {
 			_, cntps, _ := w.cparamlist(m)
 			sfunprotos[i] = fmt.Sprintf(
-				`%s %s_super_%s(%s);`, ct, dname, m.Name, cntps)
+				`%s %s_super_%s(%s);`, ct, dname, m.GoName, cntps)
 		}
 		crtypes[i] = m.Type.CTypeAttrib()
 		if m.Type.IsPointer() {
@@ -1666,26 +1759,26 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 { }
 %s
 `, dname, supcls, protos, strings.Join(methprotos, "\n")))
-	havesupmethods := sms > 0
+	//havesupmethods := sms > 0
 	if sub {
-		for i, sp := range smethprotos {
-			if methods[i].Name != "dealloc" {
-				ccode.WriteString(sp + "\n")
-			} else {
-				if sms == 1 {
-					havesupmethods = false
-				}
-			}
+		for _, sp := range smethprotos {
+			//if methods[i].Name != "dealloc" {
+			ccode.WriteString(sp + "\n")
+			//} else {
+			//	if sms == 1 {
+			//		havesupmethods = false
+			//	}
+			//}
 		}
 	}
 	ccode.WriteString(`
 @end
 `)
 	if sub {
-		for i, sf := range sfunprotos {
-			if methods[i].Name != "dealloc" {
-				ccode.WriteString(sf + "\n")
-			}
+		for _, sf := range sfunprotos {
+			//if methods[i].Name != "dealloc" {
+			ccode.WriteString(sf + "\n")
+			//}
 		}
 	}
 
@@ -1725,13 +1818,18 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 {
 	%s[super %s];
 }
-`, smp, ret, strings.Join(vpnames[i], " "))
+		`, smp, ret, strings.Join(vpnames[i], " "))
+			var arp1, arp2 string
+			if vpnames[i][0] != "alloc" {
+				arp1 = "@autoreleasepool {\n\t\t"
+				arp2 = "\t}\n"
+			}
 			sfundecls[i] = fmt.Sprintf(`
 %s
 {
-	%s[(%s*)o super_%s];
-}
-`, sfp, ret, dname, strings.Join(vpnames[i], " "))
+	%s%s[(%s*)o super_%s];
+%s}
+`, sfp, arp1, ret, dname, strings.Join(vpnames[i], " "), arp2)
 		}
 	}
 	ccode.WriteString(fmt.Sprintf(`
@@ -1739,20 +1837,20 @@ func (w *Wrapper) _ProcessDelSub(dname string, ps map[string][]string, nms []*Me
 %s
 `, dname, strings.Join(methdecls, "\n")))
 	if sub {
-		for i, sm := range smethdecls {
-			if methods[i].Name != "dealloc" {
-				ccode.WriteString(sm + "\n")
-			}
+		for _, sm := range smethdecls {
+			//if methods[i].Name != "dealloc" {
+			ccode.WriteString(sm + "\n")
+			//}
 		}
 	}
 	ccode.WriteString(`
 @end
 `)
 	if sub {
-		for i, sf := range sfundecls {
-			if methods[i].Name != "dealloc" {
-				ccode.WriteString(sf + "\n")
-			}
+		for _, sf := range sfundecls {
+			//if methods[i].Name != "dealloc" {
+			ccode.WriteString(sf + "\n")
+			//}
 		}
 	}
 
@@ -1776,9 +1874,9 @@ void*
 	//4. Go type
 	if !w.ProcessedTypes[gname] {
 		gotypes.WriteString(
-		types.NewTypeFromString(gname, supr).GoInterfaceDecl(Gogc))
+			types.NewTypeFromString(gname, supr).GoInterfaceDecl(Gogc))
 
-	//5. Go constructor
+		//5. Go constructor
 		var finalizer string
 		dbg := ""
 		dbg2 := ""
@@ -1790,9 +1888,11 @@ void*
 		}
 		if Gogc {
 			w.goImports["runtime"] = true
-			if Debug { w.goImports["fmt"] = true }
+			if Debug {
+				w.goImports["fmt"] = true
+			}
 			finalizer = fmt.Sprintf(
-`if ret.ptr == nil { return ret }
+				`if ret.ptr == nil { return ret }
 	%sruntime.SetFinalizer(ret,func(o *%s) {
 		%so.Release()
 	})
@@ -1826,15 +1926,18 @@ func (o *%s) GC() {
 	dispitems := make([]string, len(gnames))
 	sdispitems := make([]string, sms)
 	for i, n := range gnames {
-		if !sub || sms == 0 {
-			gtypes[i] = gtypes[i][1:]
+		if !sub || sms == 0 { // || !havesupmethods {
+			gtypes[i] = append(gtypes[i][0:1], gtypes[i][2:]...)
+			//if sub && !havesupmethods {
+			//	gtypes[i] = append(gtypes[i][:1],gtypes[i][2:]...)
+			//	fmt.Printf("len gtypes[%d] = %d\n", i, len(gtypes[i]))
 		}
 		dispitems[i] = fmt.Sprintf(
 			`	%s func(%s)%s`, n, strings.Join(gtypes[i], ", "), grtypes[i])
-		if sub && i < sms && methods[i].Name != "dealloc" {
+		if sub && i < sms { // && methods[i].Name != "dealloc" {
 			sdispitems[i] = fmt.Sprintf(
 				`	%s func(%s)%s
-`, n, strings.Join(gtypes[i][1:], ", "), grtypes[i])
+`, n, strings.Join(gtypes[i][2:], ", "), grtypes[i])
 		}
 	}
 	gocode.WriteString(fmt.Sprintf(`
@@ -1845,12 +1948,12 @@ var %sLookup = map[unsafe.Pointer]%sDispatch{}
 var %sMux sync.RWMutex
 `, gname, strings.Join(dispitems, "\n"), gname, gname, gname))
 	w.goImports["sync"] = true
-	if sub && sms > 0 && havesupmethods {
+	if sub && sms > 0 { // && havesupmethods {
 		gocode.WriteString(fmt.Sprintf(`
 type %sSupermethods struct {
 %s
 }
-`, gname, strings.Join(sdispitems, "")))
+	`, gname, strings.Join(sdispitems, "")))
 	}
 	//To create (per method):
 	cprotos.WriteString("\n\n")
@@ -1872,18 +1975,21 @@ func (d %s) %sCallback(f func(%s)%s) {
 `, gname, gnames[i], strings.Join(gtypes[i], ", "), grtypes[i], gname, gname, gnames[i], gname, gname))
 		//3. Go exported callback function wrappers
 		earglist := []string{"o unsafe.Pointer"}
-		garglist := []string{}
+		garglist := []string{"self"}
 		gargconv := []string{}
-		if sub && sms > 0 && m.Name != "dealloc" {
-			garglist = []string{"super"}
+		if sub && sms > 0 { // && m.Name != "dealloc" {
+			garglist = []string{"self", "super"}
 		}
 		for j := 1; j < len(vnames[i]); j++ {
 			earglist = append(earglist, vnames[i][j]+" "+getypes[i][j])
 			var gt2 string
 			if sub {
-				gt2 = gtypes[i][j]
+				//fmt.Println(gtypes)
+				//fmt.Printf("%d %d\n",i,j)
+				gt2 = gtypes[i][j+1]
 			} else {
-				gt2 = gtypes[i][j-1]
+				gt2 = gtypes[i][j]
+				//gt2 = gtypes[i][j]
 			}
 			if types.PtrIsGoInterface(gt2) {
 				gt2 = "*Id"
@@ -1920,20 +2026,18 @@ func (d %s) %sCallback(f func(%s)%s) {
 		}
 		sdispentries := make([]string, sms)
 		for i, _ := range sdispentries {
-			if methods[i].Name != "dealloc" {
-				sdispentries[i] = fmt.Sprintf(
-					`		self.Super%s,
+			//if methods[i].Name != "dealloc" {
+			sdispentries[i] = fmt.Sprintf(
+				`		self.Super%s,
 `, gnames[i])
-			}
+			//}
 		}
 		sper := ""
-		if sub && sms > 0 && m.Name != "dealloc" {
+		if sub && sms > 0 { //&& m.Name != "dealloc" {
 			sper = fmt.Sprintf(
-				`	self := %s{}
-	self.ptr = o
-	super := %sSupermethods{
+				`	super := %sSupermethods{
 %s	}
-`, gname, gname, strings.Join(sdispentries, ""))
+`, gname, strings.Join(sdispentries, ""))
 		}
 		if len(gargconv) > 0 {
 			retn = "\n	" + retn
@@ -1947,16 +2051,18 @@ func %s%s(%s)%s {
 	%scb := %sLookup[o].%s
 	%sMux.RUnlock()
 	if cb == nil { return%s }
+	self := %s{}
+	self.ptr = o
 %s%s%scb(%s)%s
 }
-`, gname, gnames[i], gname, gnames[i], strings.Join(earglist, ", "), crtype, gname, retdecl, gname, gnames[i], gname, retname, sper, strings.Join(gargconv, "\n"), retn, strings.Join(garglist, ", "), retnparen))
+`, gname, gnames[i], gname, gnames[i], strings.Join(earglist, ", "), crtype, gname, retdecl, gname, gnames[i], gname, retname, gname, sper, strings.Join(gargconv, "\n"), retn, strings.Join(garglist, ", "), retnparen))
 		//4. Go wrapper functions for superclass methods
 		if !sub || i >= sms {
 			continue
 		} // for subclasses only
-		if m.Name == "dealloc" {
-			continue
-		}
+		//if m.Name == "dealloc" {
+		//	continue
+		//}
 		grtype := m.Type.GoType()
 		if grtype == "Void" {
 			grtype = ""
@@ -1984,7 +2090,7 @@ func (o *%s) Super%s(%s) %s {
 	}
 `, vn, w.Vaargs, vn, vn))
 			}
-			gocode.WriteString("\t" + types.GoToC(m.Name, dname+"_super_"+m.Name, ns, snames, m.Type, tps, false, m.ShouldFinalize(), m.ClassMethod) + "\n}\n")
+			gocode.WriteString("\t" + types.GoToC(m.Name, dname+"_super_"+m.GoName, ns, snames, m.Type, tps, false, m.ShouldFinalize(), m.ClassMethod, w.goImports) + "\n}\n")
 		}
 	}
 	w.cCode.WriteString(cprotos.String())
@@ -1994,8 +2100,8 @@ func (o *%s) Super%s(%s) %s {
 	w.goExports.WriteString(goexports.String())
 
 	// add methods from parent class that we are not overriding
-	for _,m := range supmeths {
-		w.ProcessMethodForClass(m,dname)
+	for _, m := range supmeths {
+		w.ProcessMethodForClass(m, dname)
 	}
 }
 
@@ -2043,22 +2149,22 @@ func (w *Wrapper) AddProtocolMethods(i *Interface, p *Protocol) {
 	procmeths := func(mc, pmc *MethodCollection) {
 		for _, m := range pmc.Methods {
 			m2 := &Method{
-				Name: m.Name,
-				GoName: m.GoName,
-				Class: i.Name,
-				GoClass: i.GoName,
-				Type: m.Type.CloneToClass(i.Name),
+				Name:        m.Name,
+				GoName:      m.GoName,
+				Class:       i.Name,
+				GoClass:     i.GoName,
+				Type:        m.Type.CloneToClass(i.Name),
 				ClassMethod: m.ClassMethod,
-				Parameters: []*Parameter{},
+				Parameters:  []*Parameter{},
 				Unavailable: m.Unavailable,
 			}
 			for _, p := range m.Parameters {
 				p2 := &Parameter{
 					Pname: p.Pname,
 					Vname: p.Vname,
-					Type: p.Type.CloneToClass(i.Name),
+					Type:  p.Type.CloneToClass(i.Name),
 				}
-				m2.Parameters = append(m2.Parameters,p2)
+				m2.Parameters = append(m2.Parameters, p2)
 			}
 			mc.Methods = append(mc.Methods, m2)
 		}
@@ -2068,24 +2174,24 @@ func (w *Wrapper) AddProtocolMethods(i *Interface, p *Protocol) {
 }
 
 func printDebug() {
-	fmt.Printf("ShouldWrap(NSString) = %t\n",types.ShouldWrap("NSString"))
-	fmt.Printf("ShouldWrap(*NSString) = %t\n",types.ShouldWrap("*NSString"))
-	fmt.Printf("IsGoInterface(NSObject) = %t\n",types.IsGoInterface("NSObject"))
-	fmt.Printf("IsGoInterface(*NSObject) = %t\n",types.IsGoInterface("*NSObject"))
-	fmt.Printf("IsGoInterface(NSString) = %t\n",types.IsGoInterface("NSString"))
-	fmt.Printf("IsGoInterface(*NSString) = %t\n",types.IsGoInterface("*NSString"))
-	fmt.Printf("PtrShouldWrap(NSString) = %t\n",types.PtrShouldWrap("NSString"))
-	fmt.Printf("PtrShouldWrap(*NSString) = %t\n",types.PtrShouldWrap("*NSString"))
-	fmt.Printf("PtrIsGoInterface(NSObject) = %t\n",types.PtrIsGoInterface("NSObject"))
-	fmt.Printf("PtrIsGoInterface(*NSObject) = %t\n",types.PtrIsGoInterface("*NSObject"))
-	fmt.Printf("PtrIsGoInterface(NSString) = %t\n",types.PtrIsGoInterface("NSString"))
-	fmt.Printf("PtrIsGoInterface(*NSString) = %t\n",types.PtrIsGoInterface("*NSString"))
-	fmt.Printf("Super(NSString) = %s\n",types.Super("NSString"))
-	fmt.Printf("Super(*NSString) = %s\n",types.Super("*NSString"))
-	fmt.Printf("Super(NSObject) = %s\n",types.Super("NSObject"))
-	fmt.Printf("Super(*NSObject) = %s\n",types.Super("*NSObject"))
-	fmt.Printf("Super(NSString*) = %s\n",types.Super("NSString*"))
-	fmt.Printf("Super(NSObject*) = %s\n",types.Super("NSObject*"))
+	fmt.Printf("ShouldWrap(NSString) = %t\n", types.ShouldWrap("NSString"))
+	fmt.Printf("ShouldWrap(*NSString) = %t\n", types.ShouldWrap("*NSString"))
+	fmt.Printf("IsGoInterface(NSObject) = %t\n", types.IsGoInterface("NSObject"))
+	fmt.Printf("IsGoInterface(*NSObject) = %t\n", types.IsGoInterface("*NSObject"))
+	fmt.Printf("IsGoInterface(NSString) = %t\n", types.IsGoInterface("NSString"))
+	fmt.Printf("IsGoInterface(*NSString) = %t\n", types.IsGoInterface("*NSString"))
+	fmt.Printf("PtrShouldWrap(NSString) = %t\n", types.PtrShouldWrap("NSString"))
+	fmt.Printf("PtrShouldWrap(*NSString) = %t\n", types.PtrShouldWrap("*NSString"))
+	fmt.Printf("PtrIsGoInterface(NSObject) = %t\n", types.PtrIsGoInterface("NSObject"))
+	fmt.Printf("PtrIsGoInterface(*NSObject) = %t\n", types.PtrIsGoInterface("*NSObject"))
+	fmt.Printf("PtrIsGoInterface(NSString) = %t\n", types.PtrIsGoInterface("NSString"))
+	fmt.Printf("PtrIsGoInterface(*NSString) = %t\n", types.PtrIsGoInterface("*NSString"))
+	fmt.Printf("Super(NSString) = %s\n", types.Super("NSString"))
+	fmt.Printf("Super(*NSString) = %s\n", types.Super("*NSString"))
+	fmt.Printf("Super(NSObject) = %s\n", types.Super("NSObject"))
+	fmt.Printf("Super(*NSObject) = %s\n", types.Super("*NSObject"))
+	fmt.Printf("Super(NSString*) = %s\n", types.Super("NSString*"))
+	fmt.Printf("Super(NSObject*) = %s\n", types.Super("NSObject*"))
 }
 
 func (w *Wrapper) Wrap(toproc []string) {
@@ -2143,7 +2249,7 @@ func (w *Wrapper) Wrap(toproc []string) {
 				fmt.Printf("Failed to find protocol %s for interface %s\n", p, i.Name)
 				os.Exit(-1)
 			}
-			w.AddProtocolMethods(i,prot)
+			w.AddProtocolMethods(i, prot)
 		}
 		Disambiguate(i.ClassMethods)
 		Disambiguate(i.InstanceMethods)
@@ -2191,6 +2297,13 @@ func (w *Wrapper) Wrap(toproc []string) {
 		}
 		ldflags = "-framework " + strings.Join(w.Frameworks, " -framework ")
 	}
+	if len(w.Frameworks) > 0 {
+		w.cImports.WriteString("")
+	}
+	if w.Libraries != nil && len(w.Libraries) > 0 {
+		ldflags = ldflags + "-l" + strings.Join(w.Libraries, " -l")
+	}
+
 	if w.Frameworkdirs != nil && len(w.Frameworkdirs) > 0 {
 		s := strings.Join(w.Frameworkdirs, " -F")
 		w.cgoFlags.WriteString(" -F" + s)
@@ -2205,12 +2318,12 @@ func (w *Wrapper) Wrap(toproc []string) {
 	}
 
 	of.WriteString(w.cgoFlags.String() + "\n")
-	of.WriteString(w.cImports.String() + "\n")
+	of.WriteString(w.cImports.String())
 
 	of.WriteString(w.cCode.String())
 	imports := []string{}
 	for k := range w.goImports {
-		imports = append(imports,"\t\"" + k + "\"")
+		imports = append(imports, "\t\""+k+"\"")
 	}
 	startThread := ""
 	goInit := ""
@@ -2227,16 +2340,15 @@ func init() {
 }
 `
 	}
-	of.WriteString(fmt.Sprintf(`
-%s
+	of.WriteString(fmt.Sprintf(
+		`%s
 */
 import "C"
 
 import (
 %s
 )
-%s
-`,startThread,strings.Join(imports,"\n"),goInit))
+%s`, startThread, strings.Join(imports, "\n"), goInit))
 	of.WriteString(w.goTypes.String())
 	of.WriteString(w.goConst.String())
 	of.WriteString(w.goHelpers.String())

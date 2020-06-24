@@ -1,6 +1,6 @@
 inputfiles:
-    - /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
-    - /System/Library/Frameworks/CoreBluetooth.framework/Headers/CoreBluetooth.h
+    - /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
+    - /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreBluetooth.framework/Headers/CoreBluetooth.h
 
 classes:
     - NSObject
