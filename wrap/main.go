@@ -1388,7 +1388,7 @@ func (w *Wrapper) MethodFromSig(sig, class string) *Method {
 	}
 	sig = sig[1:]
 	rem, n := types.MethodSignature(sig, types.NewNode("AST"))
-	fmt.Println(n.String())
+	if Debug { fmt.Println(n.String()) }
 	if len(rem) > 0 {
 		fmt.Printf("Failed to parse method signature %s (%s)\n", sig, rem)
 		os.Exit(-1)
