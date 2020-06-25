@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func updateState(self ns.CBDelegate, c *ns.CBCentralManager) {
+func updateState(self ns.CBDelegate, c *ns.CBCentralManager, b bool) {
 	fmt.Printf("Go: did update state\n")
 	switch ns.NSInteger(cm.CBManager.State()) {
 	case ns.CBManagerStateUnknown:

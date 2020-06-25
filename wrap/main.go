@@ -852,7 +852,7 @@ func (w *Wrapper) AddTypedef(n, t string) {
 		w._processType(tp)
 	} else {
 		cgt := tp.CGoType()
-		if Debug && false {
+		if Debug {
 			fmt.Printf("  processing un-wrapped type for %s -> %s\n", n, cgt)
 		}
 		types.AddTypedef(n, tp)
@@ -1372,7 +1372,7 @@ type %s %s
 		fmt.Printf("  gtp = %s; ctp = %s\n", gtp, ctp)
 	}
 	for _, c := range e.Constants {
-		w.goConst.WriteString(fmt.Sprintf(`const %s %s= C.%s
+		w.goConst.WriteString(fmt.Sprintf(`const %s %s = C.%s
 `, c.name, gtp, c.name))
 	}
 	w.goConst.WriteString("\n")

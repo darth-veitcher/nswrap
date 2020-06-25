@@ -379,8 +379,8 @@ An example in Core Foundation is the `getObjects:andKeys:count` method for
                 ns.NSArrayWithObjects(nst("key1"),nst("key2")),
         )
         va,ka := make([]*ns.Id,0,5), make([]*ns.Id,0,5)  // length 0, capacity 5 slices
-        dict.GetObjects(&va,&ka,5)
-	// last parameter to GetObjects is the count, must be less than or equal to the input slice capacity
+        dict.GetObjectsAndKeysCount(&va,&ka,5)
+	// last parameter is the count, must be less than or equal to the input slice capacity
         fmt.Printf("Length of va is now %d\n",len(va)) // va and ka slices are now length = 2
         for i,k := range ka {
                 fmt.Printf("-- %s -> %s\n",k.NSString(),va[i].NSString())
@@ -469,10 +469,9 @@ results in:
 ```go
 //ns/main.go
 ...
-type NSWindowOrderingMode C.enum_NSWindowOrderingMode
-const NSWindowAbove NSWindowOrderingMode = C.NSWindowAbove
-const NSWindowBelow NSWindowOrderingMode = C.NSWindowBelow
-const NSWindowOut NSWindowOrderingMode = C.NSWindowOut
+const NSWindowAbove NSInteger = C.NSWindowAbove
+const NSWindowBelow NSInteger = C.NSWindowBelow
+const NSWindowOut NSInteger = C.NSWindowOut
 
 const _CLOCK_REALTIME  = C._CLOCK_REALTIME
 const _CLOCK_MONOTONIC  = C._CLOCK_MONOTONIC
@@ -534,7 +533,7 @@ registers a callback for `centralManagerDidUpdateState`, allocates
 a `CBCentralManager` object, and installs our delegate:
 
 ```go
-func cb(c ns.CBCentralManager) {
+func cb(self ns.CBDelegate, c *ns.CBCentralManager) {
 	...
 }
 
@@ -558,8 +557,8 @@ messages will point you in the right direction.
 
 ```
 $ go build
-./main.go:127:43: cannot use didFinishLaunching (type func(*ns.NSNotification, bool)) as type
-func(*ns.NSNotification) in argument to del.ApplicationDidFinishLaunchingCallback
+./main.go:127:43: cannot use didFinishLaunching (type func(ns.CBDelegate, *ns.NSNotification, bool)) as type
+func(ns.CBDelegate, *ns.NSNotification) in argument to del.ApplicationDidFinishLaunchingCallback
 ```
 In the above example, the build failed because an extra `bool` parameter was
 included in the callback function. The compiler is telling you that the right
@@ -648,7 +647,7 @@ func main() {
 }
 ```
 
-Pretty simple right? Not really, NSWrap just generated over 39,000 lines of
+Pretty simple right? Not really, NSWrap just generated 114,000 lines of
 code. See `examples/app` for a slightly more complex example with working
 menus, visual format-based auto layout, and a custom button class.
 
@@ -683,12 +682,11 @@ name, its return type, and the names and types of its parameters if any.
 Since multiple inheritance is not permitted in Objective-C, it is not possible
 to specify more than one superclass in a `subclasses` entry.
 
-Go callbacks for overridden methods are passed a special struct 
-as their first parameter. This struct is filled with superclass methods, which
-allows you to do things like this:
+Go callbacks for overridden methods are passed a special struct filled with
+superclass methods, which allows you to do things like this:
 
 ```go
-func methodCallback(super ns.MyClassSupermethods, param NSString) {
+func methodCallback(self ns.MyClass, super ns.MyClassSupermethods, param NSString) {
 	...
 	super.Method(param)
 }
@@ -709,7 +707,7 @@ subclasses:
 ```
 
 ```go
-func pressed() {
+func pressed(self ns.GButton, super ns.GButtonSupermethods) {
 	fmt.Println("Button pressed!")
 }
 ...
